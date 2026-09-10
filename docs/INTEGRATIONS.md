@@ -84,27 +84,44 @@ implemented, not speculatively here.
 | Search analytics | Google Search Console | Not yet implemented (Week 2) |
 | Creative | Canva MCP | Optional; not yet implemented |
 
-### Metricool MCP — availability check performed at session start
+### Metricool MCP — availability confirmed (checked live, 2026-09-10)
 
-This session already has a live `Metricool_Social_Media_Management` MCP
-connection with these tools exposed: `createScheduledPost`,
+This environment has a live `Metricool_Social_Media_Management` MCP connection
+(account `info@tapashub.com`) exposing: `createScheduledPost`,
 `createScheduledPostForReview`, `getAnalyticsAvailableMetrics`,
-`getAnalyticsDataByMetrics`, `getBestTimeToPostByNetwork`,
-`getBrandSettings`, `getScheduledPosts`, `sendScheduledPostForReview`,
-`updateScheduledPost`. This confirms *some* Metricool MCP surface is
-reachable in this environment, but:
+`getAnalyticsDataByMetrics`, `getBestTimeToPostByNetwork`, `getBrandSettings`,
+`getScheduledPosts`, `sendScheduledPostForReview`, `updateScheduledPost`.
 
-- It is not yet confirmed that this connection is scoped to a TargetGum
-  brand/account intended for the pilot client (see open question).
-- Ads-related read/write operations (campaigns, budgets, bids) are **not**
-  present in this tool list — only social scheduling/analytics and brand
-  settings. If Metricool ads functionality is required for the MVP
-  "Analyze Client A" workflow, this needs to be confirmed against the actual
-  Metricool account's plan/permissions before the AdsProvider adapter is
-  built against it (BRD Section 15: "verify every exact write operation
-  required by TargetGum before depending on it for production automation").
-- The `MetricoolProvider` adapter (Week 2) will wrap exactly the operations
-  confirmed available, and document any gap in this file per BRD Section 125.
+**Confirmed via `getBrandSettings` + `getAnalyticsAvailableMetrics`:**
+
+- **Social** (`SocialProvider`): scheduling/publishing and analytics tools are
+  present and map cleanly to `getPosts`/`schedulePost`/`publishPost`/
+  `getAnalytics`.
+- **Ads analysis** (`AdsProvider.getCampaignPerformance` — read only):
+  available. `getAnalyticsDataByMetrics` supports `network` values `googleAds`,
+  `metaAds`, `facebookAds`, `tiktokAds` with a full metrics schema (spend,
+  impressions, clicks, conversions, CPC, CPM, CTR, ROAS) at both
+  account-evolution and per-campaign granularity — sufficient for the MVP
+  "Analyze Client A's ads performance" workflow.
+- **Ads management** (`AdsProvider.createCampaign`/`updateCampaign`/
+  `pauseCampaign`/`updateBudget`/`updateBid` — write): **not available.** No
+  ads-equivalent write endpoints exist in this MCP's tool list at all (only
+  the social scheduling writes above). This is a capability gap in the MCP
+  server itself, not an account-plan restriction — per BRD Section 15/111, a
+  native `GoogleAdsProvider`/`MetaAdsProvider` (Phase 2) is the path if ads
+  write/optimization is ever required. It does not block MVP: BRD Section 19
+  already scopes the MVP ads workflow to read-only analysis.
+- **Connected brands** (5): HUGFAB, LHO (Facebook Ads connected), TargetGum,
+  undertreegames (Facebook Ads connected), Pepalworks. No brand currently has
+  a Google Ads account connected in Metricool — Google Ads metrics/campaign
+  connectors exist in the schema but there's no populated account to read
+  from yet for any of these brands.
+
+Full findings and implications are logged in `docs/DECISIONS.md`. The
+`MetricoolProvider` adapter (Week 2) wraps exactly the confirmed-available
+operations above; the mock (`MetricoolMockProvider`) still implements the full
+`AdsProvider` write methods (no-ops) so agent/workflow code and its tests are
+unaffected if a future provider (Metricool or native) adds write support.
 
 ## Canva
 

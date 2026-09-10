@@ -45,6 +45,9 @@ jobs:
       - name: Prisma generate
         run: npm run prisma:generate
 
+      - name: Apply migrations
+        run: npm run prisma:deploy
+
       - name: Unit tests
         run: npm run test:unit
 

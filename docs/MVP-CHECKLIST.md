@@ -14,15 +14,16 @@ Update this file whenever a step completes or scope changes.
 - [x] Create documentation set (`docs/*.md`)
 - [x] Set up development environment (package.json, tsconfig, eslint, prettier,
       vitest, playwright config, CI workflow, `.env.example`)
-- [ ] **Architecture plan reviewed by user** ← blocking Day 2 start, per
-      BRD-PRD Section 116 ("Do not start coding until the architecture plan
-      is reviewed")
+- [x] **Architecture plan reviewed by user** — hosting, Metricool scope, and
+      pilot-credential approach confirmed 2026-09-10 (see `docs/DECISIONS.md`)
 
-### Day 2 — Database, organizations, users, clients, roles
+### Day 2 — Database, organizations, users, clients, roles ✅ DONE
 
-- [ ] Full Prisma schema per `docs/DATA-MODEL.md`
-- [ ] Initial migration
-- [ ] Seed script (dev-only sample org/users/client)
+- [x] Full Prisma schema per `docs/DATA-MODEL.md` (43 tables)
+- [x] Initial migration (`20260910092421_init`), applied + verified against
+      a local Postgres instance
+- [x] Seed script (dev-only sample org/roles/permissions/client), verified
+      idempotent
 
 ### Day 3 — Authentication, authorization, tenant isolation, security tests
 

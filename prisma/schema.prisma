@@ -1,11 +1,11 @@
 // TargetGum AI Marketing OS - Prisma schema
 //
-// This is a placeholder datasource/generator only. The full multi-tenant
-// schema (organizations, users, clients, client_brain, integrations,
-// ai_runs, agents, workflows, approvals, audit_events, campaigns, etc. -
-// see docs/DATA-MODEL.md) is implemented in the Foundation build step
-// (docs/MVP-CHECKLIST.md, Week 1 / Day 2), after the architecture plan
-// in docs/ARCHITECTURE.md is reviewed.
+// Implements docs/DATA-MODEL.md. Naming: Prisma/TypeScript camelCase field
+// names throughout (not the snake_case shown in docs/BRD-PRD.md's illustrative
+// pseudocode) - see docs/DECISIONS.md. Every client-owned model carries
+// organizationId + clientId (+ createdBy/createdAt/updatedAt) per the tenancy
+// invariant in docs/SECURITY.md; application code must always filter by both,
+// never trust a caller-supplied clientId alone (src/lib/db/ query helpers).
 
 generator client {
   provider = "prisma-client-js"
@@ -14,4 +14,1123 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// Organizations, Users, RBAC
+// ============================================================================
+
+model Organization {
+  id        String    @id @default(cuid())
+  name      String
+  slug      String    @unique
+  status    OrgStatus @default(ACTIVE)
+  settings  Json?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  organizationUsers OrganizationUser[]
+  roles             Role[]
+  clients           Client[]
+  integrations      Integration[]
+  agents            Agent[]
+  tools             Tool[]
+  workflows         Workflow[]
+  auditEvents       AuditEvent[]
+  notifications     Notification[]
+
+  @@map("organizations")
+}
+
+enum OrgStatus {
+  ACTIVE
+  SUSPENDED
+  ARCHIVED
+}
+
+/// Global identity. Not tenant-scoped by itself - access to any organization
+/// or client is only granted via OrganizationUser / ClientUser rows.
+model User {
+  id            String     @id @default(cuid())
+  email         String     @unique
+  emailVerified DateTime?
+  name          String?
+  image         String?
+  passwordHash  String?
+  mfaEnabled    Boolean    @default(false)
+  mfaSecret     String? // envelope-encrypted TOTP secret, never plaintext
+  status        UserStatus @default(ACTIVE)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  accounts          Account[]
+  sessions          Session[]
+  organizationUsers OrganizationUser[]
+  clientUsers       ClientUser[]
+
+  @@map("users")
+}
+
+enum UserStatus {
+  ACTIVE
+  DISABLED
+}
+
+// --- Auth.js (NextAuth v5) required models ---
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+/// A role is org-scoped (custom roles later) or global/system (organizationId
+/// null) for the four seeded roles: Super Admin, Account Manager, Marketing
+/// Employee, Client User (docs/BRD-PRD.md Section 4).
+model Role {
+  id             String   @id @default(cuid())
+  organizationId String?
+  key            String // e.g. "super_admin", "account_manager"
+  name           String
+  description    String?
+  isSystem       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization      Organization?      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  rolePermissions   RolePermission[]
+  organizationUsers OrganizationUser[]
+
+  @@unique([organizationId, key])
+  @@map("roles")
+}
+
+model Permission {
+  id          String   @id @default(cuid())
+  key         String   @unique // e.g. "clients.read", "approvals.approve"
+  description String?
+  createdAt   DateTime @default(now())
+
+  rolePermissions RolePermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model OrganizationUser {
+  id             String           @id @default(cuid())
+  organizationId String
+  userId         String
+  roleId         String
+  status         MembershipStatus @default(ACTIVE)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role         Role         @relation(fields: [roleId], references: [id])
+
+  assignedClients ClientAssignment[]
+
+  @@unique([organizationId, userId])
+  @@map("organization_users")
+}
+
+enum MembershipStatus {
+  INVITED
+  ACTIVE
+  DISABLED
+}
+
+// ============================================================================
+// Clients + Client Brain
+// ============================================================================
+
+model Client {
+  id              String          @id @default(cuid())
+  organizationId  String
+  name            String
+  slug            String
+  status          ClientStatus    @default(ACTIVE)
+  automationLevel AutomationLevel @default(MANUAL)
+  createdBy       String
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  clientUsers            ClientUser[]
+  assignedManagers       ClientAssignment[]
+  brain                  ClientBrain?
+  brandAssets            ClientBrandAsset[]
+  competitors            ClientCompetitor[]
+  policy                 ClientPolicy?
+  feedback               ClientFeedback[]
+  integrationConnections IntegrationConnection[]
+  aiRuns                 AiRun[]
+  toolExecutions         ToolExecution[]
+  workflowRuns           WorkflowRun[]
+  tasks                  Task[]
+  approvals              Approval[]
+  auditEvents            AuditEvent[]
+  reports                Report[]
+  campaigns              Campaign[]
+  socialPosts            SocialPost[]
+  seoMetrics             SeoMetric[]
+  analyticsSnapshots     AnalyticsSnapshot[]
+  recommendations        Recommendation[]
+  contentCalendarItems   ContentCalendarItem[]
+  creativeAssets         CreativeAsset[]
+
+  @@unique([organizationId, slug])
+  @@map("clients")
+}
+
+enum ClientStatus {
+  ACTIVE
+  PAUSED
+  ARCHIVED
+}
+
+enum AutomationLevel {
+  MANUAL
+  ASSISTED
+  APPROVAL_BASED
+  HIGH_AUTOMATION
+}
+
+/// Account Manager / Marketing Employee assignment to a client (BRD Section 4.2/4.3).
+model ClientAssignment {
+  id                 String   @id @default(cuid())
+  clientId           String
+  organizationUserId String
+  createdAt          DateTime @default(now())
+
+  client           Client           @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  organizationUser OrganizationUser @relation(fields: [organizationUserId], references: [id], onDelete: Cascade)
+
+  @@unique([clientId, organizationUserId])
+  @@map("client_assignments")
+}
+
+/// Client-portal user (BRD Section 4.4) - scoped to exactly one client, never
+/// implicitly granted access to any other.
+model ClientUser {
+  id        String   @id @default(cuid())
+  clientId  String
+  userId    String
+  createdAt DateTime @default(now())
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([clientId, userId])
+  @@map("client_users")
+}
+
+/// Structured knowledge layer (BRD Section 6). Narrative sections are stored
+/// as validated JSON (Zod-checked on write) so the Context Router can select
+/// a single column without loading the whole brain; listable/enforceable data
+/// (competitors, feedback, policy, brand assets) get their own tables below.
+model ClientBrain {
+  id        String   @id @default(cuid())
+  clientId  String   @unique
+  business  Json? // companyName, industry, productsServices, locations, pricing, offers, businessModel, businessGoals
+  audience  Json? // personas, demographics, painPoints, motivations, buyingJourney, objections
+  brand     Json? // voice, tone, colors, fonts, visualRules, approvedImagery, restrictedImagery, messagingRules
+  marketing Json? // objectives, kpis, targetChannels, monthlyBudget, campaignHistory, previousStrategies, currentPriorities
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@map("client_brain")
+}
+
+model ClientBrandAsset {
+  id         String         @id @default(cuid())
+  clientId   String
+  type       BrandAssetType
+  label      String
+  url        String
+  restricted Boolean        @default(false)
+  createdBy  String
+  createdAt  DateTime       @default(now())
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@map("client_brand_assets")
+}
+
+enum BrandAssetType {
+  LOGO
+  COLOR_PALETTE
+  FONT
+  APPROVED_IMAGE
+  RESTRICTED_IMAGE
+}
+
+model ClientCompetitor {
+  id           String   @id @default(cuid())
+  clientId     String
+  name         String
+  url          String?
+  positioning  String?
+  observations String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@map("client_competitors")
+}
+
+/// Enforceable policy (BRD Section 62). Real typed columns, not JSON, because
+/// these values gate the Approval Engine directly.
+model ClientPolicy {
+  id                               String   @id @default(cuid())
+  clientId                         String   @unique
+  maxDailyAdBudget                 Decimal? @db.Decimal(12, 2)
+  maxBudgetChangePercent           Int?
+  autoPublishSocial                Boolean  @default(false)
+  autoChangeAds                    Boolean  @default(false)
+  requireApprovalForCampaignLaunch Boolean  @default(true)
+  extra                            Json? // forward-compatible overflow for policy fields not yet promoted to a column
+  createdAt                        DateTime @default(now())
+  updatedAt                        DateTime @updatedAt
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@map("client_policies")
+}
+
+model ClientFeedback {
+  id        String                 @id @default(cuid())
+  clientId  String
+  category  ClientFeedbackCategory
+  content   String
+  source    ClientFeedbackSource
+  createdBy String
+  createdAt DateTime               @default(now())
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@map("client_feedback")
+}
+
+enum ClientFeedbackCategory {
+  PREFERENCE
+  APPROVED_PATTERN
+  REJECTED_PATTERN
+  GENERAL_NOTE
+}
+
+enum ClientFeedbackSource {
+  CLIENT
+  ACCOUNT_MANAGER
+}
+
+// ============================================================================
+// Integrations
+// ============================================================================
+
+enum IntegrationProvider {
+  METRICOOL
+  CANVA
+  GA4
+  GOOGLE_SEARCH_CONSOLE
+  GOOGLE_ADS
+  META_ADS
+  AMAZON_ADS
+  TIKTOK_ADS
+  LINKEDIN
+}
+
+model Integration {
+  id             String              @id @default(cuid())
+  organizationId String
+  provider       IntegrationProvider
+  displayName    String
+  enabled        Boolean             @default(true)
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  organization Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  accounts     IntegrationAccount[]
+
+  @@unique([organizationId, provider])
+  @@map("integrations")
+}
+
+model IntegrationAccount {
+  id                String   @id @default(cuid())
+  integrationId     String
+  organizationId    String
+  externalAccountId String // e.g. Metricool brandId, Meta ad account id, GA4 property id
+  label             String?
+  metadata          Json?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  integration Integration             @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+  connections IntegrationConnection[]
+
+  @@unique([integrationId, externalAccountId])
+  @@map("integration_accounts")
+}
+
+enum IntegrationHealth {
+  CONNECTED
+  DEGRADED
+  AUTH_REQUIRED
+  ERROR
+  DISCONNECTED
+}
+
+/// The Client <-> Integration Account mapping. Credentials are
+/// envelope-encrypted (INTEGRATION_ENCRYPTION_KEY, see docs/SECURITY.md) -
+/// this column never holds plaintext tokens.
+model IntegrationConnection {
+  id                   String            @id @default(cuid())
+  clientId             String
+  organizationId       String
+  integrationAccountId String
+  status               IntegrationHealth @default(AUTH_REQUIRED)
+  encryptedCredentials String? // envelope-encrypted JSON blob (refresh token, etc.)
+  lastSuccessfulSyncAt DateTime?
+  lastErrorAt          DateTime?
+  lastErrorMessage     String?
+  createdBy            String
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+
+  client             Client             @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  integrationAccount IntegrationAccount @relation(fields: [integrationAccountId], references: [id], onDelete: Cascade)
+
+  @@unique([clientId, integrationAccountId])
+  @@map("integration_connections")
+}
+
+// ============================================================================
+// AI Gateway
+// ============================================================================
+
+enum AiRunStatus {
+  PENDING
+  RUNNING
+  SUCCEEDED
+  FAILED
+}
+
+/// Every AI Gateway invocation (BRD Section 27). Never stores secrets in
+/// contextIds/toolCalls - those are IDs/summaries, not raw credential values.
+model AiRun {
+  id                 String      @id @default(cuid())
+  organizationId     String
+  clientId           String?
+  userId             String?
+  agentId            String?
+  model              String
+  promptVersion      String
+  contextIds         Json?
+  toolCalls          Json?
+  inputTokens        Int?
+  outputTokens       Int?
+  estimatedCostCents Int?
+  durationMs         Int?
+  status             AiRunStatus @default(PENDING)
+  error              String?
+  createdAt          DateTime    @default(now())
+
+  client Client? @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  agent  Agent?  @relation(fields: [agentId], references: [id], onDelete: SetNull)
+
+  toolExecutions  ToolExecution[]
+  auditEvents     AuditEvent[]
+  recommendations Recommendation[]
+
+  @@map("ai_runs")
+}
+
+/// Agent contract (BRD Section 26): purpose, allowed tools/actions, required
+/// permissions, input/output schema, risk rules - enforced by
+/// src/lib/agents + src/lib/tools, not by the model itself.
+model Agent {
+  id                        String   @id @default(cuid())
+  organizationId            String? // null = system-wide agent definition
+  key                       String // e.g. "orchestrator", "marketing_analytics"
+  name                      String
+  purpose                   String
+  inputSchema               Json?
+  outputSchema              Json?
+  riskRules                 Json?
+  clientContextRequirements Json?
+  enabled                   Boolean  @default(true)
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  agentTools     AgentTool[]
+  aiRuns         AiRun[]
+  toolExecutions ToolExecution[]
+  auditEvents    AuditEvent[]
+
+  @@unique([organizationId, key])
+  @@map("agents")
+}
+
+enum ToolRiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+/// The Tool Registry (BRD Section 13). Agents call these, never vendor SDKs
+/// directly (Section 109).
+model Tool {
+  id                  String        @id @default(cuid())
+  organizationId      String? // null = system-wide tool definition
+  key                 String // e.g. "metricool.get_posts"
+  name                String
+  provider            String
+  description         String
+  inputSchema         Json
+  outputSchema        Json
+  riskLevel           ToolRiskLevel
+  requiredPermissions Json?
+  supportedClients    Json? // null = all clients with the relevant integration connected
+  enabled             Boolean       @default(true)
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  agentTools     AgentTool[]
+  toolExecutions ToolExecution[]
+
+  @@unique([organizationId, key])
+  @@map("tools")
+}
+
+model AgentTool {
+  agentId String
+  toolId  String
+
+  agent Agent @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  tool  Tool  @relation(fields: [toolId], references: [id], onDelete: Cascade)
+
+  @@id([agentId, toolId])
+  @@map("agent_tools")
+}
+
+enum ToolExecutionStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+}
+
+model ToolExecution {
+  id             String              @id @default(cuid())
+  organizationId String
+  clientId       String?
+  toolId         String
+  agentId        String?
+  aiRunId        String?
+  workflowRunId  String?
+  userId         String?
+  input          Json
+  output         Json?
+  idempotencyKey String?
+  status         ToolExecutionStatus @default(PENDING)
+  error          String?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  client      Client?      @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  tool        Tool         @relation(fields: [toolId], references: [id])
+  agent       Agent?       @relation(fields: [agentId], references: [id], onDelete: SetNull)
+  aiRun       AiRun?       @relation(fields: [aiRunId], references: [id], onDelete: SetNull)
+  workflowRun WorkflowRun? @relation(fields: [workflowRunId], references: [id], onDelete: SetNull)
+
+  auditEvents AuditEvent[]
+
+  @@unique([idempotencyKey])
+  @@map("tool_executions")
+}
+
+// ============================================================================
+// Workflow Engine
+// ============================================================================
+
+model Workflow {
+  id             String   @id @default(cuid())
+  organizationId String
+  key            String // e.g. "analyze_client_performance"
+  name           String
+  description    String?
+  definition     Json // trigger/condition/step graph
+  enabled        Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  runs         WorkflowRun[]
+
+  @@unique([organizationId, key])
+  @@map("workflows")
+}
+
+enum WorkflowRunStatus {
+  PENDING
+  RUNNING
+  PAUSED_FOR_APPROVAL
+  SUCCEEDED
+  FAILED
+  CANCELLED
+}
+
+model WorkflowRun {
+  id             String            @id @default(cuid())
+  organizationId String
+  clientId       String?
+  workflowId     String
+  status         WorkflowRunStatus @default(PENDING)
+  triggeredBy    String // userId, or "schedule"
+  startedAt      DateTime?
+  completedAt    DateTime?
+  error          String?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  client   Client?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  workflow Workflow @relation(fields: [workflowId], references: [id])
+
+  steps          WorkflowStep[]
+  toolExecutions ToolExecution[]
+  approvals      Approval[]
+
+  @@map("workflow_runs")
+}
+
+enum WorkflowStepStatus {
+  PENDING
+  RUNNING
+  SUCCEEDED
+  FAILED
+  SKIPPED
+}
+
+model WorkflowStep {
+  id            String             @id @default(cuid())
+  workflowRunId String
+  stepKey       String
+  status        WorkflowStepStatus @default(PENDING)
+  input         Json?
+  output        Json?
+  startedAt     DateTime?
+  completedAt   DateTime?
+  error         String?
+  createdAt     DateTime           @default(now())
+
+  workflowRun WorkflowRun @relation(fields: [workflowRunId], references: [id], onDelete: Cascade)
+
+  @@map("workflow_steps")
+}
+
+// ============================================================================
+// Tasks, Approvals, Audit, Reports, Notifications
+// ============================================================================
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum TaskStatus {
+  OPEN
+  IN_PROGRESS
+  BLOCKED
+  DONE
+  CANCELLED
+}
+
+model Task {
+  id                     String       @id @default(cuid())
+  organizationId         String
+  clientId               String
+  title                  String
+  description            String?
+  priority               TaskPriority @default(MEDIUM)
+  status                 TaskStatus   @default(OPEN)
+  ownerId                String?
+  dueDate                DateTime?
+  sourceRecommendationId String?
+  createdBy              String
+  createdAt              DateTime     @default(now())
+  updatedAt              DateTime     @updatedAt
+
+  client         Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  recommendation Recommendation? @relation(fields: [sourceRecommendationId], references: [id], onDelete: SetNull)
+  comments       TaskComment[]
+
+  @@map("tasks")
+}
+
+model TaskComment {
+  id        String   @id @default(cuid())
+  taskId    String
+  userId    String
+  body      String
+  createdAt DateTime @default(now())
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@map("task_comments")
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  EXPIRED
+  CANCELLED
+  EXECUTED
+  FAILED
+}
+
+model Approval {
+  id              String         @id @default(cuid())
+  organizationId  String
+  clientId        String
+  requestedBy     String
+  agentId         String?
+  workflowRunId   String?
+  actionType      String
+  riskLevel       ToolRiskLevel
+  actionSummary   String
+  proposedChanges Json?
+  estimatedImpact Json?
+  status          ApprovalStatus @default(PENDING)
+  approvedBy      String?
+  approvedAt      DateTime?
+  rejectedReason  String?
+  expiresAt       DateTime?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  client      Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  workflowRun WorkflowRun? @relation(fields: [workflowRunId], references: [id], onDelete: SetNull)
+
+  auditEvents     AuditEvent[]
+  recommendations Recommendation[]
+
+  @@map("approvals")
+}
+
+enum AuditResult {
+  SUCCESS
+  FAILURE
+  DENIED
+}
+
+/// Append-only (BRD Section 28). Application code must never expose an
+/// update/delete path for this model - enforced by omitting those methods
+/// from src/lib/audit/, and to be hardened with a DB-level REVOKE UPDATE,
+/// DELETE in a follow-up migration once the app DB role is finalized
+/// (tracked in docs/SECURITY.md).
+model AuditEvent {
+  id              String         @id @default(cuid())
+  organizationId  String
+  clientId        String?
+  userId          String?
+  agentId         String?
+  aiRunId         String?
+  toolExecutionId String?
+  approvalId      String?
+  action          String
+  provider        String?
+  tool            String?
+  inputSummary    Json?
+  outputSummary   Json?
+  riskLevel       ToolRiskLevel?
+  result          AuditResult
+  error           String?
+  timestamp       DateTime       @default(now())
+
+  organization  Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  client        Client?        @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  agent         Agent?         @relation(fields: [agentId], references: [id], onDelete: SetNull)
+  aiRun         AiRun?         @relation(fields: [aiRunId], references: [id], onDelete: SetNull)
+  toolExecution ToolExecution? @relation(fields: [toolExecutionId], references: [id], onDelete: SetNull)
+  approval      Approval?      @relation(fields: [approvalId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, clientId, timestamp])
+  @@map("audit_events")
+}
+
+enum ReportType {
+  INTERNAL
+  CLIENT
+}
+
+model Report {
+  id             String     @id @default(cuid())
+  organizationId String
+  clientId       String
+  type           ReportType
+  title          String
+  periodStart    DateTime
+  periodEnd      DateTime
+  content        Json // structured sections; rendered to PDF/HTML on demand
+  fileUrl        String? // object storage reference for an exported copy
+  generatedBy    String? // userId, or "system" for scheduled reports
+  createdAt      DateTime   @default(now())
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@map("reports")
+}
+
+enum NotificationChannel {
+  IN_APP
+  EMAIL
+  SLACK
+  WHATSAPP
+}
+
+model Notification {
+  id             String              @id @default(cuid())
+  organizationId String
+  userId         String
+  channel        NotificationChannel
+  type           String
+  title          String
+  body           String?
+  readAt         DateTime?
+  createdAt      DateTime            @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
+
+// ============================================================================
+// Marketing: Campaigns, Social, SEO, Analytics, Recommendations, Content, Creative
+// ============================================================================
+
+model Campaign {
+  id                 String              @id @default(cuid())
+  organizationId     String
+  clientId           String
+  provider           IntegrationProvider
+  providerCampaignId String
+  name               String
+  channel            String?
+  status             String?
+  budget             Decimal?            @db.Decimal(12, 2)
+  startDate          DateTime?
+  endDate            DateTime?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
+  client  Client           @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  metrics CampaignMetric[]
+
+  @@unique([clientId, provider, providerCampaignId])
+  @@map("campaigns")
+}
+
+/// Normalized ads metrics (BRD Section 37) with provenance
+/// (source/retrievedAt/period) plus `raw` to preserve original provider data.
+model CampaignMetric {
+  id             String   @id @default(cuid())
+  campaignId     String
+  organizationId String
+  clientId       String
+  date           DateTime
+  source         String
+  retrievedAt    DateTime
+  period         String // e.g. "daily", "2026-09-01..2026-09-07"
+  spend          Decimal? @db.Decimal(12, 2)
+  impressions    Int?
+  clicks         Int?
+  ctr            Decimal? @db.Decimal(7, 4)
+  cpc            Decimal? @db.Decimal(10, 4)
+  cpm            Decimal? @db.Decimal(10, 4)
+  conversions    Int?
+  conversionRate Decimal? @db.Decimal(7, 4)
+  cpa            Decimal? @db.Decimal(10, 4)
+  roas           Decimal? @db.Decimal(10, 4)
+  revenue        Decimal? @db.Decimal(12, 2)
+  frequency      Decimal? @db.Decimal(7, 4)
+  reach          Int?
+  raw            Json?
+  createdAt      DateTime @default(now())
+
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([clientId, date])
+  @@map("campaign_metrics")
+}
+
+enum ContentStatus {
+  IDEA
+  DRAFT
+  IN_REVIEW
+  APPROVED
+  SCHEDULED
+  PUBLISHED
+  FAILED
+  CANCELLED
+}
+
+model SocialPost {
+  id              String              @id @default(cuid())
+  organizationId  String
+  clientId        String
+  platform        String
+  provider        IntegrationProvider
+  providerPostId  String?
+  caption         String?
+  creativeAssetId String?
+  status          ContentStatus       @default(IDEA)
+  scheduledAt     DateTime?
+  publishedAt     DateTime?
+  approvalId      String?
+  createdBy       String
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  client        Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  creativeAsset CreativeAsset? @relation(fields: [creativeAssetId], references: [id], onDelete: SetNull)
+  metrics       SocialMetric[]
+
+  @@map("social_posts")
+}
+
+/// Normalized social metrics (BRD Section 38) with provenance + raw provider data.
+model SocialMetric {
+  id               String   @id @default(cuid())
+  socialPostId     String?
+  organizationId   String
+  clientId         String
+  platform         String
+  date             DateTime
+  source           String
+  retrievedAt      DateTime
+  period           String
+  reach            Int?
+  impressions      Int?
+  engagement       Int?
+  likes            Int?
+  comments         Int?
+  shares           Int?
+  saves            Int?
+  clicks           Int?
+  followers        Int?
+  videoViews       Int?
+  watchTimeSeconds Int?
+  raw              Json?
+  createdAt        DateTime @default(now())
+
+  socialPost SocialPost? @relation(fields: [socialPostId], references: [id], onDelete: SetNull)
+
+  @@index([clientId, date])
+  @@map("social_metrics")
+}
+
+/// GSC-sourced (BRD Section 36) with provenance.
+model SeoMetric {
+  id             String   @id @default(cuid())
+  organizationId String
+  clientId       String
+  date           DateTime
+  source         String
+  retrievedAt    DateTime
+  period         String
+  query          String?
+  page           String?
+  clicks         Int?
+  impressions    Int?
+  ctr            Decimal? @db.Decimal(7, 4)
+  avgPosition    Decimal? @db.Decimal(6, 2)
+  raw            Json?
+  createdAt      DateTime @default(now())
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([clientId, date])
+  @@map("seo_metrics")
+}
+
+/// GA4-sourced point-in-time snapshots (BRD Section 35) with provenance.
+model AnalyticsSnapshot {
+  id             String   @id @default(cuid())
+  organizationId String
+  clientId       String
+  date           DateTime
+  source         String
+  retrievedAt    DateTime
+  period         String
+  metricName     String // e.g. "sessions", "conversions", "revenue"
+  value          Decimal  @db.Decimal(14, 4)
+  unit           String?
+  dimensions     Json? // e.g. { landingPage, trafficSource, campaign }
+  raw            Json?
+  createdAt      DateTime @default(now())
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([clientId, date, metricName])
+  @@map("analytics_snapshots")
+}
+
+enum RecommendationPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum RecommendationStatus {
+  DETECTED
+  ANALYZED
+  RECOMMENDED
+  ACCEPTED
+  REJECTED
+  APPROVED
+  EXECUTED
+  VERIFIED
+  CLOSED
+}
+
+/// Structured AI output (BRD Section 39, 107) - never free text for the
+/// fields that drive application decisions.
+model Recommendation {
+  id               String                 @id @default(cuid())
+  organizationId   String
+  clientId         String
+  aiRunId          String?
+  priority         RecommendationPriority
+  area             String
+  finding          String
+  evidence         Json?
+  likelyCause      String?
+  recommendation   String
+  expectedImpact   String?
+  confidence       Decimal?               @db.Decimal(4, 3) // 0.000-1.000
+  requiresApproval Boolean                @default(false)
+  status           RecommendationStatus   @default(DETECTED)
+  rejectionReason  String?
+  approvalId       String?
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+
+  client   Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  aiRun    AiRun?    @relation(fields: [aiRunId], references: [id], onDelete: SetNull)
+  approval Approval? @relation(fields: [approvalId], references: [id], onDelete: SetNull)
+
+  tasks Task[]
+
+  @@map("recommendations")
+}
+
+model ContentCalendarItem {
+  id              String        @id @default(cuid())
+  organizationId  String
+  clientId        String
+  platform        String
+  publishDate     DateTime
+  status          ContentStatus @default(IDEA)
+  caption         String?
+  creativeAssetId String?
+  approvalId      String?
+  providerPostId  String?
+  createdBy       String
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  client        Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  creativeAsset CreativeAsset? @relation(fields: [creativeAssetId], references: [id], onDelete: SetNull)
+
+  @@map("content_calendar")
+}
+
+enum CreativeStatus {
+  DRAFT
+  IN_REVIEW
+  APPROVED
+  REJECTED
+}
+
+model CreativeAsset {
+  id             String         @id @default(cuid())
+  organizationId String
+  clientId       String
+  platform       String?
+  campaignId     String?
+  concept        String?
+  copy           String?
+  designUrl      String? // Canva (or other provider) editing link
+  exportUrl      String? // exported final asset in object storage
+  provider       String?
+  status         CreativeStatus @default(DRAFT)
+  approvalId     String?
+  createdBy      String
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  client               Client                @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  socialPosts          SocialPost[]
+  contentCalendarItems ContentCalendarItem[]
+
+  @@map("creative_assets")
 }

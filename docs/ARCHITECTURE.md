@@ -1,7 +1,8 @@
 # Architecture Assessment — TargetGum AI Marketing OS
 
-Status: **Foundation scaffold complete (Week 1 / Day 1). Awaiting review before Day 2
-(database + auth) begins.** See `docs/MVP-CHECKLIST.md` for current progress.
+Status: **Foundation (Day 1) and full database schema/migrations (Day 2) complete.**
+Day 3 (auth/RBAC/tenant isolation) is next. See `docs/MVP-CHECKLIST.md` for current
+progress.
 
 This document is the architecture assessment and implementation plan requested by
 `docs/BRD-PRD.md` Section 116. It proposes the technology stack, repository structure,
@@ -25,7 +26,7 @@ Rationale for each irreversible-ish choice is recorded in `docs/DECISIONS.md`.
 | Validation | Zod | Both AI structured-output validation and API input validation |
 | Testing | Vitest (unit/integration/security), Playwright (e2e) | |
 | CI/CD | GitHub Actions | Lint → typecheck → tests → build on every PR |
-| Hosting (proposed) | Vercel (app) + managed Postgres + Upstash Redis + Cloudflare R2 | See open question in Section 7 |
+| Hosting | Vercel (app) + managed Postgres (Neon/Supabase, final pick at Day 2 staging setup) + Upstash Redis + Cloudflare R2 | Confirmed with user — see `docs/DECISIONS.md` |
 | Observability | Structured logging (pino) + Sentry (error tracking) | |
 
 ## 2. Repository Structure
@@ -87,14 +88,15 @@ Every client-owned table carries `organization_id`, `client_id`, `created_by`,
 is enforced in `src/lib/db/` query helpers, never left to callers or the
 frontend.
 
-Full table list (organizations, users, roles/permissions, clients, client
+All 43 tables (organizations, users, roles/permissions, clients, client
 brain, integrations/integration_accounts/integration_connections, ai_runs,
 agents/agent_tools/tool_executions, workflows/workflow_runs/workflow_steps,
 tasks, approvals, audit_events, reports, notifications, campaigns/
 campaign_metrics, social_posts/social_metrics, seo_metrics,
-analytics_snapshots, recommendations, content_calendar, creative_assets) is
-specified in `docs/DATA-MODEL.md` and implemented as the Prisma schema in Day 2
-of `docs/MVP-CHECKLIST.md`.
+analytics_snapshots, recommendations, content_calendar, creative_assets) are
+specified in `docs/DATA-MODEL.md` and implemented in `prisma/schema.prisma`
+(migration `20260910092421_init`, applied and verified against a local
+Postgres instance with a seed script — Day 2 of `docs/MVP-CHECKLIST.md`).
 
 ## 4. Required Infrastructure
 
@@ -163,7 +165,21 @@ No application features (agents, providers, workflows, dashboard beyond a
 shell) are implemented before this architecture document is reviewed, per
 BRD-PRD Section 116.
 
-## 8. Open Questions for Review
+## 8. Open Questions — resolved
 
-These need a decision or input before Day 2 can proceed — see the questions
-raised alongside this document for the current set.
+Resolved with the user on 2026-09-10:
+
+- **Hosting**: Vercel + managed Postgres (Neon/Supabase) + Upstash + R2 (Section 1).
+- **Metricool ads scope**: confirmed available for read/analysis (all networks
+  including Google/Meta Ads metrics schema), not available for write/management —
+  see `docs/DECISIONS.md` and `docs/INTEGRATIONS.md`. Ads write/management is
+  deferred to a native Phase 2 adapter if ever required; it does not block MVP.
+- **Pilot credentials** (Anthropic API key, GA4/GSC property access, Metricool
+  brand confirmation): provided incrementally by the user as each integration is
+  reached (Day 4, 6, 7) — development proceeds against mock providers until then.
+- **Proceed past Day 1 review gate**: user confirmed — Day 2 (full schema/
+  migrations) is implemented as part of this delivery. See `docs/MVP-CHECKLIST.md`.
+
+Still open, not blocking: final choice between Neon vs. Supabase for managed
+Postgres (defer to whenever staging is first provisioned); which pilot client
+maps to which Metricool brand (needed before Day 6).

@@ -1,8 +1,11 @@
 # Data Model — TargetGum AI Marketing OS
 
-Status: **Design draft.** Not yet implemented as a Prisma schema — implementation is
-Day 2 of `docs/MVP-CHECKLIST.md`, after this design is reviewed. `prisma/schema.prisma`
-currently contains only the datasource/generator block.
+Status: **Implemented.** All tables below exist in `prisma/schema.prisma` and are
+applied via `prisma/migrations/20260910092421_init`. A few modeling choices made
+during implementation aren't spelled out below — see the "2026-09-10 — Full Data
+Model schema implemented" entry in `docs/DECISIONS.md` for the deltas (notably:
+`ClientBrain` narrative sections as validated JSON columns rather than one table per
+section; provenance + `raw` columns on every normalized metric table).
 
 ## Tenancy Invariant
 
@@ -119,5 +122,5 @@ Append-only: no `UPDATE`/`DELETE` grants for the application role on
 
 ## Next Step
 
-This design is implemented as the actual Prisma schema + migration in Day 2
-of `docs/MVP-CHECKLIST.md`, once reviewed.
+Day 3 (`docs/MVP-CHECKLIST.md`) builds the tenant-scoped query helpers in
+`src/lib/db/` on top of this schema, alongside auth/RBAC.
