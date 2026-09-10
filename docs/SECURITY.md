@@ -76,7 +76,7 @@ relevant adversarial scenarios:
 
 All scenarios must fail safely (deny + audit event), never fail open.
 
-## Secure Baseline (already in the scaffold)
+## Secure Baseline (implemented)
 
 - Secure HTTP headers set in `next.config.mjs` (X-Content-Type-Options,
   X-Frame-Options, Referrer-Policy, Permissions-Policy) — expanded with a
@@ -85,14 +85,38 @@ All scenarios must fail safely (deny + audit event), never fail open.
   no real values.
 - CI runs lint + typecheck + unit + integration + security tests + build on
   every PR (`.github/workflows/ci.yml`).
+- **Authentication**: Auth.js v5, passwords hashed with bcryptjs (never
+  stored/logged in plaintext), TOTP MFA available per-user
+  (`src/lib/auth/mfa.ts`), sign-in errors are deliberately generic
+  ("incorrect email or password", never "no such user").
+- **Secrets at rest**: MFA secrets and (once Integrations lands) OAuth
+  refresh tokens are envelope-encrypted with AES-256-GCM
+  (`src/lib/crypto/envelope.ts`) before ever reaching the database — see the
+  round-trip and tamper-detection tests in `tests/unit/envelope.test.ts`.
+- **Authorization**: every client-scoped read/write goes through
+  `resolveAuthContext` → `assertPermission`/`assertClientAccess`
+  (`src/lib/rbac/`) or the `src/lib/db/tenant.ts` helpers built on them.
+  Verified both by the automated security suite (`tests/security/`, 13
+  tests) and by a live manual run: an unauthenticated request to `/dashboard`
+  redirects to `/sign-in`; a marketing_employee's dashboard shows only the
+  one client they're assigned to, never the org's other client.
+- **Route protection**: page-level `redirect()` guards (see
+  `src/app/dashboard/page.tsx`), not Next.js middleware — see
+  `docs/DECISIONS.md` for why middleware was deliberately skipped for now.
 
 ## Still to design (tracked in `docs/MVP-CHECKLIST.md`)
 
-- Rate limiting / API abuse protection (Day 3+).
-- CSRF protection for form-based mutations (Day 3, alongside auth).
+- Rate limiting / API abuse protection on the credentials sign-in endpoint.
+- CSRF protection for any form-based mutation beyond Auth.js's own routes
+  (which handle their own CSRF token already, per the live smoke test).
+- Recovery-code persistence + UI for MFA (generation exists; storage/
+  verification against a "used" state doesn't yet).
+- A real sign-up/invitation flow — today, users only exist via
+  `prisma/seed.ts` (dev-only) or manual DB inserts.
 - Dependency/secret/vulnerability scanning in CI (adding `npm audit` /
   GitHub secret scanning / Dependabot — proposed for the first PR after
   foundation review, not yet added to avoid noise before the app exists).
 - Encryption-at-rest configuration for the chosen managed Postgres provider
-  (depends on hosting decision — see open question in
-  `docs/ARCHITECTURE.md`).
+  (depends on final Neon vs. Supabase pick — see `docs/ARCHITECTURE.md`).
+- DB-level `REVOKE UPDATE, DELETE` on `audit_events` for the app's DB role
+  (pending how that role is provisioned on the chosen hosting platform).

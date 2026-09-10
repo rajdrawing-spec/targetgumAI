@@ -1,8 +1,10 @@
 # Architecture Assessment — TargetGum AI Marketing OS
 
-Status: **Foundation (Day 1) and full database schema/migrations (Day 2) complete.**
-Day 3 (auth/RBAC/tenant isolation) is next. See `docs/MVP-CHECKLIST.md` for current
-progress.
+Status: **Foundation (Day 1), full database schema/migrations (Day 2), and
+authentication/RBAC/tenant isolation (Day 3) complete** — including a live,
+manually-verified end-to-end sign-in flow, not just automated tests. See
+`docs/MVP-CHECKLIST.md` for current progress. Day 4 (Claude integration / AI
+Gateway) is next.
 
 This document is the architecture assessment and implementation plan requested by
 `docs/BRD-PRD.md` Section 116. It proposes the technology stack, repository structure,
@@ -37,8 +39,9 @@ targetgum-ai-marketing-os/
 │   ├── app/                     # Next.js App Router (routes, layouts, API route handlers)
 │   ├── components/ui/           # shadcn/ui components
 │   └── lib/
-│       ├── auth/                # session, MFA, RBAC checks
-│       ├── rbac/                # roles/permissions/authorization resolution
+│       ├── auth/                # Auth.js config, password hashing, TOTP MFA, session context
+│       ├── rbac/                # role/permission resolution + tenant-access guards (framework-agnostic)
+│       ├── crypto/               # envelope encryption for stored secrets (MFA secrets, OAuth tokens)
 │       ├── ai/                  # AI Gateway: Claude client, prompt versioning, context assembly
 │       ├── agents/               # Orchestrator, Client Intelligence, Analytics, Content, Creative
 │       ├── tools/                # Tool Registry + tool implementations

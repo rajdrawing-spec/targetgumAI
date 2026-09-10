@@ -5,6 +5,85 @@ Newest entries at the top.
 
 ---
 
+## 2026-09-10 — Session strategy: JWT, not database (Day 3)
+
+**Decision:** `session.strategy = 'jwt'` in the Auth.js config, even though the
+Prisma schema has a `Session` table.
+
+**Rationale:** Auth.js's Credentials provider is only supported with JWT sessions —
+sign-ins through it aren't persisted to the adapter's `Session` table the way OAuth
+sign-ins are, and Auth.js throws a configuration error if you set `strategy:
+'database'` while a Credentials provider is registered. The `Session`/
+`VerificationToken` models stay in the schema: `VerificationToken` is actively used
+by the Nodemailer (magic-link) provider regardless of session strategy, and `Session`
+is ready for a future OAuth provider that could use database sessions if one is added.
+
+**Trade-off accepted:** sessions can't be server-side-revoked by deleting a DB row
+(they're self-contained encrypted JWTs, valid until expiry). If instant revocation
+becomes a requirement (e.g. "kick this user out immediately"), that needs either a
+short JWT `maxAge` + a denylist check in the `session` callback, or dropping
+Credentials in favor of an OAuth-only + database-session setup.
+
+---
+
+## 2026-09-10 — No Next.js middleware for route protection (Day 3)
+
+**Decision:** `/dashboard` (and future protected routes) enforce auth via a
+`redirect()` check at the top of each server component (see
+`src/app/dashboard/page.tsx`), not `middleware.ts`.
+
+**Rationale:** Auth.js's documented pattern for edge-compatible middleware requires
+splitting the config into an edge-safe partial (no Prisma adapter, no
+Node-only `bcryptjs`/`otpauth` in the `authorize` callback) and a full Node.js config
+used everywhere else — real complexity for one extra layer of defense, given every
+protected page already calls `getCurrentAuthContext()` and redirects. Page-level
+guards are enforced today and verified live (unauthenticated `/dashboard` → 307 to
+`/sign-in`, confirmed via `curl`).
+
+**Revisit if:** the protected-route surface grows large enough that repeating the
+guard per-page becomes error-prone (a forgotten guard is a real vulnerability) — at
+that point, either build the edge-safe split properly, or force Next.js middleware
+onto the Node.js runtime (stable as of Next 15.2+) so the full config can be reused
+without an edge-compatibility rewrite.
+
+---
+
+## 2026-09-10 — Password hashing: bcryptjs over argon2/native bcrypt
+
+**Decision:** `bcryptjs` (pure JS, cost factor 12) for password hashing.
+
+**Rationale:** No native bindings to compile — one less thing to break across the
+range of environments this repo will run in (local dev, CI, various hosting
+platforms). Argon2 is the stronger modern choice on paper, but its native dependency
+has repeatedly been a source of build friction in Node/serverless environments;
+bcrypt's security margin is still adequate for this product's threat model at MVP
+stage.
+
+**Revisit if:** a security review specifically calls for Argon2id, or password
+hashing throughput becomes a measured bottleneck.
+
+---
+
+## 2026-09-10 — MFA: `otpauth` (TOTP) with envelope-encrypted secrets; recovery codes not yet persisted
+
+**Decision:** `src/lib/auth/mfa.ts` generates/verifies TOTP codes via `otpauth`
+(pure JS). The secret is envelope-encrypted (`src/lib/crypto/envelope.ts`) before
+`User.mfaSecret` is ever written — `generateMfaSecret` returns the plaintext only for
+one-time QR/manual-entry rendering during enrollment; callers must persist only
+`encryptedSecret`. `generateRecoveryCodes` exists but nothing yet stores or verifies
+them against a "used" state — no `RecoveryCode` table exists.
+
+**Rationale:** Auth.js has no built-in MFA (see the Day-1 auth decision above); TOTP
+is the standard second factor and `otpauth` avoids a native-binding dependency.
+Recovery codes were scoped out of Day 3 to keep the slice reviewable — shipping the
+core enroll/verify loop now, with recovery-code persistence tracked as a named gap in
+`docs/SECURITY.md` rather than silently deferred.
+
+**Revisit before this MFA flow is offered to real users:** add a `RecoveryCode`
+table (hashed, single-use) and enrollment/recovery UI.
+
+---
+
 ## 2026-09-10 — Prisma naming: camelCase fields, `@@map` to snake_case tables
 
 **Decision:** `prisma/schema.prisma` uses idiomatic Prisma/TypeScript camelCase field

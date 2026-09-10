@@ -25,13 +25,39 @@ Update this file whenever a step completes or scope changes.
 - [x] Seed script (dev-only sample org/roles/permissions/client), verified
       idempotent
 
-### Day 3 — Authentication, authorization, tenant isolation, security tests
+### Day 3 — Authentication, authorization, tenant isolation, security tests ✅ DONE
 
-- [ ] Auth.js setup (credentials + magic link), session management
-- [ ] TOTP MFA enrollment/verification
-- [ ] RBAC resolution (org role + client-level permissions)
-- [ ] Tenant-scoped query helpers in `src/lib/db/`
-- [ ] Security tests: cross-client access, deleted-user access, privilege escalation
+- [x] Auth.js v5 setup: Credentials provider (email/password + optional TOTP
+      step) and Nodemailer provider (magic link, console fallback when SMTP
+      isn't configured), JWT session strategy (required alongside
+      Credentials), Prisma adapter wired for the magic-link verification flow
+- [x] TOTP MFA enrollment/verification (`src/lib/auth/mfa.ts`, `otpauth`),
+      secrets envelope-encrypted (`src/lib/crypto/envelope.ts`, AES-256-GCM)
+      before ever touching the database. Recovery-code generation exists but
+      isn't persisted/wired into a UI yet — tracked as a gap below.
+- [x] RBAC resolution (`src/lib/rbac/context.ts`): org role + permission set
+      + client access (ALL for super_admin, explicit ClientAssignment set for
+      Account Manager/Marketing Employee, ClientUser set for the client
+      portal role)
+- [x] Tenant-scoped query helpers in `src/lib/db/tenant.ts`
+      (`getAuthorizedClient`, `scopedClientWhere`)
+- [x] Security tests: cross-client access, deleted/disabled-user access,
+      privilege escalation — all passing against a real Postgres instance
+      (34 tests total across unit/integration/security)
+- [x] Minimal `/sign-in` and `/dashboard` pages to exercise the flow
+      end-to-end; page-level `redirect()` guards protect `/dashboard` (no
+      Next.js middleware yet — see `docs/DECISIONS.md` for why)
+- [x] **Manually verified live** (not just automated tests): unauthenticated
+      `/dashboard` redirects to `/sign-in`; a wrong password redirects with
+      `error=CredentialsSignin&code=invalid_credentials`; a super_admin login
+      sees both seeded clients; a marketing_employee login sees only the one
+      client they're assigned to — real proof tenant isolation holds, not
+      just in test doubles
+
+**Known gaps to close before this is production-ready** (not blocking Day 4):
+recovery-code persistence/UI, rate limiting on the credentials endpoint,
+CSRF-protected server actions for anything beyond Auth.js's own routes, and
+a real sign-up/user-invitation flow (dev users are seed-script-only so far).
 
 ### Day 4 — Claude integration, AI Gateway, structured outputs, AI run tracking
 
