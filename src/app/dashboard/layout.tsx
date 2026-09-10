@@ -14,6 +14,10 @@ import { signOut } from '@/lib/auth'
  * nav even though only super_admin holds `audit.read` by default
  * (Section 4.1) - visiting it as anyone else hits the Day 14 error
  * boundary's clean permission-denied message rather than a dead end.
+ *
+ * This layout is staff-only. A `client_user` gets a distinct, narrower
+ * experience at `/portal` (BRD Section 4.4 - "View own dashboard" reads as
+ * *their own*, not the internal one) - see `src/app/portal/`.
  */
 
 const NAV_ITEMS = [
@@ -31,6 +35,7 @@ const NAV_ITEMS = [
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const ctx = await getCurrentAuthContext()
   if (!ctx) redirect('/sign-in')
+  if (ctx.isClientUser) redirect('/portal')
 
   return (
     <div className="min-h-screen">

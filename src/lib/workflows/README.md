@@ -14,14 +14,19 @@ infrastructure with no second caller yet.
   `SKIPPED`).
 - `analyze-client-workflow.ts` — `runAnalyzeClientWorkflow`
   (`ANALYZE_CLIENT_WORKFLOW_KEY`): the "Analyze Client A" workflow (BRD
-  Section 46). Wires client resolution/authorization → the Marketing
-  Analytics Agent (`src/lib/agents/analytics-agent.ts`, Day 9) →
-  `persistRecommendations` + `routeRecommendation` (`src/lib/
-  recommendations/`, Day 10) → `generateReport` (`src/lib/reports/`, Day
-  11) → `recordAuditEvent`, tracking each stage as a `WorkflowStep`. Never
+  Section 46). Gated by `analysis.trigger` (Phase 2 - staff-only:
+  `account_manager`/`marketing_employee`/`super_admin`, not `client_user` -
+  a client can review what an analysis produces but not spend on running a
+  fresh one themselves; see docs/DECISIONS.md). Wires client resolution/
+  authorization → the Marketing Analytics Agent (`src/lib/agents/
+  analytics-agent.ts`, Day 9) → `persistRecommendations` + `routeRecommendation`
+  (`src/lib/recommendations/`, Day 10) → `generateReport` (`src/lib/reports/`,
+  Day 11) → `recordAuditEvent`, tracking each stage as a `WorkflowStep`. Never
   executes anything itself (BRD Section 19) — it ends at recommendations +
   a report + any pending approvals it created.
 
 Tested end-to-end in `tests/integration/analyze-client-workflow.test.ts`
-against a real database, with Anthropic/Metricool/GA4/GSC exercised
-through injected fakes or mock providers.
+and `tests/integration/client-portal-permissions.test.ts` (the
+`analysis.trigger` gate specifically) against a real database, with
+Anthropic/Metricool/GA4/GSC exercised through injected fakes or mock
+providers.

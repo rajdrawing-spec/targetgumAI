@@ -9,7 +9,7 @@ export default async function RecommendationsPage() {
   if (!ctx) redirect('/sign-in')
 
   const recommendations = await listRecommendationsForOrg(ctx, { limit: 100 })
-  const canDecide = ctx.permissions.has('approvals.request')
+  const canDecide = ctx.permissions.has('recommendations.review')
 
   return (
     <div className="space-y-4">

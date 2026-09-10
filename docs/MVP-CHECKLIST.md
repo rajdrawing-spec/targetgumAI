@@ -704,3 +704,93 @@ real external data where any real access existed. The remaining 3 (Metricool liv
 app-to-service connectivity, GA4, GSC) are code-complete and tested against
 everything short of live credentials — closing them is `docs/PILOT-RUNBOOK.md`'s
 job, not further autonomous coding.
+
+## Phase 2 (BRD-PRD Section 85)
+
+### Permission model audit + Client Approval Portal ✅ DONE
+
+Re-read BRD Section 4's per-role capability lists (4.1-4.4) against the actual
+seeded `ROLE_PERMISSIONS` and found real gaps - some already flagged in a
+since-outdated code comment ("Client User can view/approve/give feedback" - the
+permission array underneath didn't grant any of that), some newly discovered:
+
+- **`clients.manage` was overloaded**: it gated both org-wide client *creation*
+  (`createClient`, correctly Super-Admin-only per Section 4.1's unscoped "Manage
+  clients") and *editing an already-assigned client's* Brain/Policy/brand assets/
+  competitors (`src/lib/clients/brain.ts`) - which Section 4.2's "manage assigned
+  clients" says Account Manager should be able to do, but couldn't, since they
+  never held `clients.manage` at all. Split into `clients.manage` (create, stays
+  Super-Admin-only) and a new `clients.edit` (update an accessible client, granted
+  to `account_manager` too - `assertClientAccess` still confines it to their
+  assigned clients, same as every other scoped permission).
+- **New `recommendations.review`**: `acceptRecommendation`/`rejectRecommendation`
+  (`src/lib/recommendations/persist.ts`) were gated by `approvals.request` - a
+  permission named and documented for the *Approval Engine* (HIGH/CRITICAL tool-
+  execution approvals, Account Manager+ only per Section 4.2/4.3), not
+  recommendation review. Conflating them meant a `client_user` could never accept/
+  reject a recommendation at all, despite Section 4.4 explicitly listing "Review
+  recommendations"/"Approve allowed actions". Now its own permission, granted to
+  `account_manager`, `marketing_employee`, and `client_user` - the formal Approval
+  Engine gate (`approvals.approve`/`approvals.request`) stays exactly as
+  restrictive as before, untouched.
+- **New `feedback.create`**: `addClientFeedback` was gated by `clients.manage`
+  (now `clients.edit`), which `client_user` was never going to hold - yet Section
+  4.4 lists "Provide feedback" as a client capability. Split into its own
+  permission, granted to `account_manager` and `client_user` (not
+  `marketing_employee` - Section 4.3 doesn't list client communication for them,
+  kept precise rather than convenient).
+- **New `analysis.trigger`, and a real authorization gap closed**: before this,
+  `runAnalyzeClientWorkflow` (the paid, real Claude-calling "Analyze this client"
+  action) had no permission check of its own beyond client access - a
+  `client_user`, who shared the exact same `/dashboard` as staff through Day 14,
+  could have clicked the button and spent real AI budget themselves. Section 4.4
+  lists no such capability. Added `assertPermission(ctx, 'analysis.trigger')` at
+  the top of the workflow (library-level, not just hiding the button), granted to
+  `account_manager`/`marketing_employee`/`super_admin` only.
+- **CLIENT vs. INTERNAL report leak closed**: `getReport` didn't check report
+  `type` against the caller at all - a `client_user` who somehow obtained an
+  `INTERNAL` report's id (guessed, shared, an old link) could have read its
+  evidence/confidence/dataGaps directly, defeating the entire CLIENT/INTERNAL
+  redaction Day 11/41/102 built. `getReport` now refuses any non-`CLIENT` report
+  to a `client_user`; `listReports`/`listReportsForOrg` force their effective type
+  filter to `CLIENT` for a `client_user` regardless of what's requested, so even
+  an unfiltered list call can't surface an `INTERNAL` report's title.
+- **A pre-existing correctness bug fixed in passing**: `rejectRecommendation`
+  hardcoded the `ClientFeedback.source` it wrote as `'ACCOUNT_MANAGER'`
+  unconditionally - harmless while only staff could call it, wrong the moment a
+  `client_user` could. Now `ctx.isClientUser ? 'CLIENT' : 'ACCOUNT_MANAGER'`.
+- **The Client Portal itself** (`src/app/portal/`): a `client_user` is now
+  redirected here from `/dashboard` (and vice versa - `/dashboard/layout.tsx`
+  redirects a `client_user` to `/portal`; genuinely separate experiences, not one
+  dashboard with hidden buttons). `/portal` (client picker or straight through if
+  there's only one, the normal case), `/portal/clients/[clientId]` (recommendations
+  with Approve/Decline, CLIENT-only reports list, a feedback form), `/portal/
+  reports/[reportId]` (CLIENT report detail), `src/app/portal/actions.ts` (thin
+  Server Action wrappers, same pattern as `src/app/dashboard/actions.ts`), and a
+  matching `error.tsx`. Implements BRD Section 4.4's list except "View content/
+  creative" - no content/creative module exists yet (its own Phase 2 item; add a
+  Portal section once `ContentCalendarItem`/`CreativeAsset` get read paths).
+- 11 new tests (188 total, up from 177) in `tests/integration/
+  client-portal-permissions.test.ts`, covering every permission above in both
+  directions (grants what should be granted, still denies what shouldn't be) plus
+  the INTERNAL-report-leak fix and the feedback-source fix. All 177 pre-existing
+  tests still pass unchanged - every one of them exercises these functions as
+  `super_admin`, who holds every permission regardless of the rename.
+- End-to-end smoke-verified live with Playwright: a `client_user` signing in lands
+  in `/portal` directly (not `/dashboard`); visiting `/dashboard` explicitly
+  redirects back to `/portal`; the portal shows the recommendation and an Approve
+  button, shows the CLIENT report, and correctly never shows the INTERNAL report's
+  title; clicking Approve actually flips the recommendation to `ACCEPTED` (verified
+  against the database); submitting feedback actually persists a `ClientFeedback`
+  row with `source: CLIENT` (verified against the database, in an isolated retest
+  after an initial combined smoke run had a timing false-negative); `super_admin`
+  still lands on `/dashboard` normally. Fixture data and scratch scripts removed
+  afterward.
+
+typecheck, lint, full test suite (188/188), and production build all pass.
+
+Not yet started from the Phase 2 list (BRD Section 85): Canva creative workflow,
+social content calendar, automated social scheduling, more advanced reporting, a
+Meta/Google Ads direct integration, weekly automated intelligence (needs the
+BullMQ/Redis job infrastructure `docs/ARCHITECTURE.md` proposes but nothing built
+yet), SEO workflows, competitor analysis.

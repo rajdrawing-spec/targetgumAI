@@ -43,6 +43,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ c
   ])
   const connections = allConnections.filter((c) => c.clientId === clientId)
   const canManageIntegrations = ctx.permissions.has('integrations.manage')
+  const canTriggerAnalysis = ctx.permissions.has('analysis.trigger')
 
   return (
     <div className="space-y-8">
@@ -56,14 +57,16 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ c
             {client.status} · automation: {client.automationLevel}
           </p>
         </div>
-        <form action={triggerAnalyzeClientAction.bind(null, clientId)}>
-          <button
-            type="submit"
-            className="rounded bg-gray-900 px-3 py-2 text-sm font-medium text-white hover:bg-gray-800"
-          >
-            Analyze this client
-          </button>
-        </form>
+        {canTriggerAnalysis && (
+          <form action={triggerAnalyzeClientAction.bind(null, clientId)}>
+            <button
+              type="submit"
+              className="rounded bg-gray-900 px-3 py-2 text-sm font-medium text-white hover:bg-gray-800"
+            >
+              Analyze this client
+            </button>
+          </form>
+        )}
       </div>
 
       {policy && (

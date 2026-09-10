@@ -28,6 +28,7 @@ export const PERMISSIONS = [
   'organizations.manage',
   'users.manage',
   'clients.manage',
+  'clients.edit',
   'clients.read',
   'integrations.manage',
   'approvals.approve',
@@ -35,17 +36,57 @@ export const PERMISSIONS = [
   'tasks.create',
   'reports.read',
   'audit.read',
+  'recommendations.review',
+  'feedback.create',
+  'analysis.trigger',
 ] as const
 
 export type Permission = (typeof PERMISSIONS)[number]
 
+/**
+ * `clients.manage` vs. `clients.edit` (added when the Client Portal/Phase-2
+ * permission audit found this conflated, see docs/DECISIONS.md): `.manage`
+ * is org-wide client *administration* - create a brand-new client
+ * (`src/lib/clients/create.ts`), Super Admin only per BRD Section 4.1's
+ * unscoped "Manage clients". `.edit` is narrower - update an
+ * *already-accessible* client's Brain/Policy/brand assets/competitors
+ * (`src/lib/clients/brain.ts`) - matches Account Manager's "manage
+ * assigned clients" (Section 4.2): they can edit clients already assigned
+ * to them (still enforced by `assertClientAccess`, not by this permission
+ * alone), but not create new ones org-wide.
+ */
 export const ROLE_PERMISSIONS: Record<SystemRoleKey, readonly Permission[]> = {
   super_admin: PERMISSIONS,
-  account_manager: ['clients.read', 'approvals.approve', 'approvals.request', 'tasks.create', 'reports.read'],
-  marketing_employee: ['clients.read', 'approvals.request', 'tasks.create', 'reports.read'],
-  // Client User (BRD Section 4.4) can view/approve/give feedback but not
-  // create internal tasks - that's staff-only (Section 4.2/4.3).
-  client_user: ['clients.read', 'reports.read'],
+  account_manager: [
+    'clients.read',
+    'clients.edit',
+    'approvals.approve',
+    'approvals.request',
+    'tasks.create',
+    'reports.read',
+    'recommendations.review',
+    'feedback.create',
+    'analysis.trigger',
+  ],
+  marketing_employee: [
+    'clients.read',
+    'approvals.request',
+    'tasks.create',
+    'reports.read',
+    'recommendations.review',
+    'analysis.trigger',
+  ],
+  // Client User (BRD Section 4.4): "View own dashboard, View reports,
+  // Review recommendations, Approve allowed actions, Provide feedback,
+  // View content/creative, Never access another client." Deliberately
+  // narrower than staff: no `clients.edit` (can't rewrite their own Brain/
+  // policy), no `analysis.trigger` (can't spend on a fresh AI run
+  // themselves), no `approvals.*` (the formal Approval Engine gate for
+  // HIGH/CRITICAL tool execution stays Account Manager+ per Section
+  // 4.2/4.3 - "approve allowed actions" means recommendations, via
+  // `recommendations.review`, not that gate) and no `tasks.create`
+  // (internal-only, Section 4.2/4.3).
+  client_user: ['clients.read', 'reports.read', 'recommendations.review', 'feedback.create'],
 }
 
 /**

@@ -681,6 +681,50 @@ OAuth consent + callback flow then, not a manual-token form now.
 
 ---
 
+## 2026-09-10 — Phase 2: permission model split (`clients.edit`, `recommendations.review`, `feedback.create`, `analysis.trigger`) instead of reusing existing permissions
+
+**Decision:** Added four new permissions rather than reusing `clients.manage`/
+`approvals.request` for the Client Portal's needs, and split `clients.manage`'s
+two prior meanings (org-wide client creation vs. editing an already-accessible
+client) into `clients.manage` (creation, unchanged, Super-Admin-only) and a new
+`clients.edit` (editing, now also granted to `account_manager` for their assigned
+clients).
+
+**Rationale:** Building the Client Portal (`src/app/portal/`) required deciding
+what a `client_user` can do to a recommendation and to feedback. The existing
+permissions that gated those actions - `approvals.request` for accept/reject,
+`clients.manage` for feedback - were never designed with a client-portal caller in
+mind: `approvals.request` is documented and used elsewhere as "Account Manager +
+Marketing Employee can request/view [formal Approval Engine] approvals," a
+materially different, more sensitive capability (visibility into HIGH/CRITICAL
+tool-execution approval requests) than "review and accept/reject a recommendation."
+Granting `client_user` (or reusing) `approvals.request` to unblock recommendation
+review would have also handed them `listApprovals`/`cancelApproval` - visibility
+into the Approval Engine that BRD Section 4.4 never lists and Section 4.2/4.3
+reserve for staff. Same problem with `clients.manage` for feedback: it's shared
+with Brain/Policy/brand-asset/competitor writes, none of which a client should
+touch. Re-reading BRD Section 4.1-4.4's capability lists against the seeded
+permission set is what surfaced this - see `docs/MVP-CHECKLIST.md`'s Phase 2
+section for the full list of gaps this closed, including a real authorization
+hole (nothing stopped a `client_user` from triggering a paid AI analysis run
+themselves) and a real data-exposure gap (nothing stopped a `client_user` from
+reading an INTERNAL report's evidence/confidence by direct id).
+
+**Trade-off accepted:** four more entries in the `PERMISSIONS` array/more surface
+to reason about, versus reusing two already-existing ones. Precision over economy:
+a permission whose name and granted-role set don't match what it actually gates is
+exactly the kind of drift that produces silent authorization bugs later (this
+decision fixed three of them). `marketing_employee` deliberately did NOT get
+`feedback.create` or `clients.edit` - BRD Section 4.3 doesn't list client
+communication or client management for that role, and "give it anyway, seems
+harmless" is exactly the kind of permission creep this pass was cleaning up.
+
+**Revisit if:** a fifth role or a genuinely different recommendation-review flow
+(e.g. a client delegate who can review but never decide) needs an even finer split
+than `recommendations.review` currently provides.
+
+---
+
 ## Template for future entries
 
 ```text

@@ -4,6 +4,7 @@ import { generateReport } from '@/lib/reports/generate'
 import { persistRecommendations } from '@/lib/recommendations/persist'
 import { routeRecommendation } from '@/lib/recommendations/route'
 import { recordAuditEvent } from '@/lib/audit/record'
+import { assertPermission } from '@/lib/rbac/guards'
 import type { AuthContext } from '@/lib/rbac/types'
 import { completeWorkflowRun, getOrCreateWorkflow, recordWorkflowStep, startWorkflowRun } from './runs'
 
@@ -49,6 +50,10 @@ export async function runAnalyzeClientWorkflow(
   const { ctx, clientId, range } = input
 
   // Client resolution + Authorization (BRD Section 46, steps 1-2).
+  // `analysis.trigger` is staff-only (BRD Section 4.2-4.3) - a client_user
+  // can review/approve what an analysis produces, but not spend on running
+  // a fresh one themselves (Section 4.4 lists no such capability).
+  assertPermission(ctx, 'analysis.trigger')
   await getAuthorizedClient(ctx, clientId)
 
   const workflow = await getOrCreateWorkflow(

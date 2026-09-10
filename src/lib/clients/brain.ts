@@ -7,8 +7,11 @@ import { BRAIN_SECTION_SCHEMAS, type BrainSectionKey } from './brain-schemas'
 
 /**
  * Client Brain CRUD (BRD-PRD Section 6). Every function here is tenant- and
- * permission-checked (`clients.read` for reads, `clients.manage` for
- * writes) via the same guards as everything else - never a special case.
+ * permission-checked (`clients.read` for reads, `clients.edit` for writes
+ * to an already-accessible client's Brain/Policy/brand assets/competitors
+ * - see `docs/DECISIONS.md` for why this is `.edit`, not `.manage`, and
+ * `feedback.create` for `addClientFeedback`) via the same guards as
+ * everything else - never a special case.
  */
 
 // --- Narrative sections (business/audience/brand/marketing) ---
@@ -47,7 +50,7 @@ export async function updateClientBrainSection(
   section: BrainSectionKey,
   data: unknown,
 ) {
-  assertPermission(ctx, 'clients.manage')
+  assertPermission(ctx, 'clients.edit')
   await getAuthorizedClient(ctx, clientId)
   const parsed = BRAIN_SECTION_SCHEMAS[section].parse(data)
   return db.clientBrain.upsert({
@@ -70,7 +73,7 @@ export async function addClientBrandAsset(
   clientId: string,
   input: { type: BrandAssetType; label: string; url: string; restricted?: boolean },
 ) {
-  assertPermission(ctx, 'clients.manage')
+  assertPermission(ctx, 'clients.edit')
   await getAuthorizedClient(ctx, clientId)
   return db.clientBrandAsset.create({ data: { clientId, createdBy: ctx.userId, ...input } })
 }
@@ -88,7 +91,7 @@ export async function addClientCompetitor(
   clientId: string,
   input: { name: string; url?: string; positioning?: string; observations?: string },
 ) {
-  assertPermission(ctx, 'clients.manage')
+  assertPermission(ctx, 'clients.edit')
   await getAuthorizedClient(ctx, clientId)
   return db.clientCompetitor.create({ data: { clientId, ...input } })
 }
@@ -112,7 +115,7 @@ export async function updateClientPolicy(
     requireApprovalForCampaignLaunch: boolean
   }>,
 ) {
-  assertPermission(ctx, 'clients.manage')
+  assertPermission(ctx, 'clients.edit')
   await getAuthorizedClient(ctx, clientId)
   return db.clientPolicy.upsert({
     where: { clientId },
@@ -134,7 +137,7 @@ export async function addClientFeedback(
   clientId: string,
   input: { category: ClientFeedbackCategory; content: string; source: ClientFeedbackSource },
 ) {
-  assertPermission(ctx, 'clients.manage')
+  assertPermission(ctx, 'feedback.create')
   await getAuthorizedClient(ctx, clientId)
   return db.clientFeedback.create({ data: { clientId, createdBy: ctx.userId, ...input } })
 }

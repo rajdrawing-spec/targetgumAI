@@ -25,6 +25,21 @@ short of live credentials, which this environment does not have — see
 those credentials exist. See `docs/MVP-CHECKLIST.md` for the full
 day-by-day record.
 
+**Phase 2 has started** (BRD Section 85): a permission-model audit against
+BRD Section 4's per-role capability lists found and fixed several real gaps
+(an authorization hole letting a `client_user` trigger a paid AI analysis
+themselves; a data-exposure gap letting a `client_user` read an `INTERNAL`
+report's internal reasoning by direct id; `client_user` never actually
+being able to review recommendations or give feedback despite BRD Section
+4.4 listing both) and split `clients.manage` into creation (unchanged,
+Super-Admin-only) vs. editing an already-accessible client (new
+`clients.edit`, also granted to `account_manager`). On top of that, the
+Client Approval Portal (`src/app/portal/`) gives a `client_user` a
+genuinely separate experience from staff's `/dashboard` — reviewing/
+approving recommendations, CLIENT-only reports, and feedback — per BRD
+Section 4.4. See `docs/MVP-CHECKLIST.md`'s Phase 2 section and
+`docs/DECISIONS.md` for the full account.
+
 This document is the architecture assessment and implementation plan requested by
 `docs/BRD-PRD.md` Section 116. It proposes the technology stack, repository structure,
 database architecture, infrastructure, security risks, integrations, and phased plan.

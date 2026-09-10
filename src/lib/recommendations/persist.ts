@@ -109,7 +109,7 @@ export async function getRecommendation(ctx: AuthContext, recommendationId: stri
 }
 
 export async function acceptRecommendation(ctx: AuthContext, recommendationId: string) {
-  assertPermission(ctx, 'approvals.request')
+  assertPermission(ctx, 'recommendations.review')
   const rec = await getOwnedRecommendation(ctx, recommendationId)
   if (rec.status !== 'RECOMMENDED') {
     throw new Error(`Cannot accept a recommendation in status ${rec.status}.`)
@@ -124,7 +124,7 @@ export async function acceptRecommendation(ctx: AuthContext, recommendationId: s
  * Brain back to itself.
  */
 export async function rejectRecommendation(ctx: AuthContext, recommendationId: string, reason: string) {
-  assertPermission(ctx, 'approvals.request')
+  assertPermission(ctx, 'recommendations.review')
   const rec = await getOwnedRecommendation(ctx, recommendationId)
   if (rec.status !== 'RECOMMENDED') {
     throw new Error(`Cannot reject a recommendation in status ${rec.status}.`)
@@ -140,7 +140,10 @@ export async function rejectRecommendation(ctx: AuthContext, recommendationId: s
         clientId: rec.clientId,
         category: 'REJECTED_PATTERN',
         content: `Recommendation rejected: "${rec.recommendation}" (area: ${rec.area}). Reason: ${reason}`,
-        source: 'ACCOUNT_MANAGER',
+        // Correctly attributes the feedback source - previously always
+        // hardcoded ACCOUNT_MANAGER even when a client_user rejected it,
+        // once client_user could reach this function at all.
+        source: ctx.isClientUser ? 'CLIENT' : 'ACCOUNT_MANAGER',
         createdBy: ctx.userId,
       },
     }),

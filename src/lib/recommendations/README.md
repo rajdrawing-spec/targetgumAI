@@ -4,10 +4,15 @@ Recommendation persistence and lifecycle (BRD-PRD Section 39, 107), task creatio
 (Section 40), and the routing decision between the two (Section 24).
 
 - `persist.ts` — `persistRecommendations` (from a Marketing Analytics Agent run,
-  `src/lib/agents/analytics-agent.ts`), `listRecommendations`, `getRecommendation`,
-  `acceptRecommendation`, `rejectRecommendation` (which also records the rejection
-  as `ClientFeedback` — BRD Section 108's "learning from feedback" loop, back to
-  Day 8's Client Brain).
+  `src/lib/agents/analytics-agent.ts`), `listRecommendations`/`listRecommendationsForOrg`,
+  `getRecommendation`, `acceptRecommendation`, `rejectRecommendation` (which also
+  records the rejection as `ClientFeedback` — BRD Section 108's "learning from
+  feedback" loop, back to Day 8's Client Brain, correctly attributed `source: CLIENT`
+  vs. `ACCOUNT_MANAGER` by `ctx.isClientUser`). Accept/reject are gated by
+  `recommendations.review` (Phase 2 - granted to `account_manager`,
+  `marketing_employee`, and `client_user`; deliberately NOT `approvals.request`,
+  which is the separate, more sensitive formal Approval Engine permission - see
+  `src/lib/approvals/README.md` and docs/DECISIONS.md).
 - `tasks.ts` — `createTaskFromRecommendation`, `listTasks`, `updateTaskStatus`. Gated
   by `tasks.create`, not `clients.manage` — Account Manager and Marketing Employee can
   both create tasks (BRD Section 4.2-4.3); a Client User cannot (Section 4.4).

@@ -106,11 +106,23 @@ export async function generateReport(
   })
 }
 
+/**
+ * A client_user's `filter.type` is never trusted to open this up - INTERNAL
+ * reports carry evidence/confidence/dataGaps that BRD Section 41/102 says
+ * must never reach a client, so their effective filter is always forced to
+ * `CLIENT`, overriding whatever (if anything) was requested.
+ */
+function effectiveReportTypeFilter(ctx: AuthContext, requested?: ReportType): ReportType | undefined {
+  if (ctx.isClientUser) return 'CLIENT'
+  return requested
+}
+
 export async function listReports(ctx: AuthContext, clientId: string, filter: { type?: ReportType } = {}) {
   assertPermission(ctx, 'reports.read')
   await getAuthorizedClient(ctx, clientId)
+  const type = effectiveReportTypeFilter(ctx, filter.type)
   return db.report.findMany({
-    where: { clientId, ...(filter.type && { type: filter.type }) },
+    where: { clientId, ...(type && { type }) },
     orderBy: { createdAt: 'desc' },
   })
 }
@@ -118,17 +130,27 @@ export async function listReports(ctx: AuthContext, clientId: string, filter: { 
 /** Org-wide report listing, scoped to the caller's authorized clients (Day 14 dashboard). */
 export async function listReportsForOrg(ctx: AuthContext, filter: { type?: ReportType; limit?: number } = {}) {
   assertPermission(ctx, 'reports.read')
+  const type = effectiveReportTypeFilter(ctx, filter.type)
   return db.report.findMany({
-    where: { ...scopedClientWhere(ctx), ...(filter.type && { type: filter.type }) },
+    where: { ...scopedClientWhere(ctx), ...(type && { type }) },
     include: { client: { select: { id: true, name: true } } },
     orderBy: { createdAt: 'desc' },
     take: filter.limit ?? 50,
   })
 }
 
+/**
+ * Never returns an INTERNAL report to a client_user, even by direct id -
+ * BRD Section 41/102's "no internal AI reasoning to the client" has to hold
+ * for a guessed/shared URL too, not just the list views that normally
+ * filter it out (`effectiveReportTypeFilter` above).
+ */
 async function getOwnedReport(ctx: AuthContext, reportId: string) {
   const report = await db.report.findUnique({ where: { id: reportId } })
   if (!report || report.organizationId !== ctx.organizationId) {
+    throw new ForbiddenError('Not authorized for this report.')
+  }
+  if (ctx.isClientUser && report.type !== 'CLIENT') {
     throw new ForbiddenError('Not authorized for this report.')
   }
   const client = await db.client.findUnique({ where: { id: report.clientId } })
