@@ -5,6 +5,30 @@ Newest entries at the top.
 
 ---
 
+## 2026-09-10 — ClientBrain sections fetched as a full row, not per-column Prisma `select` (Day 8)
+
+**Decision:** `getClientBrainSection(s)` (`src/lib/clients/brain.ts`) runs
+`db.clientBrain.findUnique({ where: { clientId } })` and picks fields off the result,
+rather than `select: { business: true }` etc.
+
+**Rationale:** `docs/DATA-MODEL.md`'s original design note anticipated column-level
+`select` as how the Context Router would avoid loading the whole brain. In practice,
+`ClientBrain` is one row of at most 4 JSON blobs per client - the realistic content
+here (business/audience/brand/marketing notes for one client) is nowhere near large
+enough for the `select`-vs-fetch-all difference to matter at Postgres query time, and
+fetching the full row keeps the code simple (no per-section switch/case or unsafe
+dynamic key typing). The actual thing that matters for BRD Section 7 - not injecting
+the whole brain into a prompt - is enforced at the Context Router level
+(`assembleClientContext` only returns the sections a category needs), which is
+what's actually tested.
+
+**Revisit if:** ClientBrain sections grow large enough (e.g. a business section with
+years of accumulated free-text history) that column-level `select` becomes a real
+DB-side saving - switch `getClientBrainSection(s)` to per-column `select` at that
+point; callers don't need to change.
+
+---
+
 ## 2026-09-10 — GA4/GSC providers are resolved per-connection, not per-organization (Day 7)
 
 **Decision:** `resolveGA4Provider`/`resolveGSCProvider` take the resolved

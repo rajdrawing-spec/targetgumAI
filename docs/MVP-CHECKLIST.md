@@ -253,10 +253,36 @@ connection is not. Tracked in `docs/EXTERNAL-APPROVALS.md`.
   account is currently a library-only mechanism, no "Connect Google"
   button) — that lands with the dashboard (Day 13).
 
-### Day 8 — Client Brain
+### Day 8 — Client Brain ✅ DONE
 
-- [ ] Client Brain schema implementation + CRUD
-- [ ] Context Router (relevant-slice selection, not whole-brain injection)
+- [x] Client Brain CRUD (`src/lib/clients/brain.ts`): narrative sections
+      (business/audience/brand/marketing) validated against Zod schemas on
+      every write (`src/lib/clients/brain-schemas.ts`) — invalid data is
+      rejected, not silently stored; plus brand assets, competitors,
+      policy, and feedback CRUD, all tenant- and permission-checked exactly
+      like every other module (no special case for Client Brain)
+- [x] Context Router (`src/lib/clients/context-router.ts`):
+      `assembleClientContext(ctx, clientId, category)` returns only the
+      Client Brain slice relevant to `'analytics' | 'content' |
+      'reporting'` — e.g. `'analytics'` gets business+marketing+competitors
+      but not audience/brand; `'content'` gets business+audience+brand but
+      not marketing/competitors — proving the "only relevant context, never
+      the whole brain" requirement (BRD Section 7) rather than just
+      asserting it
+- [x] `renderContextAsText` turns the assembled context into a plain-text
+      block for the AI Gateway's `userMessage` (Day 4) — this is the piece
+      that connects Client Brain data to an actual Claude call, ready for
+      Day 9's Analytics Agent to use
+- [x] 19 new tests (122 total): section-schema validation (valid/invalid
+      cases per section); full CRUD against a real DB including permission
+      denial (marketing_employee lacking `clients.manage`) and cross-client
+      denial; Context Router category-based section selection, competitors
+      included only for `'analytics'`, feedback included for every
+      category, cross-client denial, and text rendering excluding
+      out-of-category sections
+
+No agent consumes this yet — Day 9's Analytics Agent is the first real caller of
+`assembleClientContext`.
 
 ### Day 9 — Analytics Agent
 
