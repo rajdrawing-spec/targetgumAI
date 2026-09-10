@@ -1,0 +1,17 @@
+// TargetGum AI Marketing OS - Prisma schema
+//
+// This is a placeholder datasource/generator only. The full multi-tenant
+// schema (organizations, users, clients, client_brain, integrations,
+// ai_runs, agents, workflows, approvals, audit_events, campaigns, etc. -
+// see docs/DATA-MODEL.md) is implemented in the Foundation build step
+// (docs/MVP-CHECKLIST.md, Week 1 / Day 2), after the architecture plan
+// in docs/ARCHITECTURE.md is reviewed.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
