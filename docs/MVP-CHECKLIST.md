@@ -361,7 +361,67 @@ known simplification, documented in `docs/APPROVALS.md`.
 
 ## Week 3 — End-to-End MVP
 
-### Day 11 — "Analyze Client A" complete workflow
+### Day 11 — "Analyze Client A" complete workflow ✅ DONE
+
+- [x] Minimal `WorkflowRun`/`WorkflowStep` tracking (`src/lib/workflows/runs.ts`):
+      `getOrCreateWorkflow` (idempotent by `organizationId_key`),
+      `startWorkflowRun`, `recordWorkflowStep`, `completeWorkflowRun` — a
+      durable, queryable run record per invocation, not the general
+      Workflow Engine (scheduling/delays/retries/pause-resume) BRD Section
+      23 describes. That's larger, speculative infrastructure with no
+      second caller yet; documented in `docs/DECISIONS.md` as scoped down
+      on purpose, to be generalized once a second real workflow needs the
+      same shape.
+- [x] Report generation (`src/lib/reports/generate.ts`): `generateReport`
+      builds a `ReportContent` directly from an agent's already-validated
+      `AnalysisResult` — never a fresh AI call re-describing numbers (BRD
+      Section 68's warning). `CLIENT` reports omit `evidence`,
+      `confidence`, and `dataGaps` (no internal AI reasoning exposed — BRD
+      Section 41/102); `INTERNAL` reports include everything. Gated by the
+      existing `clients.read` permission, tenant-scoped via
+      `getAuthorizedClient`. `listReports` filters by type.
+- [x] **The complete workflow** (`src/lib/workflows/analyze-client-workflow.ts`,
+      `runAnalyzeClientWorkflow`) wires every prior day into one callable,
+      tracked, audited pipeline (BRD Section 46): client resolution +
+      authorization → Day 9's Analytics Agent (Client Brain + Context
+      Router + real-time Metricool/GA4/GSC data + Claude analysis) →
+      Day 10's `persistRecommendations` + `routeRecommendation` (task vs.
+      approval) → Day 11's `generateReport` (`INTERNAL`) → a
+      `recordAuditEvent`. Each stage is recorded as a `WorkflowStep`
+      (`RUNNING` → `SUCCEEDED`/`FAILED`/`SKIPPED`); the whole run completes
+      as a `WorkflowRun` with `SUCCEEDED`/`FAILED` and, on failure, the
+      error message. BRD Section 19 ("no campaign modification should
+      occur merely because Claude recommends it") still holds — the
+      workflow's job ends at recommendations + a report + any pending
+      approvals it created, never at executing anything.
+- [x] **All-data-gaps path handled explicitly**: when
+      `analysis.aiRunId` is `null` (every integration unavailable, the Day
+      9 guard), `persist_recommendations`/`route_recommendations` are
+      recorded `SKIPPED` rather than run against nothing — the report step
+      still runs (a report with no findings is still a truthful report)
+      and the workflow still completes `SUCCEEDED`.
+- [x] **Failure path**: if the analysis step throws (e.g. the AI Gateway
+      call fails after exhausting Day 4's retries), the run is marked
+      `FAILED` with the error message, a `FAILURE` audit event is
+      recorded, and the error propagates to the caller — no partial/silent
+      success.
+- [x] 6 new tests (148 total): 3 in `tests/integration/reports.test.ts`
+      (CLIENT vs. INTERNAL content filtering, tenant-scoped
+      `listReports`); 3 in `tests/integration/analyze-client-workflow.test.ts`
+      covering the full success path (one HIGH-priority recommendation
+      routed to a real `PENDING` approval, one MEDIUM-priority
+      recommendation routed to a real task, a report generated, every
+      `WorkflowStep` and the audit event verified against the DB), the
+      all-data-gaps path (steps `SKIPPED`, workflow still `SUCCEEDED`, the
+      mocked Claude client never invoked), and the failure path (`FAILED`
+      run + audit `FAILURE` event, no later steps recorded).
+
+No trigger/UI exists yet to invoke this workflow on demand — it's a
+directly-callable function today, exercised by the Day 3 dashboard shell's
+future "Analyze" action or a scheduled job (Day 13+). The workflow itself is
+complete and tested end to end against a real database with every external
+provider (Anthropic, Metricool, Google) exercised through injected fakes or
+mock providers.
 
 ### Day 12 — Security / adversarial testing (BRD Section 80, all 10 scenarios)
 

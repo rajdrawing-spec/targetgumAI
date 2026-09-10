@@ -523,6 +523,65 @@ hosting"), but this has not been confirmed with the user. See open questions.
 
 ---
 
+## 2026-09-10 — Day 11: minimal WorkflowRun/WorkflowStep tracking, not the general Workflow Engine
+
+**Decision:** `src/lib/workflows/runs.ts` implements just enough to give the
+"Analyze Client A" workflow (`src/lib/workflows/analyze-client-workflow.ts`)
+a durable, auditable run record — `getOrCreateWorkflow`,
+`startWorkflowRun`, `recordWorkflowStep`, `completeWorkflowRun` — rather
+than building the full Workflow Engine BRD-PRD Section 23 describes
+(scheduling, delays, conditions, retries, timeouts, pause/resume as a
+generic state machine).
+
+**Rationale:** There is exactly one real workflow to run through the engine
+right now. Building generic scheduling/retry/pause-resume infrastructure
+against a single caller means guessing at an API shape with no second data
+point to validate it against — a classic premature-abstraction risk. The
+minimal tracker still satisfies what Section 23 actually requires *today*:
+every stage is recorded as a `WorkflowStep` with status transitions
+(`RUNNING` → `SUCCEEDED`/`FAILED`/`SKIPPED`), the overall run is durable
+and queryable (`WorkflowRun`), and failures are captured with their error
+rather than silently swallowed.
+
+**Trade-off accepted:** no scheduling, no automatic retries, no pause/resume
+for approval waits (an approval created mid-workflow is a fire-and-forget
+side effect the workflow doesn't block on — the workflow's own run
+completes once it has created the approval, not once the approval is
+decided), no idempotency-key replay protection at the workflow level (Day
+10's approval/tool layer already has this for the one place it currently
+matters — see `docs/APPROVALS.md`). These are the parts of Section 23 the
+MVP does not yet need.
+
+**Revisit if:** a second real workflow (e.g. the creative workflow, BRD
+Section 47, or scheduled daily/weekly automation, Section 65) needs the
+same shape — generalize `src/lib/workflows/runs.ts` into the full engine
+at that point, informed by two concrete call sites instead of one.
+
+---
+
+## 2026-09-10 — Day 11: reports are built from structured `AnalysisResult`, never a fresh AI call
+
+**Decision:** `generateReport` (`src/lib/reports/generate.ts`) transforms
+an agent's already-validated `AnalysisResult` into a `ReportContent` shape
+in application code. It never asks Claude to re-describe or re-summarize
+the numbers into report prose.
+
+**Rationale:** BRD Section 68 explicitly warns against the "Claude guesses
+metrics" anti-pattern — a report is a rendering of data that already went
+through structured-output validation (Day 4's `zodOutputFormat`) and, for
+CLIENT-type reports, a redaction step (dropping `evidence`/`confidence`/
+`dataGaps` per Section 41/102's "don't expose internal AI reasoning" rule).
+Adding a second AI call to turn that data into a report would spend money
+for no informational gain and reintroduce exactly the fabrication risk
+Section 68 calls out.
+
+**Revisit if:** product wants a narrative/prose report style beyond
+structured findings + recommendations — even then, the better fix is a
+templating pass over `ReportContent`, not a fresh model call re-deriving
+facts already known and validated.
+
+---
+
 ## Template for future entries
 
 ```text
