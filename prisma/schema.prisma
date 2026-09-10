@@ -649,7 +649,7 @@ model WorkflowRun {
   updatedAt      DateTime          @updatedAt
 
   client   Client?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
-  workflow Workflow @relation(fields: [workflowId], references: [id])
+  workflow Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
 
   steps          WorkflowStep[]
   toolExecutions ToolExecution[]

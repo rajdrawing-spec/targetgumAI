@@ -475,7 +475,80 @@ mock providers.
 All ten BRD Section 80 scenarios now fail safely with automated, repeatable
 proof — not just code-review confidence.
 
-### Day 13 — Dashboard (recommendations, tasks, approvals, AI runs)
+### Day 13 — Dashboard (recommendations, tasks, approvals, AI runs) ✅ DONE
+
+- [x] New org-wide (cross-client) read helpers, each scoped by the same
+      `clientAccess` rule as every single-client read — `listAccessibleClients`
+      (`src/lib/clients/list.ts`), `listRecommendationsForOrg`
+      (`src/lib/recommendations/persist.ts`), `listTasksForOrg`
+      (`src/lib/recommendations/tasks.ts`), `listAiRuns` (new
+      `src/lib/ai/runs.ts`), `listIntegrationConnectionsForOrg`
+      (`src/lib/integrations/health.ts`, deliberately never selects
+      `encryptedCredentials` — a status view, not a credential-reading
+      path). 6 new scoping tests in `tests/integration/
+      dashboard-queries.test.ts` prove a role limited to Client A never
+      sees Client B's rows through any of these, even though they're
+      fetched "org-wide."
+- [x] Dashboard shell (`src/app/dashboard/layout.tsx`): nav for the subset
+      of BRD Section 42's full list that's actually implemented in the MVP
+      — Overview, Clients, Recommendations, Tasks, Approvals, AI Runs
+      (Social/Advertising/Analytics/SEO/Content Calendar/Creatives/
+      Integrations/Audit/Settings are out of MVP scope per Section 45/49 -
+      added alongside their modules).
+- [x] **Overview** (`src/app/dashboard/page.tsx`, replacing the Day 3
+      placeholder): active clients, pending approvals, high-priority
+      recommendations, open tasks, integration health by status, recent AI
+      runs — the BRD Section 42 home-dashboard subset with a backing
+      module today. "Scheduled content"/"campaign alerts" omitted rather
+      than shown empty/fake.
+- [x] **Clients** list + **Client detail** page
+      (`src/app/dashboard/clients/[clientId]/page.tsx`): policy summary,
+      integration status, that client's recommendations/tasks/approvals/
+      reports/AI runs, and an "Analyze this client" button — the MVP's
+      button stand-in for BRD Section 43's natural-language trigger
+      ("Analyze Client A's marketing performance"; Section 44's full
+      command layer is Phase 2) — calling `runAnalyzeClientWorkflow`
+      (Day 11) via a Server Action.
+- [x] **Recommendations**, **Tasks**, **Approvals** pages: accept/reject,
+      status updates, and approve/reject respectively, each as a Server
+      Action (`src/app/dashboard/actions.ts`) that's a thin wrapper over
+      the already permission/tenant-checked Day 10 library functions — no
+      authorization logic added in the UI layer. Decision buttons are only
+      rendered when `ctx.permissions` actually holds the deciding
+      permission (`approvals.request`/`approvals.approve`/`tasks.create`),
+      matching BRD Section 4.2-4.4's role split; the real enforcement is
+      still server-side in the wrapped library calls.
+- [x] **AI Runs** page: model, prompt version, tokens, cost, duration,
+      status, per client.
+- [x] End-to-end smoke-verified against a real Postgres instance with a
+      headless browser (Playwright, already installed in this
+      environment): seeded a real user/client/recommendation/task/
+      approval/AI-run, signed in through the actual credentials form,
+      walked every dashboard route (all 200, no error-boundary text, no
+      console errors beyond an unrelated favicon 404), then exercised
+      every Server Action from the rendered pages — including clicking
+      "Analyze this client" through the real `runAnalyzeClientWorkflow`
+      (the all-data-gaps path, since the smoke client had no integrations
+      connected: completed `SUCCEEDED` with a real `INTERNAL` report, no
+      AI spend) — and accept/start-task/approve, confirming no runtime
+      errors anywhere in the new route tree. Fixture data and scratch
+      scripts were removed afterward; the dev-seed organization (`npm run
+      db:seed` / `prisma/seed.ts`) was restored.
+- [x] **Found and fixed a real bug while smoke-testing**: `workflow_runs`'
+      foreign key to `workflows` had no `onDelete` set (defaulting to
+      `RESTRICT`), so deleting an `Organization` that had ever run the Day
+      11 workflow failed — silently, because `tests/helpers/factory.ts`'s
+      `cleanupOrg` swallows its own delete errors. Every
+      `analyze-client-workflow.test.ts` run had been leaving its test
+      Organization behind in the database. Fixed with a migration
+      (`onDelete: Cascade` — a `WorkflowRun` has no meaning once its
+      `Workflow` definition is gone) and cleaned up the accumulated
+      orphaned test data; see `docs/DECISIONS.md`.
+- [x] 6 new tests (162 total, up from 156).
+
+No client-portal-specific view exists yet (a `client_user` today sees the
+same dashboard, permission-filtered) — that's a Phase 2 refinement, not
+required by BRD Section 45's MVP definition.
 
 ### Day 14 — Reports, audit trail, integration health, error states
 

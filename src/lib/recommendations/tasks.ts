@@ -1,6 +1,6 @@
 import type { RecommendationPriority, TaskPriority, TaskStatus } from '@prisma/client'
 import { db } from '@/lib/db/client'
-import { getAuthorizedClient } from '@/lib/db/tenant'
+import { getAuthorizedClient, scopedClientWhere } from '@/lib/db/tenant'
 import { assertClientAccess, assertPermission } from '@/lib/rbac/guards'
 import { ForbiddenError } from '@/lib/rbac/errors'
 import type { AuthContext } from '@/lib/rbac/types'
@@ -62,6 +62,17 @@ export async function listTasks(ctx: AuthContext, clientId: string, filter: { st
   return db.task.findMany({
     where: { clientId, ...(filter.status && { status: filter.status }) },
     orderBy: { createdAt: 'desc' },
+  })
+}
+
+/** Org-wide task listing, scoped to the caller's authorized clients (Day 13 dashboard - "tasks due", BRD Section 42). */
+export async function listTasksForOrg(ctx: AuthContext, filter: { status?: TaskStatus; limit?: number } = {}) {
+  assertPermission(ctx, 'clients.read')
+  return db.task.findMany({
+    where: { ...scopedClientWhere(ctx), ...(filter.status && { status: filter.status }) },
+    include: { client: { select: { id: true, name: true } } },
+    orderBy: { createdAt: 'desc' },
+    take: filter.limit ?? 50,
   })
 }
 

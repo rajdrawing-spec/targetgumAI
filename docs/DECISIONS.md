@@ -582,6 +582,38 @@ facts already known and validated.
 
 ---
 
+## 2026-09-10 — Day 13: `workflow_runs.workflowId` foreign key changed from RESTRICT to CASCADE
+
+**Decision:** Changed `WorkflowRun.workflow`'s relation from Prisma's implicit
+default (`ON DELETE RESTRICT`) to `onDelete: Cascade` (migration
+`20260910111038_workflow_run_cascade_delete_on_workflow`).
+
+**Rationale:** Discovered while building the Day 13 dashboard and smoke-testing
+it end-to-end: `Organization` cascade-deletes its `Workflow` rows, but
+`WorkflowRun.workflowId` had no `onDelete` set, which Prisma/Postgres
+resolves to `RESTRICT` — so deleting an `Organization` that has ever run
+the "Analyze Client A" workflow (Day 11) failed with a foreign-key
+violation. `tests/helpers/factory.ts`'s `cleanupOrg` silently swallows its
+own delete error (`.catch(() => undefined)`, needed so parallel test files
+don't fail on an already-cleaned-up org), which hid the failure: every
+`tests/integration/analyze-client-workflow.test.ts` run left its
+Organization/Workflow/WorkflowRun rows behind in the database instead of
+actually cleaning up. Confirmed and fixed by querying the dev database
+directly (6 orphaned test organizations found, including the Day 2 seed
+org `TargetGum Digital Marketing` from an earlier session — restored via
+`npx prisma db seed`, which is idempotent and safe to re-run).
+`WorkflowRun` rows have no meaning once their `Workflow` definition is
+gone, so cascading is the correct behavior here (unlike `Approval` or
+`ToolExecution`'s `SetNull` on `workflowRunId`, which are their own durable
+records that should survive a workflow run being cleaned up).
+
+**Revisit if:** a product requirement emerges to retain `WorkflowRun`
+history independently of its `Workflow` definition (e.g. for long-term
+audit even after a workflow is redefined/removed) — that would call for
+`SetNull` (making `workflowId` nullable) instead of `Cascade`.
+
+---
+
 ## Template for future entries
 
 ```text

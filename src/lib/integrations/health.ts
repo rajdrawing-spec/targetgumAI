@@ -1,6 +1,9 @@
 import type { IntegrationHealth, IntegrationProvider } from '@prisma/client'
 import { db } from '@/lib/db/client'
 import { decryptSecret, encryptSecret } from '@/lib/crypto/envelope'
+import { scopedClientWhere } from '@/lib/db/tenant'
+import { assertPermission } from '@/lib/rbac/guards'
+import type { AuthContext } from '@/lib/rbac/types'
 import { IntegrationUnavailableError } from './errors'
 
 /**
@@ -168,4 +171,28 @@ export function loadProviderCredentials<T = Record<string, unknown>>(connection:
 }): T | null {
   if (!connection.encryptedCredentials) return null
   return JSON.parse(decryptSecret(connection.encryptedCredentials)) as T
+}
+
+/**
+ * Org-wide integration connection listing, scoped to the caller's
+ * authorized clients (Day 13 dashboard - "integration health", BRD Section
+ * 42/34). Never selects `encryptedCredentials` - this is a status view,
+ * not a credential-reading path (see docs/SECURITY.md).
+ */
+export async function listIntegrationConnectionsForOrg(ctx: AuthContext) {
+  assertPermission(ctx, 'clients.read')
+  return db.integrationConnection.findMany({
+    where: scopedClientWhere(ctx),
+    select: {
+      id: true,
+      clientId: true,
+      status: true,
+      lastSuccessfulSyncAt: true,
+      lastErrorAt: true,
+      lastErrorMessage: true,
+      client: { select: { id: true, name: true } },
+      integrationAccount: { select: { integration: { select: { provider: true } } } },
+    },
+    orderBy: { updatedAt: 'desc' },
+  })
 }

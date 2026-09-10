@@ -1,6 +1,6 @@
-import type { Prisma, RecommendationStatus } from '@prisma/client'
+import type { Prisma, RecommendationPriority, RecommendationStatus } from '@prisma/client'
 import { db } from '@/lib/db/client'
-import { getAuthorizedClient } from '@/lib/db/tenant'
+import { getAuthorizedClient, scopedClientWhere } from '@/lib/db/tenant'
 import { assertClientAccess, assertPermission } from '@/lib/rbac/guards'
 import { ForbiddenError } from '@/lib/rbac/errors'
 import type { AuthContext } from '@/lib/rbac/types'
@@ -66,6 +66,29 @@ export async function listRecommendations(
   return db.recommendation.findMany({
     where: { clientId, ...(filter.status && { status: filter.status }) },
     orderBy: { createdAt: 'desc' },
+  })
+}
+
+/**
+ * Org-wide recommendation listing, scoped to the caller's authorized
+ * clients (Day 13 dashboard - "high-priority recommendations" on the
+ * overview page, BRD Section 42). `listRecommendations` above stays the
+ * single-client read; this is the cross-client one.
+ */
+export async function listRecommendationsForOrg(
+  ctx: AuthContext,
+  filter: { status?: RecommendationStatus; priority?: RecommendationPriority; limit?: number } = {},
+) {
+  assertPermission(ctx, 'clients.read')
+  return db.recommendation.findMany({
+    where: {
+      ...scopedClientWhere(ctx),
+      ...(filter.status && { status: filter.status }),
+      ...(filter.priority && { priority: filter.priority }),
+    },
+    include: { client: { select: { id: true, name: true } } },
+    orderBy: { createdAt: 'desc' },
+    take: filter.limit ?? 50,
   })
 }
 
