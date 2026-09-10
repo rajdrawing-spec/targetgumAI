@@ -139,3 +139,50 @@ export interface AdsProvider {
   updateBudget(providerCampaignId: string, budget: number): Promise<void>
   updateBid(providerAdId: string, bid: number): Promise<void>
 }
+
+// ---------------------------------------------------------------------------
+// Website analytics (GA4)
+// ---------------------------------------------------------------------------
+
+export interface AnalyticsReportRequest {
+  propertyId: string
+  dimensions: string[] // e.g. "date", "sessionDefaultChannelGroup", "landingPage"
+  metrics: string[] // e.g. "sessions", "conversions", "totalRevenue"
+  range: { from: string; to: string }
+}
+
+export interface AnalyticsReportRow extends Provenance {
+  dimensions: Record<string, string>
+  metrics: Record<string, number>
+  raw: unknown
+}
+
+/** BRD-PRD Section 35 - traffic, users, sessions, engagement, conversions, revenue, landing pages, traffic sources, campaign performance - all reachable via dimension/metric choice on one runReport call. */
+export interface AnalyticsProvider {
+  getReport(request: AnalyticsReportRequest): Promise<AnalyticsReportRow[]>
+}
+
+// ---------------------------------------------------------------------------
+// Search analytics (Google Search Console)
+// ---------------------------------------------------------------------------
+
+export interface SeoQueryRequest {
+  siteUrl: string
+  dimensions: Array<'query' | 'page' | 'date' | 'country' | 'device'>
+  range: { from: string; to: string }
+  rowLimit?: number
+}
+
+export interface SeoQueryRow extends Provenance {
+  keys: Record<string, string>
+  clicks: number
+  impressions: number
+  ctr: number
+  position: number
+  raw: unknown
+}
+
+/** BRD-PRD Section 36 - queries, clicks, impressions, CTR, average position, pages. */
+export interface SEOProvider {
+  getSearchPerformance(request: SeoQueryRequest): Promise<SeoQueryRow[]>
+}

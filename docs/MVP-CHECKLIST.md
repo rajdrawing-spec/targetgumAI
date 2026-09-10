@@ -199,10 +199,59 @@ server — no `METRICOOL_MCP_URL`/`METRICOOL_API_KEY` configured in this
 environment. The adapter's request-building logic is verified; the wire
 connection is not. Tracked in `docs/EXTERNAL-APPROVALS.md`.
 
-### Day 7 — GA4 + Search Console
+### Day 7 — GA4 + Search Console ✅ DONE
 
-- [ ] GA4 `AnalyticsProvider` + OAuth
-- [ ] GSC `SEOProvider` + OAuth
+- [x] `AnalyticsProvider`/`SEOProvider` interfaces added to
+      `src/lib/integrations/providers.ts` (BRD Section 35/36 fields —
+      dimensions/metrics with provenance for GA4, query/clicks/impressions/
+      CTR/position for GSC)
+- [x] Shared Google OAuth2 helper (`src/lib/integrations/google/oauth.ts`,
+      via the official `googleapis`/`google-auth-library` packages, not
+      guessed): auth-URL construction, code-for-token exchange, and
+      building an authenticated client from a stored refresh token (access-
+      token refresh is automatic, handled by the library)
+- [x] GA4 (`src/lib/integrations/ga4/`) and GSC (`src/lib/integrations/gsc/`)
+      real adapters, wrapping the GA4 Data API `runReport` and Search
+      Console `searchanalytics.query` respectively — both official,
+      documented Google APIs (verified against the installed `googleapis`
+      package's own type definitions, not training-data recall)
+- [x] Full mock providers for both (`GA4MockProvider`, `GSCMockProvider`)
+- [x] **Per-connection provider resolution** — a deliberate departure from
+      Metricool's pattern: GA4/GSC credentials are per-client OAuth (a
+      stored refresh token per `IntegrationConnection`), not one org-wide
+      API key, so `resolveGA4Provider`/`resolveGSCProvider` take the
+      resolved connection, not just an env-var check. This required
+      widening `withIntegrationHealthTracking`'s callback to receive the
+      full connection (Metricool's tools updated to match, still passing
+      after the change - see docs/DECISIONS.md)
+- [x] Credential storage: `saveProviderCredentials`/`loadProviderCredentials`
+      added to `src/lib/integrations/health.ts`, reusing Day 3's envelope
+      encryption (`src/lib/crypto/envelope.ts`) — refresh tokens are never
+      stored in plaintext
+- [x] Tool Registry entries: `ga4.get_report`, `gsc.get_search_performance`
+      (BRD Section 13's own example list)
+- [x] 11 new tests (103 total): mock provider coverage; OAuth URL
+      construction and the configured/not-configured branches (token
+      exchange itself isn't independently re-tested — see the gap noted
+      below); full end-to-end tool execution through `executeTool()` for
+      both providers, including unconnected clients getting
+      `IntegrationUnavailableError`
+
+**Known gaps** (documented, not silently skipped):
+- No live call has been made against a real Google Cloud OAuth app / GA4
+  property / Search Console property — no OAuth credentials configured in
+  this environment. Tracked in `docs/EXTERNAL-APPROVALS.md`.
+- Unlike Metricool (whose MCP client has a clean injection seam), the real
+  GA4/GSC adapters' HTTP-level request/response mapping isn't independently
+  unit-tested against a faked transport — `googleapis`' generated clients
+  don't offer an easy way to inject a fake without an HTTP-mocking library,
+  which wasn't added this round. The mapping code does compile against the
+  real, official response types (`Schema$RunReportResponse`,
+  `Schema$SearchAnalyticsQueryResponse`), which is partial but real
+  assurance.
+- No OAuth consent-flow UI/route exists yet (connecting a client's Google
+  account is currently a library-only mechanism, no "Connect Google"
+  button) — that lands with the dashboard (Day 13).
 
 ### Day 8 — Client Brain
 

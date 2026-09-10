@@ -1,9 +1,10 @@
 # Integrations — TargetGum AI Marketing OS
 
-Status: **Metricool implemented (Day 6).** Provider interfaces (`src/lib/integrations/
-providers.ts`), the connection/health model (`src/lib/integrations/health.ts`), and
-the Metricool adapter (`src/lib/integrations/metricool/` — real + mock) all exist.
-GA4/GSC/Canva remain design-only (Day 7+).
+Status: **Metricool (Day 6) and GA4/GSC (Day 7) implemented.** Provider interfaces
+(`src/lib/integrations/providers.ts`), the connection/health model
+(`src/lib/integrations/health.ts`), and real + mock adapters for Metricool
+(`src/lib/integrations/metricool/`), GA4 (`.../ga4/`), and GSC (`.../gsc/`) all exist.
+Canva remains design-only (Phase 1, optional).
 
 ## Principle: Provider Abstraction (BRD-PRD Section 109-112)
 
@@ -82,8 +83,8 @@ implemented, not speculatively here.
 | Social scheduling / analytics | Metricool MCP | Implemented (Day 6) - adapter built and unit-tested against verified tool schemas; not live-tested (no METRICOOL_MCP_URL configured anywhere this code has run) |
 | Supported ad analysis (read) | Metricool MCP | Implemented (Day 6), same live-test caveat as above |
 | Ad management (write) | — | **Confirmed unavailable via Metricool.** No adapter write path exists; would need a native Google/Meta Ads integration (Phase 2) if ever required |
-| Website analytics | GA4 | Not yet implemented (Day 7) |
-| Search analytics | Google Search Console | Not yet implemented (Day 7) |
+| Website analytics | GA4 | Implemented (Day 7) via official `googleapis` client; not live-tested (no OAuth app configured) |
+| Search analytics | Google Search Console | Implemented (Day 7), same caveat as above |
 | Creative | Canva MCP | Optional; not yet implemented |
 
 ### Metricool MCP — availability confirmed (checked live, 2026-09-10)
@@ -151,6 +152,29 @@ provider (Metricool or native) adds write support.
   tool, which arguments, the `draft: true` safety invariant) is unit-tested against an
   injected fake MCP client; the actual wire connection to a real Metricool MCP server
   has not been exercised. See docs/EXTERNAL-APPROVALS.md.
+
+### GA4 / GSC adapter — implementation notes (Day 7)
+
+- **OAuth, not an API key**: unlike Metricool, GA4/GSC credentials are per-client
+  (each client's Google property is authorized separately via OAuth2, `access_type:
+  offline` + `prompt: consent` to guarantee a refresh token). Stored refresh tokens
+  are envelope-encrypted (`saveProviderCredentials`/`loadProviderCredentials` in
+  `src/lib/integrations/health.ts`, reusing Day 3's `src/lib/crypto/envelope.ts`).
+- **Registered tools**: `ga4.get_report` (dimensions/metrics/date range → normalized
+  rows with provenance), `gsc.get_search_performance` (query/page/date/country/device
+  dimensions → clicks/impressions/CTR/position). Both LOW risk (read-only).
+- **Provider resolution is per-connection**, not per-organization — see
+  docs/DECISIONS.md for why this differs from Metricool's pattern and what it means
+  for `withIntegrationHealthTracking`.
+- **Not live-verified**: no real Google Cloud OAuth app, GA4 property, or Search
+  Console property is configured in any environment this code has run in. The API
+  client usage was checked against the installed `googleapis` package's own type
+  definitions (not guessed), but the actual OAuth consent flow and API calls haven't
+  been exercised against real Google infrastructure. See docs/EXTERNAL-APPROVALS.md.
+- **No consent-flow UI yet** — connecting a client's Google account is a library-only
+  mechanism (`buildGoogleAuthUrl`/`exchangeGoogleAuthCode` in
+  `src/lib/integrations/google/oauth.ts`) with no "Connect Google" button; that's
+  Day 13 (dashboard).
 
 ## Canva
 

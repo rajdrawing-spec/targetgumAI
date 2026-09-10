@@ -5,6 +5,60 @@ Newest entries at the top.
 
 ---
 
+## 2026-09-10 — GA4/GSC providers are resolved per-connection, not per-organization (Day 7)
+
+**Decision:** `resolveGA4Provider`/`resolveGSCProvider` take the resolved
+`IntegrationConnection` (via `withIntegrationHealthTracking`'s callback) and decide
+mock-vs-real per call, rather than a static `getGA4Provider()` factory like
+Metricool's `getMetricoolProvider()`. This required widening
+`withIntegrationHealthTracking`'s callback signature from `(externalAccountId:
+string)` to `(connection: ResolvedProviderConnection)` — Metricool's tool
+registrations were updated to destructure `connection.integrationAccount.
+externalAccountId` themselves; behavior is unchanged for Metricool, all its tests
+still pass.
+
+**Rationale:** Metricool authenticates with one org-wide API key — the same
+provider instance works for every client's brand, so a static factory made sense.
+GA4/GSC authenticate per-client via OAuth (each client's Google Analytics/Search
+Console property is authorized separately, producing a distinct refresh token per
+`IntegrationConnection`) — there is no single "the GA4 provider" for an org, only
+"the GA4 provider for this specific client's connection." Passing the connection
+through is what makes that possible without a redundant DB lookup inside the
+resolver.
+
+**Consequence for future providers**: an org-wide-credential provider (like
+Metricool) can ignore the connection object's credentials and just read
+`externalAccountId`; a per-client-OAuth provider (like GA4/GSC, and any future
+native Ads API using OAuth) uses `loadProviderCredentials(connection)` too. Both
+shapes are supported by the same `withIntegrationHealthTracking` signature now.
+
+---
+
+## 2026-09-10 — GA4/GSC use the official `googleapis` client library (Day 7)
+
+**Decision:** `src/lib/integrations/ga4/provider.ts` and `gsc/provider.ts` call the
+GA4 Data API (`analyticsdata.properties.runReport`) and Search Console API
+(`searchconsole.searchanalytics.query`) via Google's official `googleapis` npm
+package, rather than hand-rolled `fetch` calls against the REST endpoints.
+
+**Rationale:** Unlike Metricool (a bespoke MCP surface that had to be verified live
+rather than guessed), GA4 and Search Console are Google's own stable, long-documented
+public REST APIs with an official, actively-maintained Node client. Method names,
+request/response shapes were checked against the *installed package's own TypeScript
+definitions* (`node_modules/googleapis/build/src/apis/{analyticsdata,searchconsole}/
+*.d.ts`) before writing the adapters — not recalled from training data — so the same
+"never guess SDK usage" discipline applies, just resolved by reading the installed
+library instead of a live connection.
+
+**Trade-off accepted**: because `googleapis`' generated API clients don't expose an
+easy way to inject a fake HTTP transport, the real adapters' request/response mapping
+logic isn't independently unit-tested the way Metricool's is (which has a clean MCP
+client injection seam). This is a real, documented gap — see docs/MVP-CHECKLIST.md —
+not swept under the rug. Adding an HTTP-mocking library (e.g. `nock` or `msw`) would
+close it; deferred to keep this day's scope bounded.
+
+---
+
 ## 2026-09-10 — Metricool adapter connects via a real MCP client, not Metricool's REST API (Day 6)
 
 **Decision:** `src/lib/integrations/metricool/mcp-client.ts` implements

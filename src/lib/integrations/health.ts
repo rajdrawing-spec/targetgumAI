@@ -1,5 +1,6 @@
 import type { IntegrationHealth, IntegrationProvider } from '@prisma/client'
 import { db } from '@/lib/db/client'
+import { decryptSecret, encryptSecret } from '@/lib/crypto/envelope'
 import { IntegrationUnavailableError } from './errors'
 
 /**
@@ -112,20 +113,28 @@ export async function recordIntegrationFailure(
   })
 }
 
+export type ResolvedProviderConnection = Awaited<ReturnType<typeof requireProviderConnection>>
+
 /**
  * Runs `fn` against a resolved connection, recording success/failure health
- * on the way out. This is what src/lib/integrations/metricool/tools.ts
- * wraps every provider call with - never call a provider directly from a
- * tool without going through this.
+ * on the way out. This is what src/lib/integrations/metricool/tools.ts (and
+ * ga4/, gsc/) wrap every provider call with - never call a provider
+ * directly from a tool without going through this. `fn` receives the full
+ * connection (its `integrationAccount.externalAccountId` is a Metricool
+ * brandId, GA4 property id, or GSC site URL depending on the provider; its
+ * `encryptedCredentials`, via `loadProviderCredentials`, is what OAuth
+ * providers like GA4/GSC need to build an authenticated client - Metricool
+ * doesn't need it, since its credential is a single org-wide API key, not
+ * per-connection).
  */
 export async function withIntegrationHealthTracking<T>(
   clientId: string,
   provider: IntegrationProvider,
-  fn: (brandId: string) => Promise<T>,
+  fn: (connection: ResolvedProviderConnection) => Promise<T>,
 ): Promise<T> {
   const connection = await requireProviderConnection(clientId, provider)
   try {
-    const result = await fn(connection.integrationAccount.externalAccountId)
+    const result = await fn(connection)
     await recordIntegrationSuccess(connection.id)
     return result
   } catch (error) {
@@ -134,4 +143,29 @@ export async function withIntegrationHealthTracking<T>(
     if (error instanceof IntegrationUnavailableError) throw error
     throw new IntegrationUnavailableError(provider, message, connection.lastSuccessfulSyncAt)
   }
+}
+
+/**
+ * Stores OAuth credentials (e.g. a Google refresh token) for a connection,
+ * envelope-encrypted (src/lib/crypto/envelope.ts) - never plaintext, per
+ * docs/SECURITY.md. `credentials` should be a small JSON-serializable
+ * object (e.g. `{ refreshToken: "..." }`), not the raw token string, so it
+ * can grow additional fields later without a shape change.
+ */
+export async function saveProviderCredentials(
+  connectionId: string,
+  credentials: Record<string, unknown>,
+): Promise<void> {
+  await db.integrationConnection.update({
+    where: { id: connectionId },
+    data: { encryptedCredentials: encryptSecret(JSON.stringify(credentials)) },
+  })
+}
+
+/** Decrypts and parses credentials stored by saveProviderCredentials, or null if none are stored. */
+export function loadProviderCredentials<T = Record<string, unknown>>(connection: {
+  encryptedCredentials: string | null
+}): T | null {
+  if (!connection.encryptedCredentials) return null
+  return JSON.parse(decryptSecret(connection.encryptedCredentials)) as T
 }

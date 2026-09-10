@@ -101,8 +101,8 @@ export async function registerMetricoolTools(): Promise<void> {
     outputSchema: z.array(ConnectedNetworkSchema),
     execute: async (_input, ctx) => {
       const clientId = requireClientId(ctx)
-      return withIntegrationHealthTracking(clientId, 'METRICOOL', (brandId) =>
-        getMetricoolProvider().getConnectedNetworks(brandId),
+      return withIntegrationHealthTracking(clientId, 'METRICOOL', (connection) =>
+        getMetricoolProvider().getConnectedNetworks(connection.integrationAccount.externalAccountId),
       )
     },
   })
@@ -118,8 +118,8 @@ export async function registerMetricoolTools(): Promise<void> {
     outputSchema: z.array(SocialPostRecordSchema),
     execute: async (input, ctx) => {
       const clientId = requireClientId(ctx)
-      return withIntegrationHealthTracking(clientId, 'METRICOOL', (brandId) =>
-        getMetricoolProvider().getPosts(brandId, input),
+      return withIntegrationHealthTracking(clientId, 'METRICOOL', (connection) =>
+        getMetricoolProvider().getPosts(connection.integrationAccount.externalAccountId, input),
       )
     },
   })
@@ -141,8 +141,11 @@ export async function registerMetricoolTools(): Promise<void> {
     outputSchema: SocialPostRecordSchema,
     execute: async (input, ctx) => {
       const clientId = requireClientId(ctx)
-      return withIntegrationHealthTracking(clientId, 'METRICOOL', (brandId) =>
-        getMetricoolProvider().schedulePost({ brandId, ...input }),
+      return withIntegrationHealthTracking(clientId, 'METRICOOL', (connection) =>
+        getMetricoolProvider().schedulePost({
+          brandId: connection.integrationAccount.externalAccountId,
+          ...input,
+        }),
       )
     },
   })
@@ -158,8 +161,12 @@ export async function registerMetricoolTools(): Promise<void> {
     outputSchema: z.array(SocialMetricValueSchema),
     execute: async (input, ctx) => {
       const clientId = requireClientId(ctx)
-      return withIntegrationHealthTracking(clientId, 'METRICOOL', (brandId) =>
-        getMetricoolProvider().getAnalytics(brandId, input.network, input),
+      return withIntegrationHealthTracking(clientId, 'METRICOOL', (connection) =>
+        getMetricoolProvider().getAnalytics(
+          connection.integrationAccount.externalAccountId,
+          input.network,
+          input,
+        ),
       )
     },
   })
@@ -177,8 +184,8 @@ export async function registerMetricoolTools(): Promise<void> {
       const clientId = requireClientId(ctx)
       const provider = getMetricoolProvider()
       if (!provider.getCampaigns) throw new Error('Configured Metricool provider has no getCampaigns implementation.')
-      return withIntegrationHealthTracking(clientId, 'METRICOOL', (brandId) =>
-        provider.getCampaigns!(brandId, input.channel),
+      return withIntegrationHealthTracking(clientId, 'METRICOOL', (connection) =>
+        provider.getCampaigns!(connection.integrationAccount.externalAccountId, input.channel),
       )
     },
   })
@@ -198,8 +205,12 @@ export async function registerMetricoolTools(): Promise<void> {
       if (!provider.getCampaignPerformance) {
         throw new Error('Configured Metricool provider has no getCampaignPerformance implementation.')
       }
-      return withIntegrationHealthTracking(clientId, 'METRICOOL', (brandId) =>
-        provider.getCampaignPerformance!(brandId, input.channel, input),
+      return withIntegrationHealthTracking(clientId, 'METRICOOL', (connection) =>
+        provider.getCampaignPerformance!(
+          connection.integrationAccount.externalAccountId,
+          input.channel,
+          input,
+        ),
       )
     },
   })

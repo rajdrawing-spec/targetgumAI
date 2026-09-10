@@ -51,12 +51,16 @@ describe('Integration connection model + health tracking (BRD Section 33/34)', (
     )
   })
 
-  it('withIntegrationHealthTracking marks CONNECTED on success and passes the brandId through', async () => {
+  it('withIntegrationHealthTracking marks CONNECTED on success and passes the connection through', async () => {
     // First call transitions AUTH_REQUIRED -> CONNECTED via a successful run.
     const connection = await db.integrationConnection.findFirstOrThrow({ where: { clientId } })
     await recordIntegrationSuccess(connection.id) // simulate an initial manual verification
 
-    const brandIdSeen = await withIntegrationHealthTracking(clientId, 'METRICOOL', async (brandId) => brandId)
+    const brandIdSeen = await withIntegrationHealthTracking(
+      clientId,
+      'METRICOOL',
+      async (conn) => conn.integrationAccount.externalAccountId,
+    )
     expect(brandIdSeen).toBe('mock-brand-123')
 
     const updated = await db.integrationConnection.findUniqueOrThrow({ where: { id: connection.id } })
