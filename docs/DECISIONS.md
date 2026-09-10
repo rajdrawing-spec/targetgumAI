@@ -1056,6 +1056,86 @@ a per-metric polarity map in `trend-list.tsx`.
 
 ---
 
+## 2026-09-10 — Phase 2: Competitor Agent, an agent with no tools, and the first competitor-management UI
+
+**Decision:** Built the Competitor Agent (BRD Section 25's "Later" agent
+list, brought forward as a Section 85 Phase 2 item) plus - a prerequisite
+that turned out not to exist - the first UI for managing a client's
+competitors at all. `listClientCompetitors`/`addClientCompetitor`
+(`src/lib/clients/brain.ts`) have existed since the Client Brain was
+built and were already exercised by tests and by `assembleClientContext`'s
+`'analytics'` category, but nothing in `src/app` ever called them - a
+client's competitors could only be set via a seed script or test factory,
+never through the app itself. Added a "Competitors" card (list + add form,
+gated by the existing `clients.edit` permission `addClientCompetitor`
+already required) to the client detail page.
+
+`src/lib/agents/competitor-agent.ts` is architecturally different from
+every other agent in this codebase: it registers with `allowedToolKeys:
+[]` and makes zero `executeTool` calls, because there is nothing to fetch
+from a provider - competitor data (BRD Section 5's "names, URLs,
+positioning, relevant observations") is stored directly on the client, not
+pulled live from anywhere. Still registered as a full Agent (BRD Section
+26's Agent Contract) purely for the same audit-attribution reason every
+other agent is - every AiRun it produces carries `contextIds.agentKey`,
+consistent with how every other analysis surfaces. `runCompetitorAnalysis`
+reuses `assembleClientContext(ctx, clientId, 'analytics')` (the only
+category that already assembles competitors) rather than adding a new
+data-gathering path, and returns the same `AnalysisResult` shape as every
+other agent - `metrics` is always `[]` (positioning is qualitative, there
+is nothing to snapshot as a trend).
+
+`src/lib/workflows/competitor-analysis-workflow.ts` mirrors the SEO/
+analytics workflows' persist/route/report/audit pipeline exactly, with one
+necessary difference: every other workflow takes a `range: {from, to}`
+because performance data is time-boxed; competitor positioning isn't, so
+this workflow has no range parameter at all and passes a single-day
+"as of today" span to `generateReport` purely because that function's
+signature needs *a* period, not because one applies here.
+
+Surfaced in the UI as a third "Run competitor analysis" button on the
+client detail page, next to "Run SEO analysis"/"Analyze this client" -
+deliberately no new dashboard nav item or aggregate page (unlike Content
+Calendar/SEO): BRD Section 42's dashboard nav list has no "Competitors"
+entry, and BRD frames competitors as part of the Client Brain, not a
+standalone module - the client detail page (where Policy/Integrations/
+Content calendar already live) is the right home.
+
+5 new tests (215 total, up from 210) in `tests/integration/
+competitor-workflow.test.ts`: agent registration with an empty tool
+allowlist, the full analysis pipeline (confirms the stored competitor's
+name/positioning actually reach the prompt), the no-competitors/no-AI-
+spend path, the end-to-end workflow (persist + route + a distinctly-titled
+report), and the `analysis.trigger` permission gate. Competitor CRUD
+permission behavior itself was already covered by existing tests
+(`client-brain-crud.test.ts`, `context-router.test.ts`, the Section 80
+adversarial suite) - not re-tested here. All 210 pre-existing tests pass
+unchanged.
+
+**Rationale:** Reused every established pattern (permission-per-action via
+existing permissions - no new one needed here, `getOwnedX`-style ownership
+checks already built into `addClientCompetitor`/`listClientCompetitors`,
+the aggregate-page-owns-actions/detail-page-owns-creation split, the
+shared `AnalysisResult`/`generateReport` pipeline) rather than inventing
+new ones. The empty-tool-allowlist agent is a deliberate, documented
+departure from the Analytics/SEO agents' shape, not an oversight - it's
+the correct shape for an agent whose only input is already-stored data.
+
+**Trade-off accepted:** no UI to *edit* or *delete* a competitor record
+once added, only add + list (matching what `src/lib/clients/brain.ts`
+itself supports today - `addClientCompetitor` only creates). Acceptable
+for a first pass since the underlying BRD capability ("Competitors: names,
+URLs, positioning, relevant observations") is satisfied; edit/delete would
+need new lib functions before any UI for them makes sense.
+
+**Revisit if:** edit/delete support is added to `brain.ts` (extend the
+Competitors card with those actions then), or if BRD Section 49's Phase 3
+"Advanced competitive intelligence" ever gets scheduled - that would be a
+genuinely different, larger capability (live-fetched competitor data),
+not an extension of this agent.
+
+---
+
 ## Template for future entries
 
 ```text

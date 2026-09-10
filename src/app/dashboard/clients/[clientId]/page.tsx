@@ -3,6 +3,7 @@ import { notFound, redirect } from 'next/navigation'
 import {
   Sparkles,
   Search,
+  Users2,
   Plug,
   Lightbulb,
   CheckSquare,
@@ -16,7 +17,7 @@ import {
 import { getCurrentAuthContext } from '@/lib/auth/current-context'
 import { getAuthorizedClient } from '@/lib/db/tenant'
 import { listAiRuns } from '@/lib/ai/runs'
-import { getClientPolicy } from '@/lib/clients/brain'
+import { getClientPolicy, listClientCompetitors } from '@/lib/clients/brain'
 import { listContentCalendarItems } from '@/lib/content-calendar/persist'
 import { listIntegrationConnectionsForOrg } from '@/lib/integrations/health'
 import { listRecommendations } from '@/lib/recommendations/persist'
@@ -25,9 +26,11 @@ import { listApprovals } from '@/lib/approvals/approvals'
 import { listReports } from '@/lib/reports/generate'
 import { ForbiddenError } from '@/lib/rbac/errors'
 import {
+  addCompetitorAction,
   connectMetricoolBrandAction,
   createContentItemAction,
   triggerAnalyzeClientAction,
+  triggerCompetitorAnalysisAction,
   triggerSeoAnalysisAction,
 } from '../../actions'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -56,7 +59,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ c
     throw error
   }
 
-  const [policy, recommendations, tasks, approvals, reports, allConnections, aiRuns, contentItems] = await Promise.all([
+  const [policy, recommendations, tasks, approvals, reports, allConnections, aiRuns, contentItems, competitors] = await Promise.all([
     getClientPolicy(ctx, clientId),
     listRecommendations(ctx, clientId),
     listTasks(ctx, clientId),
@@ -65,11 +68,13 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ c
     listIntegrationConnectionsForOrg(ctx),
     listAiRuns(ctx, { clientId, limit: 10 }),
     listContentCalendarItems(ctx, clientId),
+    listClientCompetitors(ctx, clientId),
   ])
   const connections = allConnections.filter((c) => c.clientId === clientId)
   const canManageIntegrations = ctx.permissions.has('integrations.manage')
   const canTriggerAnalysis = ctx.permissions.has('analysis.trigger')
   const canManageContent = ctx.permissions.has('content.manage')
+  const canEditClient = ctx.permissions.has('clients.edit')
 
   return (
     <div className="space-y-6">
@@ -92,6 +97,11 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ c
         </div>
         {canTriggerAnalysis && (
           <div className="flex flex-wrap gap-2">
+            <form action={triggerCompetitorAnalysisAction.bind(null, clientId)}>
+              <Button type="submit" variant="outline" size="lg">
+                <Users2 className="h-4 w-4" /> Run competitor analysis
+              </Button>
+            </form>
             <form action={triggerSeoAnalysisAction.bind(null, clientId)}>
               <Button type="submit" variant="outline" size="lg">
                 <Search className="h-4 w-4" /> Run SEO analysis
@@ -354,6 +364,61 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ c
           <p className="text-xs text-caption">
             Review, approve, and schedule from the <Link href="/dashboard/content-calendar" className="text-primary hover:underline">content calendar</Link> page.
           </p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Users2 className="h-4 w-4 text-muted-foreground" /> Competitors
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {competitors.length === 0 ? (
+            <EmptyState icon={Users2} title="No competitors on file" description="Add one below, then run a competitor analysis above." />
+          ) : (
+            <ul className="space-y-2">
+              {competitors.map((competitor) => (
+                <li key={competitor.id} className="rounded-md border border-border p-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="text-sm font-medium text-foreground">{competitor.name}</span>
+                    {competitor.url && (
+                      <a href={competitor.url} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline">
+                        {competitor.url}
+                      </a>
+                    )}
+                  </div>
+                  {competitor.positioning && <p className="mt-1 text-sm text-muted-foreground">{competitor.positioning}</p>}
+                  {competitor.observations && <p className="mt-1 text-xs text-caption">{competitor.observations}</p>}
+                </li>
+              ))}
+            </ul>
+          )}
+          {canEditClient && (
+            <form action={addCompetitorAction.bind(null, clientId)} className="space-y-3 rounded-md border border-dashed border-border p-3">
+              <div className="flex flex-wrap items-end gap-3">
+                <div>
+                  <Label htmlFor="competitorName">Name</Label>
+                  <Input id="competitorName" name="name" type="text" required placeholder="e.g. Acme Rivals" className="w-44" />
+                </div>
+                <div>
+                  <Label htmlFor="competitorUrl">URL</Label>
+                  <Input id="competitorUrl" name="url" type="url" placeholder="https://…" className="w-56" />
+                </div>
+                <div className="min-w-[14rem] flex-1">
+                  <Label htmlFor="competitorPositioning">Positioning</Label>
+                  <Input id="competitorPositioning" name="positioning" type="text" placeholder="e.g. Premium, enterprise-focused" />
+                </div>
+              </div>
+              <div>
+                <Label htmlFor="competitorObservations">Observations</Label>
+                <Input id="competitorObservations" name="observations" type="text" placeholder="Anything worth noting…" />
+              </div>
+              <Button type="submit" variant="outline">
+                Add competitor
+              </Button>
+            </form>
+          )}
         </CardContent>
       </Card>
     </div>

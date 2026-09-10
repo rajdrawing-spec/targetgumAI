@@ -25,6 +25,7 @@ import { registerGA4Tools } from '@/lib/integrations/ga4/tools'
 import { registerGSCTools } from '@/lib/integrations/gsc/tools'
 import { registerMarketingAnalyticsAgent } from '@/lib/agents/analytics-agent'
 import { registerSeoAgent } from '@/lib/agents/seo-agent'
+import { registerCompetitorAgent } from '@/lib/agents/competitor-agent'
 
 let registered = false
 let inFlight: Promise<void> | undefined
@@ -38,6 +39,7 @@ export async function ensureToolsRegistered(): Promise<void> {
       await registerGSCTools()
       await registerMarketingAnalyticsAgent() // depends on the metricool/ga4/gsc tools above already being registered
       await registerSeoAgent() // depends on the gsc tool above already being registered
+      await registerCompetitorAgent() // no tool dependencies - allowedToolKeys: []
       registered = true
     })()
   }

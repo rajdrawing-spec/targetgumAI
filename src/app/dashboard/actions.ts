@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { getCurrentAuthContext } from '@/lib/auth/current-context'
 import { approveApproval, rejectApproval } from '@/lib/approvals/approvals'
+import { addClientCompetitor } from '@/lib/clients/brain'
 import { createClient } from '@/lib/clients/create'
 import {
   approveContentCalendarItem,
@@ -17,6 +18,7 @@ import { acceptRecommendation, rejectRecommendation } from '@/lib/recommendation
 import { updateTaskStatus } from '@/lib/recommendations/tasks'
 import { generateClientReportFromInternal } from '@/lib/reports/generate'
 import { runAnalyzeClientWorkflow } from '@/lib/workflows/analyze-client-workflow'
+import { runCompetitorAnalysisWorkflow } from '@/lib/workflows/competitor-analysis-workflow'
 import { runSeoAnalysisWorkflow } from '@/lib/workflows/seo-analysis-workflow'
 import type { TaskStatus } from '@prisma/client'
 
@@ -78,6 +80,28 @@ export async function triggerSeoAnalysisAction(clientId: string): Promise<void> 
   revalidatePath('/dashboard/approvals')
   revalidatePath('/dashboard/ai-runs')
   revalidatePath('/dashboard/reports')
+}
+
+export async function triggerCompetitorAnalysisAction(clientId: string): Promise<void> {
+  const ctx = await requireCtx()
+  await runCompetitorAnalysisWorkflow({ ctx, clientId })
+
+  revalidatePath(`/dashboard/clients/${clientId}`)
+  revalidatePath('/dashboard/recommendations')
+  revalidatePath('/dashboard/tasks')
+  revalidatePath('/dashboard/approvals')
+  revalidatePath('/dashboard/ai-runs')
+  revalidatePath('/dashboard/reports')
+}
+
+export async function addCompetitorAction(clientId: string, formData: FormData): Promise<void> {
+  const ctx = await requireCtx()
+  const name = String(formData.get('name') ?? '')
+  const url = String(formData.get('url') ?? '') || undefined
+  const positioning = String(formData.get('positioning') ?? '') || undefined
+  const observations = String(formData.get('observations') ?? '') || undefined
+  await addClientCompetitor(ctx, clientId, { name, url, positioning, observations })
+  revalidatePath(`/dashboard/clients/${clientId}`)
 }
 
 export async function acceptRecommendationAction(recommendationId: string, clientId: string): Promise<void> {

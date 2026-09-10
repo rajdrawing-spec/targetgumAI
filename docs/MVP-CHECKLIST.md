@@ -919,8 +919,52 @@ CLIENT-facing version. Fixture data and scratch scripts removed afterward.
 
 typecheck, lint, full test suite (210/210), and production build all pass.
 
+### Competitor analysis ✅ DONE
+
+Implements the Competitor Agent (BRD Section 25's "Later" agent list,
+brought forward as this Phase 2 item), plus a prerequisite that turned out
+missing entirely: `src/lib/clients/brain.ts`'s `listClientCompetitors`/
+`addClientCompetitor` existed since the Client Brain was built but had no
+UI - a client's competitors could only be set via a seed script or test.
+Added a "Competitors" card (list + add form, gated by the existing
+`clients.edit` permission) to the client detail page.
+
+`src/lib/agents/competitor-agent.ts` is architecturally different from
+every other agent here: it registers with an empty tool allowlist and
+makes zero tool calls, because competitor data (names/URLs/positioning/
+observations) is stored directly on the client, never fetched from a
+provider - still a real Agent (BRD Section 26) for audit-attribution
+consistency, just with nothing to gather beyond what `assembleClientContext`
+already assembles. Returns the same `AnalysisResult` shape as every other
+agent (`metrics` always `[]` - positioning is qualitative).
+`src/lib/workflows/competitor-analysis-workflow.ts` mirrors the SEO/
+analytics workflows' persist/route/report/audit pipeline exactly. New
+"Run competitor analysis" button on the client detail page - deliberately
+no new nav item or aggregate page, since BRD frames competitors as part of
+the Client Brain, not a standalone dashboard module.
+
+5 new tests (215 total, up from 210) in `tests/integration/
+competitor-workflow.test.ts`: agent registration (empty tool allowlist),
+the full analysis pipeline (confirms the stored competitor's data actually
+reaches the prompt), the no-competitors/no-AI-spend path, the end-to-end
+workflow (persist + route + a distinctly-titled report), and the
+`analysis.trigger` permission gate. Competitor CRUD permission behavior
+was already covered by existing tests, not re-tested. All 210 pre-existing
+tests pass unchanged.
+
+End-to-end smoke-verified live with Playwright: added a competitor
+("Rival Marketing Co", with positioning and observations) through the new
+UI form on a real client and confirmed it persisted and rendered correctly,
+then ran "Run competitor analysis" live on a client with no competitors on
+file and confirmed it completes successfully end-to-end with zero AI spend
+(same no-`ANTHROPIC_API_KEY` environment constraint as every other agent
+workflow here) - a distinctly-titled "Competitor Positioning Report"
+appeared in that client's Reports card and the org-wide Reports page.
+Fixture data and scratch scripts removed afterward.
+
+typecheck, lint, full test suite (215/215), and production build all pass.
+
 Not yet started from the Phase 2 list (BRD Section 85): Canva creative
 workflow, automated social scheduling, a Meta/Google Ads direct
 integration, weekly automated intelligence (needs the BullMQ/Redis job
-infrastructure `docs/ARCHITECTURE.md` proposes but nothing built yet),
-competitor analysis.
+infrastructure `docs/ARCHITECTURE.md` proposes but nothing built yet).
