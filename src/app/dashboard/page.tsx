@@ -45,7 +45,9 @@ export default async function DashboardOverviewPage() {
       </div>
 
       <section>
-        <h2 className="text-sm font-semibold text-gray-700">Integration health</h2>
+        <Link href="/dashboard/integrations" className="text-sm font-semibold text-gray-700 hover:underline">
+          Integration health
+        </Link>
         {connections.length === 0 ? (
           <p className="mt-2 text-sm text-gray-400">No integrations connected yet.</p>
         ) : (

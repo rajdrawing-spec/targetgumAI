@@ -5,6 +5,7 @@ import { getCurrentAuthContext } from '@/lib/auth/current-context'
 import { approveApproval, rejectApproval } from '@/lib/approvals/approvals'
 import { acceptRecommendation, rejectRecommendation } from '@/lib/recommendations/persist'
 import { updateTaskStatus } from '@/lib/recommendations/tasks'
+import { generateClientReportFromInternal } from '@/lib/reports/generate'
 import { runAnalyzeClientWorkflow } from '@/lib/workflows/analyze-client-workflow'
 import type { TaskStatus } from '@prisma/client'
 
@@ -85,4 +86,12 @@ export async function rejectApprovalAction(approvalId: string, clientId: string,
   await rejectApproval(ctx, approvalId, reason || 'No reason given.')
   revalidatePath('/dashboard/approvals')
   revalidatePath(`/dashboard/clients/${clientId}`)
+}
+
+export async function generateClientReportAction(internalReportId: string): Promise<void> {
+  const ctx = await requireCtx()
+  const derived = await generateClientReportFromInternal(ctx, internalReportId)
+  revalidatePath('/dashboard/reports')
+  revalidatePath(`/dashboard/reports/${internalReportId}`)
+  revalidatePath(`/dashboard/clients/${derived.clientId}`)
 }

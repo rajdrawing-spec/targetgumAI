@@ -1,40 +1,52 @@
 # Architecture Assessment — TargetGum AI Marketing OS
 
-Status: **Week 3, Day 13 complete: a working dashboard** (Overview,
-Clients, Recommendations, Tasks, Approvals, AI Runs) **sits on top of every
-prior day**, on top of Day 12's complete BRD Section 80 adversarial
-security coverage, Day 11's "Analyze Client A" workflow (BRD Section 46),
-Week 1's foundation (Days 1-5), and Week 2's intelligence layer (Days 6-10:
-Metricool, GA4/GSC, Client Brain + Context Router, the Marketing Analytics
-Agent, and the Approval Engine/recommendation/task pipeline). The full loop
-now closes end to end **through the UI**: sign in → see pending approvals/
-high-priority recommendations/recent AI runs/integration health on the
-Overview → open a client → click "Analyze this client" (the BRD Section 43
-natural-language trigger's MVP button stand-in) → `runAnalyzeClientWorkflow`
-runs the real pipeline (AI Gateway → Tool Registry → provider adapters →
-Client Brain/Context Router → the Analytics Agent → persisted
-recommendations → routed to a task or a real Approval → a generated report,
-each stage tracked as a `WorkflowStep`) → accept/reject recommendations,
-approve/reject approvals, and update task status from their list pages, all
-via Server Actions that are thin wrappers over the same permission/
-tenant-checked library functions used everywhere else — no authorization
-logic lives in the UI layer. `executeApprovedTool` actually running a HIGH/
-CRITICAL tool once approved remains a separate, explicit step per BRD
-Section 19. Smoke-verified end to end with a real headless browser
-(Playwright) against a real Postgres instance — sign-in, every dashboard
-route, and every Server Action, including "Analyze this client" running the
-real workflow. That pass also found and fixed a real bug: `workflow_runs`'
-foreign key to `workflows` defaulted to `RESTRICT` instead of `CASCADE`,
-silently breaking test cleanup for any org that had run the Day 11 workflow
-— see `docs/DECISIONS.md`. Day 3 verified live via a manual end-to-end
-sign-in flow; Days 4-13 verified via integration/security suites against a
-real database, with every external provider (Anthropic, Metricool, Google)
+Status: **Week 3, Day 14 complete: the dashboard now covers all of BRD
+Section 42's implemented nav** — Overview, Clients, Recommendations, Tasks,
+Approvals, AI Runs, **Reports, Integrations, Audit** — plus a real error
+boundary, on top of Day 13's dashboard, Day 12's complete BRD Section 80
+adversarial security coverage, Day 11's "Analyze Client A" workflow (BRD
+Section 46), Week 1's foundation (Days 1-5), and Week 2's intelligence
+layer (Days 6-10: Metricool, GA4/GSC, Client Brain + Context Router, the
+Marketing Analytics Agent, and the Approval Engine/recommendation/task
+pipeline). The full loop now closes end to end **through the UI**: sign in
+→ see pending approvals/high-priority recommendations/recent AI runs/
+integration health on the Overview → open a client → click "Analyze this
+client" (the BRD Section 43 natural-language trigger's MVP button
+stand-in) → `runAnalyzeClientWorkflow` runs the real pipeline (AI Gateway →
+Tool Registry → provider adapters → Client Brain/Context Router → the
+Analytics Agent → persisted recommendations → routed to a task or a real
+Approval → a generated `INTERNAL` report, each stage tracked as a
+`WorkflowStep`) → accept/reject recommendations, approve/reject approvals,
+update task status, open a report's full detail (findings/recommendations/
+data gaps) and derive a redacted `CLIENT`-facing report from it without a
+fresh AI call (BRD Section 68), check integration health (BRD Section 34's
+exact field list) or the audit trail — all via Server Actions/reads that
+are thin wrappers over the same permission/tenant-checked library functions
+used everywhere else; no authorization logic lives in the UI layer. Every
+one of those pages now sits under `src/app/dashboard/error.tsx`, a
+segment-level error boundary that renders a readable message instead of a
+crash whenever a Server Component/Action throws (`ForbiddenError`,
+`IntegrationUnavailableError`, `AiGatewayError`) — smoke-verified live: a
+`marketing_employee` hitting the Audit page (which needs `audit.read`,
+super_admin-only by default) sees a clean "Missing permission" message, not
+a broken page. `executeApprovedTool` actually running a HIGH/CRITICAL tool
+once approved remains a separate, explicit step per BRD Section 19.
+Smoke-verified end to end with a real headless browser (Playwright) against
+a real Postgres instance on both Day 13 and Day 14 — sign-in, every
+dashboard route (200s, no error-boundary text where none was expected),
+every Server Action, "Analyze this client" and "Generate client report"
+running the real underlying logic, and the error boundary itself. That
+pass also found and fixed a real bug: `workflow_runs`' foreign key to
+`workflows` defaulted to `RESTRICT` instead of `CASCADE`, silently breaking
+test cleanup for any org that had run the Day 11 workflow — see
+`docs/DECISIONS.md`. Day 3 verified live via a manual end-to-end sign-in
+flow; Days 4-14 verified via integration/security suites against a real
+database, with every external provider (Anthropic, Metricool, Google)
 exercised through injected fakes or mock providers rather than live network
 calls — no API keys/OAuth apps/MCP connection details are configured in
 this environment; see `docs/EXTERNAL-APPROVALS.md`. See
-`docs/MVP-CHECKLIST.md` for current progress. Day 14 (reports, audit trail,
-integration health, error states — largely already backed by Day 11/13's
-work; remaining gaps get closed there) is next.
+`docs/MVP-CHECKLIST.md` for current progress. Day 15 (real client pilot) is
+next.
 
 This document is the architecture assessment and implementation plan requested by
 `docs/BRD-PRD.md` Section 116. It proposes the technology stack, repository structure,

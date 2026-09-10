@@ -4,13 +4,16 @@ import { getCurrentAuthContext } from '@/lib/auth/current-context'
 import { signOut } from '@/lib/auth'
 
 /**
- * The Day 13 dashboard shell (BRD-PRD Section 42). Nav mirrors the subset
- * of the BRD's full nav list that's actually implemented in the MVP -
- * Overview, Clients, Recommendations, Tasks, Approvals, AI Runs. Social,
- * Advertising, Analytics, SEO, Content Calendar, Creatives, Integrations,
- * Audit, Settings are BRD Section 42's fuller nav, out of MVP scope per
- * Section 45/49 (see docs/MVP-CHECKLIST.md) - added when their underlying
- * modules exist.
+ * The Day 13/14 dashboard shell (BRD-PRD Section 42). Nav mirrors the
+ * subset of the BRD's full nav list that's actually implemented in the
+ * MVP - Overview, Clients, Recommendations, Tasks, Approvals, AI Runs,
+ * Reports, Integrations, Audit. Social, Advertising, Analytics, SEO,
+ * Content Calendar, Creatives, Settings are BRD Section 42's fuller nav,
+ * out of MVP scope per Section 45/49 (see docs/MVP-CHECKLIST.md) - added
+ * when their underlying modules exist. Audit is shown to everyone in the
+ * nav even though only super_admin holds `audit.read` by default
+ * (Section 4.1) - visiting it as anyone else hits the Day 14 error
+ * boundary's clean permission-denied message rather than a dead end.
  */
 
 const NAV_ITEMS = [
@@ -20,6 +23,9 @@ const NAV_ITEMS = [
   { href: '/dashboard/tasks', label: 'Tasks' },
   { href: '/dashboard/approvals', label: 'Approvals' },
   { href: '/dashboard/ai-runs', label: 'AI Runs' },
+  { href: '/dashboard/reports', label: 'Reports' },
+  { href: '/dashboard/integrations', label: 'Integrations' },
+  { href: '/dashboard/audit', label: 'Audit' },
 ]
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {

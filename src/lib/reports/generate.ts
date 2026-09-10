@@ -1,7 +1,8 @@
 import type { Prisma, ReportType } from '@prisma/client'
 import { db } from '@/lib/db/client'
-import { getAuthorizedClient } from '@/lib/db/tenant'
-import { assertPermission } from '@/lib/rbac/guards'
+import { getAuthorizedClient, scopedClientWhere } from '@/lib/db/tenant'
+import { assertClientAccess, assertPermission } from '@/lib/rbac/guards'
+import { ForbiddenError } from '@/lib/rbac/errors'
 import type { AuthContext } from '@/lib/rbac/types'
 import type { AnalysisResult } from '@/lib/agents/analytics-agent'
 
@@ -111,5 +112,71 @@ export async function listReports(ctx: AuthContext, clientId: string, filter: { 
   return db.report.findMany({
     where: { clientId, ...(filter.type && { type: filter.type }) },
     orderBy: { createdAt: 'desc' },
+  })
+}
+
+/** Org-wide report listing, scoped to the caller's authorized clients (Day 14 dashboard). */
+export async function listReportsForOrg(ctx: AuthContext, filter: { type?: ReportType; limit?: number } = {}) {
+  assertPermission(ctx, 'reports.read')
+  return db.report.findMany({
+    where: { ...scopedClientWhere(ctx), ...(filter.type && { type: filter.type }) },
+    include: { client: { select: { id: true, name: true } } },
+    orderBy: { createdAt: 'desc' },
+    take: filter.limit ?? 50,
+  })
+}
+
+async function getOwnedReport(ctx: AuthContext, reportId: string) {
+  const report = await db.report.findUnique({ where: { id: reportId } })
+  if (!report || report.organizationId !== ctx.organizationId) {
+    throw new ForbiddenError('Not authorized for this report.')
+  }
+  const client = await db.client.findUnique({ where: { id: report.clientId } })
+  if (!client) throw new ForbiddenError('Not authorized for this report.')
+  assertClientAccess(ctx, client)
+  return report
+}
+
+/** Single report read, for the Day 14 report detail view. */
+export async function getReport(ctx: AuthContext, reportId: string) {
+  assertPermission(ctx, 'reports.read')
+  return getOwnedReport(ctx, reportId)
+}
+
+/**
+ * Derives a CLIENT-facing report from an already-generated INTERNAL one,
+ * by re-applying the same evidence/confidence/dataGaps redaction
+ * `buildContent` does for a fresh `AnalysisResult` - but against data
+ * that's already persisted, so this is still "never a fresh AI call"
+ * (BRD Section 68): no `AnalysisResult` is re-derived or re-analyzed,
+ * only the stored `ReportContent` is redacted.
+ */
+export async function generateClientReportFromInternal(ctx: AuthContext, internalReportId: string) {
+  assertPermission(ctx, 'clients.read')
+  const source = await getOwnedReport(ctx, internalReportId)
+  if (source.type !== 'INTERNAL') {
+    throw new Error('generateClientReportFromInternal requires an INTERNAL report as its source.')
+  }
+
+  const sourceContent = source.content as unknown as ReportContent
+  const clientContent: ReportContent = {
+    periodStart: sourceContent.periodStart,
+    periodEnd: sourceContent.periodEnd,
+    summary: sourceContent.summary,
+    recommendations: sourceContent.recommendations,
+    findings: sourceContent.findings.map((f) => ({ area: f.area, finding: f.finding, priority: f.priority })),
+  }
+
+  return db.report.create({
+    data: {
+      organizationId: ctx.organizationId,
+      clientId: source.clientId,
+      type: 'CLIENT',
+      title: source.title.replace('(Internal)', '(Client)'),
+      periodStart: source.periodStart,
+      periodEnd: source.periodEnd,
+      content: clientContent as unknown as Prisma.InputJsonValue,
+      generatedBy: ctx.userId,
+    },
   })
 }

@@ -550,7 +550,57 @@ No client-portal-specific view exists yet (a `client_user` today sees the
 same dashboard, permission-filtered) — that's a Phase 2 refinement, not
 required by BRD Section 45's MVP definition.
 
-### Day 14 — Reports, audit trail, integration health, error states
+### Day 14 — Reports, audit trail, integration health, error states ✅ DONE
+
+- [x] **Reports**: new `getReport` (single-report read with the same
+      ownership check as every other `getOwned*` helper),
+      `listReportsForOrg` (cross-client, `scopedClientWhere`-scoped, same
+      pattern as Day 13's other org-wide helpers), and
+      `generateClientReportFromInternal` — derives a `CLIENT`-type report
+      from an already-generated `INTERNAL` one by redacting its
+      *already-persisted* content (evidence/confidence/dataGaps), never
+      re-deriving or re-analyzing a fresh `AnalysisResult` (BRD Section 68
+      still holds: no report is ever a new AI call). New
+      `/dashboard/reports` (list) and `/dashboard/reports/[reportId]`
+      (full findings/recommendations/data-gaps detail, with a "Generate
+      client report" button on `INTERNAL` reports) pages.
+- [x] **Audit trail**: `/dashboard/audit` page over the existing (Day 5)
+      `listAuditEvents` — action, result, provider/tool, error, timestamp.
+      `audit.read` is super_admin-only by default (BRD Section 4.1), so
+      this page doubles as a real exercise of the new error boundary
+      (below) for every other role.
+- [x] **Integration health**: `/dashboard/integrations` page implementing
+      BRD Section 34's exact field list — client, provider, connected
+      account, health status, last successful sync, last error. (Credential
+      expiry isn't tracked in the schema yet, so it's omitted rather than
+      faked — noted in the code, not silently dropped.)
+      `listIntegrationConnectionsForOrg` extended to select
+      `externalAccountId`/`label` for "connected account" (still never
+      selects `encryptedCredentials`).
+- [x] **Error states**: `src/app/dashboard/error.tsx`, a segment-level
+      Next.js error boundary for the whole `/dashboard` tree — renders a
+      readable message + "Try again"/"Back to Overview" instead of Next's
+      generic crash page whenever a Server Component, Server Action, or
+      their data fetching throws (`ForbiddenError`,
+      `IntegrationUnavailableError`, `AiGatewayError`, etc.).
+- [x] Nav (`src/app/dashboard/layout.tsx`) extended with Reports,
+      Integrations, Audit.
+- [x] 3 new tests (165 total, up from 162): `getReport`'s ownership check,
+      `listReportsForOrg`'s cross-client scoping, and
+      `generateClientReportFromInternal`'s redaction + its refusal to run
+      on an already-`CLIENT` report.
+- [x] End-to-end smoke-verified again with Playwright against a real
+      Postgres instance: as super_admin, walked Reports → a report's full
+      detail view → clicked "Generate client report" (no crash, a new
+      `CLIENT` report was created) → Integrations → Audit, all 200s; then,
+      as a `marketing_employee` (who lacks `audit.read`), hit `/dashboard/
+      audit` and confirmed the *new error boundary* rendered cleanly
+      ("Missing permission: audit.read", Try again, Back to Overview)
+      instead of crashing — a real, live exercise of Day 14's "error
+      states" requirement, not just a code-reading argument. Fixture data
+      and scratch scripts removed afterward; verified no orphaned
+      organizations were left behind (the Day 13 workflow-cascade fix
+      holds).
 
 ### Day 15 — Real client pilot
 

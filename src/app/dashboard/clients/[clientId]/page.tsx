@@ -170,7 +170,10 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ c
           <ul className="mt-2 space-y-1 text-sm">
             {reports.map((report) => (
               <li key={report.id}>
-                {report.title} <span className="text-xs text-gray-500">({report.type})</span>
+                <Link href={`/dashboard/reports/${report.id}`} className="hover:underline">
+                  {report.title}
+                </Link>{' '}
+                <span className="text-xs text-gray-500">({report.type})</span>
               </li>
             ))}
           </ul>

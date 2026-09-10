@@ -175,9 +175,12 @@ export function loadProviderCredentials<T = Record<string, unknown>>(connection:
 
 /**
  * Org-wide integration connection listing, scoped to the caller's
- * authorized clients (Day 13 dashboard - "integration health", BRD Section
- * 42/34). Never selects `encryptedCredentials` - this is a status view,
- * not a credential-reading path (see docs/SECURITY.md).
+ * authorized clients (Day 13/14 dashboard - "integration health", BRD
+ * Section 42/34, which asks for: last successful sync, last error,
+ * connected account, client, provider, health status - credential expiry
+ * isn't tracked in the schema yet, so it's omitted rather than faked).
+ * Never selects `encryptedCredentials` - this is a status view, not a
+ * credential-reading path (see docs/SECURITY.md).
  */
 export async function listIntegrationConnectionsForOrg(ctx: AuthContext) {
   assertPermission(ctx, 'clients.read')
@@ -191,7 +194,9 @@ export async function listIntegrationConnectionsForOrg(ctx: AuthContext) {
       lastErrorAt: true,
       lastErrorMessage: true,
       client: { select: { id: true, name: true } },
-      integrationAccount: { select: { integration: { select: { provider: true } } } },
+      integrationAccount: {
+        select: { externalAccountId: true, label: true, integration: { select: { provider: true } } },
+      },
     },
     orderBy: { updatedAt: 'desc' },
   })
