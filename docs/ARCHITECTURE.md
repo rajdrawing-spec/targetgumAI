@@ -1,27 +1,33 @@
 # Architecture Assessment — TargetGum AI Marketing OS
 
-Status: **Week 3, Day 11 complete: the full "Analyze Client A" workflow
-(BRD Section 46), on top of Week 1's foundation (Days 1-5) and Week 2's
-intelligence layer (Days 6-10: Metricool, GA4/GSC, Client Brain + Context
-Router, the Marketing Analytics Agent, and the Approval
-Engine/recommendation/task pipeline).** The full loop now closes end to
-end, as one callable, tracked, audited pipeline: auth/RBAC → AI Gateway →
-Tool Registry → provider adapters → Client Brain/Context Router → the
-Analytics Agent → persisted recommendations → routed to a task or a real
-Approval → a generated report (`src/lib/reports/generate.ts`) → an audit
-event, with each stage recorded as a `WorkflowStep` under one
+Status: **Week 3, Day 12 complete: all ten BRD Section 80 adversarial
+security scenarios now have dedicated, automated, repeatable coverage**, on
+top of Day 11's complete "Analyze Client A" workflow (BRD Section 46),
+Week 1's foundation (Days 1-5), and Week 2's intelligence layer (Days 6-10:
+Metricool, GA4/GSC, Client Brain + Context Router, the Marketing Analytics
+Agent, and the Approval Engine/recommendation/task pipeline). The full loop
+closes end to end, as one callable, tracked, audited pipeline: auth/RBAC →
+AI Gateway → Tool Registry → provider adapters → Client Brain/Context
+Router → the Analytics Agent → persisted recommendations → routed to a task
+or a real Approval → a generated report (`src/lib/reports/generate.ts`) →
+an audit event, with each stage recorded as a `WorkflowStep` under one
 `WorkflowRun` (`src/lib/workflows/`). `executeApprovedTool` actually
 running a HIGH/CRITICAL tool once approved remains a separate, explicit
 step per BRD Section 19 — the workflow's job ends at recommendations + a
-report + any pending approvals, never at executing anything. Day 3
-verified live via a manual end-to-end sign-in flow; Days 4-11 verified via
+report + any pending approvals, never at executing anything. Day 12 added
+`tests/security/adversarial-brd-section-80.test.ts`, closing the six
+scenarios (cross-client context leakage, credential-exfiltration prompt
+injection, unauthorized budget change, approval-token replay, cross-client
+OAuth credentials, malicious tool output) that had no dedicated test before
+— see `docs/SECURITY.md` for the full scenario→test mapping. Day 3 verified
+live via a manual end-to-end sign-in flow; Days 4-12 verified via
 integration/security suites against a real database, with every external
-provider (Anthropic, Metricool, Google) exercised through injected fakes
-or mock providers rather than live network calls — no API keys/OAuth
-apps/MCP connection details are configured in this environment; see
+provider (Anthropic, Metricool, Google) exercised through injected fakes or
+mock providers rather than live network calls — no API keys/OAuth apps/MCP
+connection details are configured in this environment; see
 `docs/EXTERNAL-APPROVALS.md`. See `docs/MVP-CHECKLIST.md` for current
-progress. Day 12 (adversarial security testing against all ten BRD Section
-80 scenarios) is next, followed by Day 13 (dashboard).
+progress. Day 13 (dashboard: recommendations, tasks, approvals, AI runs) is
+next.
 
 This document is the architecture assessment and implementation plan requested by
 `docs/BRD-PRD.md` Section 116. It proposes the technology stack, repository structure,

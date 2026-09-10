@@ -58,23 +58,36 @@ tighten defaults but never loosen CRITICAL.
 
 Before a feature touching auth, tenant data, tool execution, or approvals is
 considered done, the security suite (`tests/security/`) must cover the
-relevant adversarial scenarios:
+relevant adversarial scenarios. **All ten now have dedicated automated
+coverage (Day 12, `docs/MVP-CHECKLIST.md`)**:
 
 1. User assigned to Client A requests Client B → must be denied.
+   `tests/security/tenant-isolation.test.ts`
 2. Agent attempts to call a tool outside its allowlist → denied.
+   `tests/security/tool-authorization.test.ts`,
+   `tests/security/privilege-escalation.test.ts`
 3. Client A data must never appear in a Client B AI context.
+   `tests/security/adversarial-brd-section-80.test.ts`
 4. Prompt injection attempting to exfiltrate credentials → must fail; secrets
    are structurally unreachable from prompt-construction code.
+   `tests/security/adversarial-brd-section-80.test.ts`
 5. Unauthorized budget/campaign change attempt → denied, no partial execution.
+   `tests/security/adversarial-brd-section-80.test.ts`
 6. Approval token replay → rejected (idempotency + single-use).
+   `tests/security/approval-engine.test.ts` (PENDING/REJECTED) +
+   `tests/security/adversarial-brd-section-80.test.ts` (already-EXECUTED replay)
 7. Duplicate campaign/post creation from a retried request → prevented by
-   idempotency key.
+   idempotency key. `tests/integration/tool-registry.test.ts`
 8. OAuth credential belonging to another client used for a call → denied.
+   `tests/security/adversarial-brd-section-80.test.ts`
 9. Deleted/deactivated user's session or API token → denied.
+   `tests/security/deleted-user.test.ts`
 10. Tool returns content containing embedded instructions → treated as inert
     data, never executed as a command.
+    `tests/security/adversarial-brd-section-80.test.ts`
 
-All scenarios must fail safely (deny + audit event), never fail open.
+All scenarios must fail safely (deny + audit event), never fail open — verified
+by test, not just by code inspection.
 
 ## Secure Baseline (implemented)
 

@@ -423,7 +423,57 @@ complete and tested end to end against a real database with every external
 provider (Anthropic, Metricool, Google) exercised through injected fakes or
 mock providers.
 
-### Day 12 — Security / adversarial testing (BRD Section 80, all 10 scenarios)
+### Day 12 — Security / adversarial testing (BRD Section 80, all 10 scenarios) ✅ DONE
+
+- [x] Audited existing coverage against all ten BRD Section 80 scenarios
+      before writing anything new. Four already had dedicated, explicitly-
+      cited coverage: scenario 1 (`tests/security/tenant-isolation.test.ts`),
+      scenario 2 (`tests/security/tool-authorization.test.ts` for agent
+      allowlists + `tests/security/privilege-escalation.test.ts` for
+      permission-level denial), scenario 7 (`tests/integration/
+      tool-registry.test.ts`'s idempotencyKey test — a repeated call returns
+      the cached result and only one `ToolExecution` row is ever created),
+      and scenario 9 (`tests/security/deleted-user.test.ts`).
+- [x] The remaining six had no dedicated adversarial test and are now
+      covered in a new `tests/security/adversarial-brd-section-80.test.ts`
+      (8 tests, one file mapping 1:1 to the BRD list so coverage stays
+      traceable):
+      - **3 (cross-client context leakage)**: populates Client A's brain/
+        feedback/competitor data, asserts none of it appears in Client B's
+        `assembleClientContext`/`renderContextAsText` output, and confirms
+        Client A's own context *does* contain it (isolation, not an
+        empty-everything bug).
+      - **4 (prompt injection to exfiltrate credentials)**: stores a real
+        encrypted OAuth credential and an attacker-authored
+        `ClientFeedback` row asking the AI to reveal it; the injection text
+        passes through as inert data, but the actual secret never appears
+        in the assembled context — proven structurally, since
+        `assembleClientContext` never reads `encryptedCredentials` at all,
+        not by pattern-matching/stripping the payload.
+      - **5 (unauthorized budget change)**: a role without
+        `integrations.manage` is denied before ever reaching the risk gate
+        (no approval created); a role *with* the permission still can't
+        execute directly — it's still routed to Approval.
+      - **6 (approval token replay)**: extends the existing PENDING/
+        REJECTED-replay coverage with the more direct attack — replaying
+        an already-`EXECUTED` approval id is rejected outright and
+        verified (by `ToolExecution` count) to never run the tool twice.
+      - **8 (cross-client OAuth credential)**: two clients connected to the
+        same provider with distinct encrypted credentials; resolving
+        Client B's connection/credentials never returns Client A's, and
+        vice versa.
+      - **10 (tool returns malicious content)**: a tool whose own output
+        embeds a prompt-injection payload is executed successfully and the
+        payload is stored verbatim as ordinary data (never acted on — the
+        tool's *registered* risk level still governs gating); separately,
+        an injected instruction inside a recommendation's free-text
+        `finding` field cannot override its structured `priority` field
+        for `routeRecommendation`'s routing decision.
+- [x] 8 new tests (156 total). `docs/SECURITY.md`'s Section 80 checklist
+      updated with a file pointer for every one of the ten scenarios.
+
+All ten BRD Section 80 scenarios now fail safely with automated, repeatable
+proof — not just code-review confidence.
 
 ### Day 13 — Dashboard (recommendations, tasks, approvals, AI runs)
 
