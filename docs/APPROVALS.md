@@ -1,11 +1,11 @@
 # Approval Engine — TargetGum AI Marketing OS
 
-Status: **Design draft — not yet implemented.** Scheduled for Day 10 per
-`docs/MVP-CHECKLIST.md`. Until then, `src/lib/tools/execute.ts` (Day 5) hard-blocks
-every HIGH/CRITICAL-risk tool call rather than executing it unapproved or building a
-partial stub — see `docs/DECISIONS.md`. LOW/MEDIUM-risk tools already execute through
-the full authorization chain (permission, client access, agent allowlist) and are
-fully audited; only the approval step itself is missing.
+Status: **Implemented (Day 10).** `src/lib/approvals/approvals.ts` is the engine;
+`src/lib/tools/execute.ts` calls into it for every HIGH/CRITICAL-risk tool call,
+replacing the Day 5 hard block. `src/lib/recommendations/route.ts` routes a
+recommendation to either a task or an approval request depending on its risk (BRD
+Section 24). No approval-screen UI exists yet — that's Day 13 (dashboard); the engine
+itself (create/list/approve/reject/cancel/execute) is fully built and tested.
 
 ## Risk Classification (BRD-PRD Section 21)
 
@@ -62,3 +62,12 @@ DETECTED → ANALYZED → RECOMMENDED → ACCEPTED/REJECTED → APPROVED → EXE
 This lifecycle is what lets TargetGum measure whether AI recommendations
 actually produce useful outcomes (acceptance rate, rejection rate, false
 positives — see `docs/MVP-CHECKLIST.md` metrics section once defined).
+
+**Implementation note (Day 10):** `recommendation.status` and its linked
+`approval.status` are not automatically kept in sync end-to-end yet — creating an
+approval for a recommendation sets `recommendation.approvalId` but leaves its status
+at `RECOMMENDED` until a human explicitly calls `acceptRecommendation`/
+`rejectRecommendation` (`src/lib/recommendations/persist.ts`). Full bidirectional
+sync (e.g. auto-flipping the recommendation to `APPROVED`/`EXECUTED` as its linked
+approval progresses) is deferred to when there's a real UI/workflow exercising it —
+see docs/DECISIONS.md.

@@ -1,0 +1,17 @@
+# recommendations
+
+Recommendation persistence and lifecycle (BRD-PRD Section 39, 107), task creation
+(Section 40), and the routing decision between the two (Section 24).
+
+- `persist.ts` — `persistRecommendations` (from a Marketing Analytics Agent run,
+  `src/lib/agents/analytics-agent.ts`), `listRecommendations`, `getRecommendation`,
+  `acceptRecommendation`, `rejectRecommendation` (which also records the rejection
+  as `ClientFeedback` — BRD Section 108's "learning from feedback" loop, back to
+  Day 8's Client Brain).
+- `tasks.ts` — `createTaskFromRecommendation`, `listTasks`, `updateTaskStatus`. Gated
+  by `tasks.create`, not `clients.manage` — Account Manager and Marketing Employee can
+  both create tasks (BRD Section 4.2-4.3); a Client User cannot (Section 4.4).
+- `route.ts` — `routeRecommendation`: BRD Section 24's daily-workflow decision. A
+  recommendation that's HIGH/CRITICAL priority or flagged `requiresApproval` gets an
+  Approval request (`src/lib/approvals/`) instead of a task — everything else gets a
+  task for a human to action normally.

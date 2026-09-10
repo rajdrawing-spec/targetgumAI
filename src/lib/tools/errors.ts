@@ -27,17 +27,39 @@ export class ToolOutputValidationError extends ToolError {
 }
 
 /**
- * Thrown for any HIGH/CRITICAL-risk tool call. The Approval Engine
- * (docs/MVP-CHECKLIST.md, Day 10) doesn't exist yet, and BRD-PRD Section 21
- * defaults HIGH to "approval required" and CRITICAL to "approval always
- * required, no override" - with nothing to route an approval through,
- * the only safe behavior is to deny outright rather than execute
- * unchecked. Day 10 replaces this hard block with a real approval gate.
+ * Thrown for any HIGH/CRITICAL-risk tool call (BRD-PRD Section 21: HIGH
+ * defaults to "approval required", CRITICAL to "approval always required,
+ * no override"). Execution does NOT proceed - `execute.ts` creates a
+ * PENDING Approval instead and throws this, carrying its id. Call
+ * `executeApprovedTool(ctx, approvalId)` once a human approves it
+ * (src/lib/approvals/approvals.ts `approveApproval`) to actually run the
+ * tool. Before Day 10 this was a hard, unconditional block
+ * (`RiskLevelBlockedError`, still thrown for CRITICAL-without-an-org-
+ * policy-override cases and kept for any caller pattern matching on it) -
+ * see docs/DECISIONS.md.
+ */
+export class ApprovalRequiredError extends ToolError {
+  constructor(
+    toolKey: string,
+    riskLevel: string,
+    public readonly approvalId: string,
+  ) {
+    super(
+      `Tool "${toolKey}" is risk level ${riskLevel} and requires approval before it can execute. Approval request created: ${approvalId}.`,
+    )
+    this.name = 'ApprovalRequiredError'
+  }
+}
+
+/**
+ * Retained for any narrow case where an approval genuinely cannot be
+ * created (e.g. the approval-creation call itself fails) - execution must
+ * still never proceed unchecked for a HIGH/CRITICAL tool.
  */
 export class RiskLevelBlockedError extends ToolError {
   constructor(toolKey: string, riskLevel: string) {
     super(
-      `Tool "${toolKey}" is risk level ${riskLevel} and requires the Approval Engine, which does not exist yet (Day 10) - execution denied rather than run unchecked.`,
+      `Tool "${toolKey}" is risk level ${riskLevel} and could not be routed through the Approval Engine - execution denied rather than run unchecked.`,
     )
     this.name = 'RiskLevelBlockedError'
   }

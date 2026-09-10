@@ -32,6 +32,7 @@ export const PERMISSIONS = [
   'integrations.manage',
   'approvals.approve',
   'approvals.request',
+  'tasks.create',
   'reports.read',
   'audit.read',
 ] as const
@@ -40,8 +41,10 @@ export type Permission = (typeof PERMISSIONS)[number]
 
 export const ROLE_PERMISSIONS: Record<SystemRoleKey, readonly Permission[]> = {
   super_admin: PERMISSIONS,
-  account_manager: ['clients.read', 'approvals.approve', 'approvals.request', 'reports.read'],
-  marketing_employee: ['clients.read', 'approvals.request', 'reports.read'],
+  account_manager: ['clients.read', 'approvals.approve', 'approvals.request', 'tasks.create', 'reports.read'],
+  marketing_employee: ['clients.read', 'approvals.request', 'tasks.create', 'reports.read'],
+  // Client User (BRD Section 4.4) can view/approve/give feedback but not
+  // create internal tasks - that's staff-only (Section 4.2/4.3).
   client_user: ['clients.read', 'reports.read'],
 }
 

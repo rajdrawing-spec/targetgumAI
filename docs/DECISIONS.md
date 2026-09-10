@@ -5,6 +5,49 @@ Newest entries at the top.
 
 ---
 
+## 2026-09-10 — Approval Engine replaces the Day 5 hard block via ApprovalRequiredError, not silent execution (Day 10)
+
+**Decision:** `executeTool()`'s risk gate no longer throws `RiskLevelBlockedError`
+unconditionally for HIGH/CRITICAL tools. It now creates a `PENDING` `Approval` row
+(`src/lib/approvals/approvals.ts`) and throws `ApprovalRequiredError` carrying the
+approval's id. A new `executeApprovedTool(ctx, approvalId)` re-runs the same
+authorization chain (permissions, client access, agent allowlist all re-checked —
+only the risk-level gate is skipped, since the approval itself is that decision) once
+a human calls `approveApproval`, and marks the approval `EXECUTED`/`FAILED` based on
+the outcome. `RiskLevelBlockedError` is retained only for the case where no
+`clientId` was given (an `Approval` requires one — BRD Section 22) or approval
+creation itself fails — a HIGH/CRITICAL call must never execute unchecked, so denial
+is still the fallback, just no longer the *only* path.
+
+**Rationale:** This is exactly what Day 5's `RiskLevelBlockedError` comment promised:
+"Day 10 replaces this hard block with a real approval gate." Building the engine now
+was the point of doing Day 5's honest-denial-over-fabricated-approval trade-off in
+the first place.
+
+**Consequence for existing tests**: `tests/security/tool-authorization.test.ts`'s
+HIGH-risk test was updated to assert `ApprovalRequiredError` + a real `PENDING`
+approval row, instead of the old unconditional `RiskLevelBlockedError` — this is a
+behavior change on purpose, not a regression; see the test's own history in the same
+commit.
+
+---
+
+## 2026-09-10 — Added a distinct `tasks.create` permission, not reused `clients.manage` (Day 10)
+
+**Decision:** `src/lib/rbac/permissions.ts` gained a new permission key,
+`tasks.create`, granted to `account_manager` and `marketing_employee` (and
+`super_admin`), not `client_user`.
+
+**Rationale:** BRD-PRD Section 4.2-4.4 lists "Create tasks" as an Account
+Manager/Marketing Employee capability, not tied to client configuration authority
+(`clients.manage`, which only `super_admin` holds in the seeded set) and not granted
+to Client User. Reusing `clients.read` would have wrongly let Client User create
+tasks too (everyone with `clients.read` could); reusing `clients.manage` would have
+wrongly blocked Marketing Employee, who BRD explicitly says can create tasks.
+A dedicated permission was the only option that matched BRD's actual role table.
+
+---
+
 ## 2026-09-10 — ClientBrain sections fetched as a full row, not per-column Prisma `select` (Day 8)
 
 **Decision:** `getClientBrainSection(s)` (`src/lib/clients/brain.ts`) runs

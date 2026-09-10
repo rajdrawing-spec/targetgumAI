@@ -317,11 +317,47 @@ No agent consumes this yet — Day 9's Analytics Agent is the first real caller 
 Nothing produced here is persisted — Day 10 wires `AnalysisResult` into the
 `recommendations` table, task creation, and the approval flow.
 
-### Day 10 — Recommendation engine, tasks, approvals
+### Day 10 — Recommendation engine, tasks, approvals ✅ DONE
 
-- [ ] Structured recommendation schema + persistence
-- [ ] Task creation from recommendations
-- [ ] Approval engine implementation
+- [x] Recommendation persistence + lifecycle
+      (`src/lib/recommendations/persist.ts`): `persistRecommendations` from
+      an agent's `AnalysisResult`, `listRecommendations`,
+      `acceptRecommendation`, `rejectRecommendation` — which also writes a
+      `ClientFeedback` row (BRD Section 108's learning loop back to Day 8's
+      Client Brain, verified by test)
+- [x] Task creation (`src/lib/recommendations/tasks.ts`):
+      `createTaskFromRecommendation` maps recommendation priority → task
+      priority (CRITICAL→URGENT) and builds the description from evidence/
+      likely cause. Gated by a new `tasks.create` permission (not
+      `clients.manage`) so Account Manager and Marketing Employee can both
+      create tasks per BRD Section 4.2-4.3, while Client User cannot
+      (verified by test) — see docs/DECISIONS.md for why a new permission
+      was needed rather than reusing an existing one
+- [x] **Approval Engine** (`src/lib/approvals/approvals.ts`):
+      create/list/get/approve/reject/cancel, `approvals.approve` (Account
+      Manager+) vs `approvals.request` (Account Manager + Marketing
+      Employee) gating verified by test, tenant-scoped throughout
+- [x] **Replaces the Day 5 hard block for real**: `executeTool()`'s HIGH/
+      CRITICAL risk gate now creates a `PENDING` approval and throws
+      `ApprovalRequiredError` (carrying its id) instead of always denying;
+      a new `executeApprovedTool(ctx, approvalId)` re-runs the full
+      authorization chain (risk gate skipped - the approval is that
+      decision) once approved, and marks the approval `EXECUTED`/`FAILED`
+      based on the outcome — verified end-to-end including the failure path
+- [x] `routeRecommendation` (`src/lib/recommendations/route.ts`) implements
+      BRD Section 24's daily-workflow decision: HIGH/CRITICAL priority or
+      `requiresApproval` → an Approval request; everything else → a task
+- [x] 15 new tests (142 total): full approval lifecycle including
+      cross-role denial (Marketing Employee can't approve/reject),
+      cross-client denial, expiry-aware status checks, the
+      execute-after-approval path actually running the tool (and marking
+      FAILED when the underlying tool throws); recommendation persistence/
+      accept/reject with the feedback-loop write; task creation permission
+      and content; routing to task vs. approval
+
+No approval-screen UI exists yet (Day 13, dashboard) — the engine itself is
+complete and tested. Bidirectional Recommendation↔Approval status sync is a
+known simplification, documented in `docs/APPROVALS.md`.
 
 ## Week 3 — End-to-End MVP
 

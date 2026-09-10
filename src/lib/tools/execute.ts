@@ -1,4 +1,5 @@
-import type { Prisma } from '@prisma/client'
+import type { Prisma, Tool } from '@prisma/client'
+import { createApproval, markApprovalExecuted, markApprovalFailed } from '@/lib/approvals/approvals'
 import { recordAuditEvent } from '@/lib/audit/record'
 import { db } from '@/lib/db/client'
 import { assertClientAccess, assertPermission } from '@/lib/rbac/guards'
@@ -6,12 +7,14 @@ import type { Permission } from '@/lib/rbac/permissions'
 import { ForbiddenError } from '@/lib/rbac/errors'
 import type { AuthContext } from '@/lib/rbac/types'
 import {
+  ApprovalRequiredError,
   RiskLevelBlockedError,
   ToolInputValidationError,
   ToolNotFoundError,
   ToolOutputValidationError,
 } from './errors'
 import { getToolImplementation } from './registry'
+import type { ToolDefinition } from './types'
 
 /**
  * The single entry point for running a registered tool (BRD-PRD Section 14:
@@ -23,6 +26,12 @@ import { getToolImplementation } from './registry'
  *   acceptable? -> validate input -> execute -> validate output -> audit.
  *
  * Every outcome is audited, including denials - never just the successes.
+ *
+ * HIGH/CRITICAL-risk tools (BRD Section 21) do not execute here - this
+ * creates a PENDING Approval (src/lib/approvals/approvals.ts) and throws
+ * ApprovalRequiredError. Call `executeApprovedTool` once a human approves
+ * it to actually run the tool - see docs/DECISIONS.md for why Day 10
+ * replaced the Day 5 hard block with this instead of executing directly.
  */
 
 export interface ExecuteToolInput {
@@ -57,17 +66,24 @@ async function denyAndAudit(
   throw reason
 }
 
-export async function executeTool(params: ExecuteToolInput): Promise<unknown> {
-  const { ctx, toolKey } = params
+interface AuthorizedCall {
+  toolRow: Tool
+  impl: ToolDefinition<unknown, unknown>
+  agentId: string | undefined
+  parsedInput: { data: unknown }
+}
 
-  if (params.idempotencyKey) {
-    const priorExecution = await db.toolExecution.findUnique({
-      where: { idempotencyKey: params.idempotencyKey },
-    })
-    if (priorExecution?.status === 'SUCCEEDED') {
-      return priorExecution.output
-    }
-  }
+/**
+ * Runs the full authorization + input-validation chain, short of actually
+ * executing. Shared by `executeTool` (fresh calls, risk gate active) and
+ * `executeApprovedTool` (resuming an approved HIGH/CRITICAL call, risk
+ * gate skipped - the Approval itself is the accepted risk decision).
+ */
+async function authorizeCall(
+  params: ExecuteToolInput,
+  options: { skipRiskGate: boolean },
+): Promise<AuthorizedCall> {
+  const { ctx, toolKey } = params
 
   const toolRow = await db.tool.findFirst({ where: { key: toolKey, enabled: true } })
   const impl = getToolImplementation(toolKey)
@@ -130,8 +146,45 @@ export async function executeTool(params: ExecuteToolInput): Promise<unknown> {
     agentId = agent.id
   }
 
-  if (toolRow.riskLevel === 'HIGH' || toolRow.riskLevel === 'CRITICAL') {
-    return denyAndAudit(params, toolRow.provider, new RiskLevelBlockedError(toolKey, toolRow.riskLevel))
+  if (!options.skipRiskGate && (toolRow.riskLevel === 'HIGH' || toolRow.riskLevel === 'CRITICAL')) {
+    // An Approval always belongs to a client (required field, BRD Section
+    // 22) - a HIGH/CRITICAL tool call with no target client can't be
+    // approved at all, so it's denied outright rather than attempting an
+    // invalid Approval row.
+    if (!params.clientId) {
+      return denyAndAudit(
+        params,
+        toolRow.provider,
+        new RiskLevelBlockedError(toolKey, toolRow.riskLevel),
+      )
+    }
+
+    let approvalId: string
+    try {
+      const approval = await createApproval({
+        organizationId: ctx.organizationId,
+        clientId: params.clientId,
+        requestedBy: ctx.userId,
+        agentId,
+        workflowRunId: params.workflowRunId,
+        actionType: `tool.execute.${toolKey}`,
+        riskLevel: toolRow.riskLevel,
+        actionSummary: toolRow.name,
+        proposedChanges: {
+          toolKey,
+          input: params.input as Prisma.InputJsonValue,
+          clientId: params.clientId,
+          agentKey: params.agentKey,
+          workflowRunId: params.workflowRunId,
+          aiRunId: params.aiRunId,
+          idempotencyKey: params.idempotencyKey,
+        },
+      })
+      approvalId = approval.id
+    } catch {
+      return denyAndAudit(params, toolRow.provider, new RiskLevelBlockedError(toolKey, toolRow.riskLevel))
+    }
+    return denyAndAudit(params, toolRow.provider, new ApprovalRequiredError(toolKey, toolRow.riskLevel, approvalId))
   }
 
   const parsedInput = impl.inputSchema.safeParse(params.input)
@@ -142,6 +195,13 @@ export async function executeTool(params: ExecuteToolInput): Promise<unknown> {
       new ToolInputValidationError(toolKey, parsedInput.error.message),
     )
   }
+
+  return { toolRow, impl, agentId, parsedInput }
+}
+
+async function runAuthorizedTool(params: ExecuteToolInput, authorized: AuthorizedCall): Promise<unknown> {
+  const { ctx, toolKey } = params
+  const { toolRow, impl, agentId, parsedInput } = authorized
 
   const execution = await db.toolExecution.create({
     data: {
@@ -215,6 +275,74 @@ export async function executeTool(params: ExecuteToolInput): Promise<unknown> {
       result: 'FAILURE',
       error: message,
     })
+    throw error
+  }
+}
+
+export async function executeTool(params: ExecuteToolInput): Promise<unknown> {
+  if (params.idempotencyKey) {
+    const priorExecution = await db.toolExecution.findUnique({
+      where: { idempotencyKey: params.idempotencyKey },
+    })
+    if (priorExecution?.status === 'SUCCEEDED') {
+      return priorExecution.output
+    }
+  }
+
+  const authorized = await authorizeCall(params, { skipRiskGate: false })
+  return runAuthorizedTool(params, authorized)
+}
+
+interface ApprovedToolCallParams {
+  toolKey: string
+  input: unknown
+  clientId?: string
+  agentKey?: string
+  workflowRunId?: string
+  aiRunId?: string
+  idempotencyKey?: string
+}
+
+/**
+ * Runs a tool call that was previously blocked by the risk gate, now that
+ * its Approval is APPROVED. Re-runs the full authorization chain (BRD
+ * Section 31 still applies in full - permissions/client access/agent
+ * allowlist are re-checked, not just trusted from when the approval was
+ * created) except the risk-level gate itself, since the approval IS that
+ * decision. Marks the approval EXECUTED or FAILED on the way out.
+ */
+export async function executeApprovedTool(ctx: AuthContext, approvalId: string): Promise<unknown> {
+  const approval = await db.approval.findUnique({ where: { id: approvalId } })
+  if (!approval || approval.organizationId !== ctx.organizationId) {
+    throw new ForbiddenError('Not authorized for this approval.')
+  }
+  if (approval.status !== 'APPROVED') {
+    throw new Error(`Cannot execute an approval in status ${approval.status} - it must be APPROVED first.`)
+  }
+
+  const stored = approval.proposedChanges as unknown as ApprovedToolCallParams
+  if (!stored?.toolKey) {
+    throw new Error('This approval was not created for a tool call and cannot be executed via executeApprovedTool.')
+  }
+
+  const params: ExecuteToolInput = {
+    ctx,
+    toolKey: stored.toolKey,
+    input: stored.input,
+    clientId: stored.clientId,
+    agentKey: stored.agentKey,
+    workflowRunId: stored.workflowRunId,
+    aiRunId: stored.aiRunId,
+    idempotencyKey: stored.idempotencyKey,
+  }
+
+  try {
+    const authorized = await authorizeCall(params, { skipRiskGate: true })
+    const result = await runAuthorizedTool(params, authorized)
+    await markApprovalExecuted(approvalId)
+    return result
+  } catch (error) {
+    await markApprovalFailed(approvalId)
     throw error
   }
 }

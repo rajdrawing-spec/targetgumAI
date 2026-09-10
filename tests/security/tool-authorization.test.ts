@@ -5,7 +5,7 @@ import { db } from '@/lib/db/client'
 import { resolveAuthContext } from '@/lib/rbac/context'
 import { ForbiddenError } from '@/lib/rbac/errors'
 import { executeTool } from '@/lib/tools/execute'
-import { RiskLevelBlockedError } from '@/lib/tools/errors'
+import { ApprovalRequiredError, RiskLevelBlockedError } from '@/lib/tools/errors'
 import { registerTool } from '@/lib/tools/registry'
 import {
   cleanupOrg,
@@ -184,16 +184,35 @@ describe('security: tool execution authorization', () => {
     expect(result).toEqual({ value: 'x' })
   })
 
-  it('blocks a HIGH-risk tool outright (no Approval Engine yet) even for super_admin, and audits it', async () => {
+  it('routes a HIGH-risk tool call to the Approval Engine instead of executing it, even for super_admin, and audits the denial', async () => {
     const ctx = await resolveAuthContext(testDb, superAdminId, orgId)
-    await expect(
-      executeTool({ ctx: ctx!, toolKey: 'test.high_risk', input: { value: 'x' }, clientId: clientAId }),
-    ).rejects.toThrow(RiskLevelBlockedError)
+    let caughtApprovalId: string | undefined
+    try {
+      await executeTool({ ctx: ctx!, toolKey: 'test.high_risk', input: { value: 'x' }, clientId: clientAId })
+      expect.unreachable('Expected ApprovalRequiredError')
+    } catch (error) {
+      expect(error).toBeInstanceOf(ApprovalRequiredError)
+      caughtApprovalId = (error as ApprovalRequiredError).approvalId
+    }
+
+    const approval = await db.approval.findUnique({ where: { id: caughtApprovalId! } })
+    expect(approval?.status).toBe('PENDING')
+    expect(approval?.riskLevel).toBe('HIGH')
+    expect(approval?.clientId).toBe(clientAId)
 
     const audit = await db.auditEvent.findFirst({
       where: { organizationId: orgId, action: 'tool.execute.test.high_risk', result: 'DENIED' },
     })
     expect(audit).not.toBeNull()
+
+    await db.approval.delete({ where: { id: caughtApprovalId! } })
+  })
+
+  it('denies a HIGH-risk tool call outright when no target client is given (an Approval cannot be created without one)', async () => {
+    const ctx = await resolveAuthContext(testDb, superAdminId, orgId)
+    await expect(
+      executeTool({ ctx: ctx!, toolKey: 'test.high_risk', input: { value: 'x' } }),
+    ).rejects.toThrow(RiskLevelBlockedError)
   })
 
   it('denies a call for an unknown/unregistered tool key, and still audits the attempt', async () => {
