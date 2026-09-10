@@ -148,13 +148,56 @@ first real tools (Metricool) land in Day 6.
 
 ## Week 2 — Intelligence
 
-### Day 6 — Metricool
+### Day 6 — Metricool ✅ DONE
 
-- [ ] Verify exact Metricool MCP operations required by MVP (see
-      `docs/INTEGRATIONS.md` — ads endpoints not yet confirmed available)
-- [ ] Connection model + client-to-brand mapping
-- [ ] `MetricoolProvider` (Social) + `MetricoolMockProvider`
-- [ ] Integration health tracking
+- [x] Verified exact Metricool MCP operations against a live connection
+      (Day 1 + confirmed again in detail for the scheduling tools this day):
+      `getBrandSettings`, `getAnalyticsAvailableMetrics`,
+      `getAnalyticsDataByMetrics`, `getScheduledPosts`, `createScheduledPost`,
+      `updateScheduledPost`, `createScheduledPostForReview`,
+      `sendScheduledPostForReview`, `getBestTimeToPostByNetwork` — full
+      schemas recorded in code comments (`src/lib/integrations/metricool/
+      provider.ts`) so nothing downstream is guessed
+- [x] Provider interfaces (`src/lib/integrations/providers.ts`):
+      `SocialProvider`, `AdsProvider` — vendor-neutral, per BRD Section 16
+- [x] Connection model + client-to-brand mapping
+      (`src/lib/integrations/health.ts`): generic Client → Integration →
+      IntegrationAccount → IntegrationConnection (BRD Section 33), reusable
+      by GA4/GSC (Day 7) and any future provider, not Metricool-specific
+- [x] Integration health tracking (BRD Section 34): `CONNECTED` /
+      `AUTH_REQUIRED` / `ERROR` / etc., `withIntegrationHealthTracking()`
+      wraps every provider call and updates health on success/failure;
+      denies (never fabricates data) when a client has no connection or an
+      unhealthy one
+- [x] `MetricoolProvider` (real adapter, via a genuine MCP client -
+      `@modelcontextprotocol/sdk` - connecting to `METRICOOL_MCP_URL`, not
+      an assumed REST API - see docs/DECISIONS.md) + `MetricoolMockProvider`
+      (full in-memory implementation of both interfaces)
+- [x] **Safety invariant, tested**: `schedulePost`/`createPost` always send
+      `draft: true` to Metricool regardless of caller input - nothing this
+      adapter does can cause real-world publication. `publishPost` and every
+      `AdsProvider` write method throw `UnsupportedOperationError` (no
+      verified Metricool tool exists for them)
+- [x] Tool Registry entries (`src/lib/integrations/metricool/tools.ts`) -
+      BRD Section 13's own example list: `get_posts`, `schedule_post`,
+      `get_social_analytics`, `get_ad_campaigns`, `get_ad_performance`.
+      `update_ad_campaign` deliberately NOT registered (no working
+      implementation exists for it - "do not assume unsupported operations")
+- [x] 23 new tests (92 total): mock provider full-interface coverage; real
+      adapter mapping logic against an injected fake MCP client (brand
+      filtering, error propagation, the `draft: true` safety invariant, every
+      write method throwing `UnsupportedOperationError`); connection
+      model/health tracking against a real DB (denies before first
+      connection, records success/failure, preserves last-successful-sync
+      through a later failure); full end-to-end tool execution through the
+      exact `executeTool()` path an agent would use, including a client with
+      no connection at all getting `IntegrationUnavailableError` rather than
+      fabricated data
+
+**Known gap**: no live call has been made against a real Metricool MCP
+server — no `METRICOOL_MCP_URL`/`METRICOOL_API_KEY` configured in this
+environment. The adapter's request-building logic is verified; the wire
+connection is not. Tracked in `docs/EXTERNAL-APPROVALS.md`.
 
 ### Day 7 — GA4 + Search Console
 

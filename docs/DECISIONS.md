@@ -5,6 +5,59 @@ Newest entries at the top.
 
 ---
 
+## 2026-09-10 — Metricool adapter connects via a real MCP client, not Metricool's REST API (Day 6)
+
+**Decision:** `src/lib/integrations/metricool/mcp-client.ts` implements
+`MetricoolProvider` as an MCP client (`@modelcontextprotocol/sdk`, Streamable HTTP
+transport) connecting to `METRICOOL_MCP_URL`, rather than calling an assumed
+Metricool REST API directly.
+
+**Rationale:** BRD-PRD Section 15 explicitly names "Metricool MCP" throughout, and
+this session has a live, verified Metricool MCP connection (`Metricool_Social_Media_
+Management`) with a confirmed tool surface (checked live during Day 1 — see the
+Metricool findings entry below and docs/INTEGRATIONS.md). Guessing at Metricool's raw
+REST API shape from training data would violate "never guess SDK usage" / "do not
+assume external APIs are available until verified" (BRD Section 116) — building
+against the verified MCP tool schemas instead means every request this adapter
+constructs is checkable against something real, not invented.
+
+**What is and isn't verified**: the tool *names and input schemas* are verified
+(fetched live via this session's own Metricool MCP connection). The *transport
+connection itself* — a real `METRICOOL_MCP_URL` + `METRICOOL_API_KEY` reachable from
+the deployed application — is not, since no such URL/key has been provided to this
+environment. The auth header shape (`Authorization: Bearer <key>`) is a reasonable
+default, not confirmed. See docs/EXTERNAL-APPROVALS.md.
+
+**Revisit if**: once real connection details are available and a live test reveals a
+different transport (e.g. SSE instead of Streamable HTTP) or auth scheme, update
+`mcp-client.ts` accordingly — the rest of the adapter (`provider.ts`) doesn't need to
+change, since it only depends on `callMetricoolTool()`'s contract.
+
+---
+
+## 2026-09-10 — Metricool's `schedulePost`/`createPost` always send `draft: true` (Day 6)
+
+**Decision:** Regardless of what `SocialPostInput` the caller provides,
+`MetricoolProvider.createPost`/`.schedulePost` always set `draft: true` (and
+`autoPublish: false`) in the Metricool `createScheduledPost` payload. Verified by a
+dedicated test (`tests/unit/metricool-provider.test.ts`) that asserts this on every call.
+
+**Rationale:** Metricool's `autoPublish: true` would let Metricool itself publish the
+content automatically at the scheduled time, with no further TargetGum approval step
+— which would make `schedulePost` (classified MEDIUM risk, BRD Section 21 "prepare
+scheduled content") a disguised HIGH-risk "publish" action. Since there's no Approval
+Engine yet (Day 10) and the Day 5 Tool Registry already hard-blocks HIGH/CRITICAL
+tools, keeping `schedulePost` honestly MEDIUM means forcing Metricool into a fully-held
+draft state — nothing this adapter does can cause a real-world publish.
+`publishPost` is correspondingly unimplemented (`UnsupportedOperationError`): making
+an existing draft actually go live is exactly the HIGH-risk operation that needs Day
+10's Approval Engine, not something to enable quietly through a MEDIUM-risk tool.
+
+**Revisit**: Day 10, when a real HIGH-risk `publishPost`-equivalent tool can exist
+behind the Approval Engine.
+
+---
+
 ## 2026-09-10 — HIGH/CRITICAL-risk tools are hard-blocked until the Approval Engine exists (Day 5)
 
 **Decision:** `executeTool()` throws `RiskLevelBlockedError` for any tool whose

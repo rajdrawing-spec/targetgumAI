@@ -1,8 +1,9 @@
 # Integrations — TargetGum AI Marketing OS
 
-Status: **Design draft.** No provider adapters are implemented yet (Week 2 of
-`docs/MVP-CHECKLIST.md`). This document records the provider interface contracts and
-integration model so implementation is straightforward once the foundation lands.
+Status: **Metricool implemented (Day 6).** Provider interfaces (`src/lib/integrations/
+providers.ts`), the connection/health model (`src/lib/integrations/health.ts`), and
+the Metricool adapter (`src/lib/integrations/metricool/` — real + mock) all exist.
+GA4/GSC/Canva remain design-only (Day 7+).
 
 ## Principle: Provider Abstraction (BRD-PRD Section 109-112)
 
@@ -77,11 +78,12 @@ implemented, not speculatively here.
 
 | Capability | MVP Provider | Status |
 |---|---|---|
-| AI reasoning | Claude | Not yet implemented (Day 4) |
-| Social scheduling / analytics | Metricool MCP | Not yet implemented (Week 2) |
-| Supported ad analysis / management | Metricool MCP | Not yet implemented (Week 2); **exact write operations must be verified against the live Metricool MCP tool list before any production automation depends on them** |
-| Website analytics | GA4 | Not yet implemented (Week 2) |
-| Search analytics | Google Search Console | Not yet implemented (Week 2) |
+| AI reasoning | Claude | Implemented (Day 4) - orchestration verified, live API call pending a key |
+| Social scheduling / analytics | Metricool MCP | Implemented (Day 6) - adapter built and unit-tested against verified tool schemas; not live-tested (no METRICOOL_MCP_URL configured anywhere this code has run) |
+| Supported ad analysis (read) | Metricool MCP | Implemented (Day 6), same live-test caveat as above |
+| Ad management (write) | — | **Confirmed unavailable via Metricool.** No adapter write path exists; would need a native Google/Meta Ads integration (Phase 2) if ever required |
+| Website analytics | GA4 | Not yet implemented (Day 7) |
+| Search analytics | Google Search Console | Not yet implemented (Day 7) |
 | Creative | Canva MCP | Optional; not yet implemented |
 
 ### Metricool MCP — availability confirmed (checked live, 2026-09-10)
@@ -118,10 +120,37 @@ This environment has a live `Metricool_Social_Media_Management` MCP connection
   from yet for any of these brands.
 
 Full findings and implications are logged in `docs/DECISIONS.md`. The
-`MetricoolProvider` adapter (Week 2) wraps exactly the confirmed-available
-operations above; the mock (`MetricoolMockProvider`) still implements the full
-`AdsProvider` write methods (no-ops) so agent/workflow code and its tests are
-unaffected if a future provider (Metricool or native) adds write support.
+`MetricoolProvider` adapter wraps exactly the confirmed-available operations above;
+the mock (`MetricoolMockProvider`) still implements the full `AdsProvider` write
+methods (no-ops) so agent/workflow code and its tests are unaffected if a future
+provider (Metricool or native) adds write support.
+
+### Metricool adapter — implementation notes (Day 6)
+
+- **Registered tools** (`src/lib/integrations/metricool/tools.ts`, Tool Registry):
+  `metricool.get_connected_networks`, `metricool.get_posts`,
+  `metricool.schedule_post` (MEDIUM risk), `metricool.get_social_analytics`,
+  `metricool.get_ad_campaigns`, `metricool.get_ad_performance` (all LOW risk except
+  scheduling). `metricool.update_ad_campaign` is deliberately not registered — see
+  above.
+- **Safety invariant**: `schedulePost`/`createPost` always send `draft: true` to
+  Metricool. Nothing this adapter does can cause a real-world publish — a distinct
+  future `publishPost`-equivalent would need to be its own HIGH-risk,
+  Approval-Engine-gated tool. See docs/DECISIONS.md.
+- **`getPosts` gap**: only returns *scheduled* (not-yet-published) posts —
+  `getScheduledPosts` is the only verified read tool for post listings; there's no
+  verified tool for published-post history.
+- **Connection model**: `src/lib/integrations/health.ts` implements Client →
+  Integration → IntegrationAccount → IntegrationConnection (BRD Section 33) generically
+  (any provider, not just Metricool), with health tracking (BRD Section 34) — every
+  Metricool tool call resolves and records against a real `IntegrationConnection`, and
+  refuses to run (raising `IntegrationUnavailableError`, never fabricating data) if a
+  client has no connection or the connection isn't `CONNECTED`.
+- **Not live-verified**: no `METRICOOL_MCP_URL`/`METRICOOL_API_KEY` is configured in
+  any environment this code has run in. The adapter's request-building logic (which
+  tool, which arguments, the `draft: true` safety invariant) is unit-tested against an
+  injected fake MCP client; the actual wire connection to a real Metricool MCP server
+  has not been exercised. See docs/EXTERNAL-APPROVALS.md.
 
 ## Canva
 
