@@ -86,6 +86,8 @@ export async function generateReport(
   analysis: AnalysisResult,
   range: { from: string; to: string },
   type: ReportType,
+  /** Defaults to "Marketing Performance Report" - the SEO workflow (src/lib/workflows/seo-analysis-workflow.ts) passes "SEO Performance Report" so it reads distinctly in the Reports list. */
+  reportName = 'Marketing Performance Report',
 ) {
   assertPermission(ctx, 'clients.read')
   await getAuthorizedClient(ctx, clientId)
@@ -97,7 +99,7 @@ export async function generateReport(
       organizationId: ctx.organizationId,
       clientId,
       type,
-      title: `Marketing Performance Report (${type === 'CLIENT' ? 'Client' : 'Internal'}) — ${range.from} to ${range.to}`,
+      title: `${reportName} (${type === 'CLIENT' ? 'Client' : 'Internal'}) — ${range.from} to ${range.to}`,
       periodStart: new Date(range.from),
       periodEnd: new Date(range.to),
       content: content as unknown as Prisma.InputJsonValue,

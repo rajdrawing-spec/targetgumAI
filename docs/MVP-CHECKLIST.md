@@ -832,8 +832,53 @@ scripts removed afterward.
 
 typecheck, lint, full test suite (195/195), and production build all pass.
 
+### SEO workflows ✅ DONE
+
+Implements the SEO Agent (BRD Section 25's "Later" agent list, brought
+forward as this Phase 2 item): `src/lib/agents/seo-agent.ts` reads only
+Search Console query- and page-level performance (never crawls or audits
+anything - BRD Section 49 excludes "Full SEO crawler"/"Advanced SEO
+systems") and produces the same structured-recommendation shape every
+agent does. `src/lib/workflows/seo-analysis-workflow.ts` mirrors
+`analyze-client-workflow.ts`'s persist/route/report/audit pipeline exactly,
+with zero new logic - same `analysis.trigger` gate. New "Run SEO analysis"
+button on the client detail page (next to "Analyze this client"), and a
+`/dashboard/seo` aggregate page listing every SEO Agent recommendation
+across clients. Extracted the shared recommendation zod schema out of the
+analytics agent into `src/lib/agents/schemas.ts` so both agents share it
+rather than duplicating it - pure refactor, no behavior change.
+
+"SEO" recommendations are identified via `AiRun.contextIds.agentKey`
+(`src/lib/seo/persist.ts`), not the free-text `area` field, since the
+general Marketing Analytics Agent can legitimately also produce an
+`area: "SEO"` recommendation as part of an omnibus analysis - the two need
+to stay distinguishable. docs/DECISIONS.md has the full account, including
+why this is the first use of a Prisma JSON path filter in this codebase.
+
+6 new tests (201 total, up from 195) in `tests/integration/
+seo-workflow.test.ts`: agent registration (exactly one LOW-risk tool),
+the full gather-analyze pipeline, the no-connection/no-AI-spend path, the
+end-to-end workflow (persist + route + a distinctly-titled report), the
+`analysis.trigger` permission gate, and - the most important one - proof
+that `listSeoRecommendations`/`listSeoRecommendationsForOrg` correctly
+exclude a general-agent recommendation with `area: "SEO"` while including
+an SEO-agent one. All 195 pre-existing tests still pass unchanged.
+
+End-to-end smoke-verified live with Playwright: the seeded `/dashboard/seo`
+page renders and Accept works on a real recommendation; more importantly,
+clicked "Run SEO analysis" live on a client with no Search Console
+connection and confirmed it completes successfully end-to-end (workflow
+runs, a distinctly-titled "SEO Performance Report" appears in Reports) with
+zero AI spend - this environment has no `ANTHROPIC_API_KEY` configured, the
+same pre-existing constraint "Analyze this client" has always had here, so
+the connected/happy path (a real Claude call) is covered by the mocked test
+suite instead, not a live click. Fixture data and scratch scripts removed
+afterward.
+
+typecheck, lint, full test suite (201/201), and production build all pass.
+
 Not yet started from the Phase 2 list (BRD Section 85): Canva creative
 workflow, automated social scheduling, more advanced reporting, a Meta/Google
 Ads direct integration, weekly automated intelligence (needs the BullMQ/Redis
 job infrastructure `docs/ARCHITECTURE.md` proposes but nothing built yet),
-SEO workflows, competitor analysis.
+competitor analysis.

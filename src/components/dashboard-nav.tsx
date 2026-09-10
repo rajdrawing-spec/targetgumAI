@@ -13,6 +13,7 @@ import {
   Plug,
   ScrollText,
   CalendarDays,
+  Search,
   type LucideIcon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -23,6 +24,7 @@ const NAV_ITEMS: Array<{ href: string; label: string; icon: LucideIcon }> = [
   { href: '/dashboard/recommendations', label: 'Recommendations', icon: Lightbulb },
   { href: '/dashboard/tasks', label: 'Tasks', icon: CheckSquare },
   { href: '/dashboard/content-calendar', label: 'Content calendar', icon: CalendarDays },
+  { href: '/dashboard/seo', label: 'SEO', icon: Search },
   { href: '/dashboard/approvals', label: 'Approvals', icon: ShieldCheck },
   { href: '/dashboard/ai-runs', label: 'AI Runs', icon: Bot },
   { href: '/dashboard/reports', label: 'Reports', icon: FileText },

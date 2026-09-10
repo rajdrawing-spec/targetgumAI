@@ -899,6 +899,80 @@ deliberately left untouched.
 
 ---
 
+## 2026-09-10 — Phase 2: SEO Agent + "Run SEO analysis" workflow
+
+**Decision:** Built the SEO Agent (BRD Section 25's "Later" agent list,
+brought forward as a Section 85 Phase 2 item) as its own agent rather than
+folding it into the Marketing Analytics Agent, which already reads Search
+Console data as one of several sources. `src/lib/agents/seo-agent.ts`
+gathers only Search Console query- and page-level performance (two
+`gsc.get_search_performance` calls, one per dimension - richer than the
+general agent's single query-dimension call) through the already-
+registered tool, and produces the same `AnalysisResult` shape every other
+agent does. `src/lib/workflows/seo-analysis-workflow.ts` mirrors
+`analyze-client-workflow.ts` step-for-step (persist recommendations, route
+to task/approval, generate a report, audit) with zero new logic invented -
+same authorization gate (`analysis.trigger`, staff-only), same downstream
+pipeline. Surfaced as a second "Run SEO analysis" button next to "Analyze
+this client" on the client detail page, and a new `/dashboard/seo`
+aggregate page (`src/lib/seo/persist.ts`) mirroring the Recommendations/
+Content-calendar aggregate-page pattern.
+
+Extracted the shared `RecommendationSchema`/`AnalysisResultSchema` zod
+definitions the analytics agent had inline into `src/lib/agents/
+schemas.ts` so both agents produce structurally identical output without
+copy-pasting the schema - a pure refactor, no behavior change (verified by
+the full existing test suite passing unchanged).
+
+**Identifying "SEO" recommendations reliably:** the SEO Agent's prompt
+(`prompts/seo/v1.md`) deliberately keeps each recommendation's `area`
+field specific and varied ("Query CTR", "Page rankings", ...) rather than
+a constant "SEO" - more useful to read, but not something a UI filter
+should trust matching on (the general Marketing Analytics Agent can
+legitimately also produce an `area: "SEO"` recommendation as part of an
+omnibus analysis - collapsing both into the same free-text value would
+make them indistinguishable). Instead, `listSeoRecommendations`/
+`listSeoRecommendationsForOrg` filter on `AiRun.contextIds.agentKey`
+(a Prisma JSON `path`+`equals` filter on Postgres - the first use of that
+pattern in this codebase) so only recommendations the SEO Agent itself
+produced are ever returned. Directly tested: a general-agent recommendation
+with `area: "SEO"` and an SEO-agent recommendation are both created in the
+same test, and only the latter comes back from either listing function.
+
+Also added an optional `reportName` parameter to `generateReport`
+(defaults to the existing "Marketing Performance Report", so every
+existing caller is unaffected) so this workflow's reports read as "SEO
+Performance Report" in the Reports list rather than reusing the generic
+title for unrelated content.
+
+**Rationale:** A dedicated agent gives a genuinely different, valuable
+capability - a fast, cheap "just check SEO" analysis (one data source, one
+tool-call pair) versus the omnibus agent's full sweep - matching BRD
+Section 88's "repetitive SEO research" automation target, and matching
+Section 25's explicit intent that SEO get its own agent eventually. BRD
+Section 49 ("Full SEO crawler" / "Advanced SEO systems" explicitly out of
+scope) is respected: this reads only the already-verified GSC provider's
+query/page metrics, never crawls, audits, or infers anything about the
+site itself - the prompt is explicit that it must never imply otherwise.
+
+**Trade-off accepted:** live end-to-end verification in this environment
+never reaches a real Claude call (no `ANTHROPIC_API_KEY` configured here) -
+same pre-existing constraint "Analyze this client" has always had. Verified
+live instead via the no-connection path (`runSeoAnalysis` returns early
+with `dataGaps` and never calls the AI Gateway when Search Console isn't
+connected - fully exercises the workflow, permission gate, UI, and report
+generation with zero AI spend) plus full mocked-Claude coverage in
+`tests/integration/seo-workflow.test.ts` for the connected/happy path.
+
+**Revisit if:** GA4/GSC ever get a same-request "connect and verify" UI
+flow like Metricool's (today GSC connections can only be created via
+`connectClientToProviderAccount` directly, no UI form - a pre-existing gap,
+not introduced here) - worth noting on the SEO page once it exists, since
+right now a staff member has no in-app way to connect Search Console at
+all.
+
+---
+
 ## Template for future entries
 
 ```text

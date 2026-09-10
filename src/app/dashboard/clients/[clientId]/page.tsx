@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 import {
   Sparkles,
+  Search,
   Plug,
   Lightbulb,
   CheckSquare,
@@ -23,7 +24,12 @@ import { listTasks } from '@/lib/recommendations/tasks'
 import { listApprovals } from '@/lib/approvals/approvals'
 import { listReports } from '@/lib/reports/generate'
 import { ForbiddenError } from '@/lib/rbac/errors'
-import { connectMetricoolBrandAction, createContentItemAction, triggerAnalyzeClientAction } from '../../actions'
+import {
+  connectMetricoolBrandAction,
+  createContentItemAction,
+  triggerAnalyzeClientAction,
+  triggerSeoAnalysisAction,
+} from '../../actions'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge, StatusBadge, toSentenceCase } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -85,11 +91,18 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ c
           </div>
         </div>
         {canTriggerAnalysis && (
-          <form action={triggerAnalyzeClientAction.bind(null, clientId)}>
-            <Button type="submit" size="lg">
-              <Sparkles className="h-4 w-4" /> Analyze this client
-            </Button>
-          </form>
+          <div className="flex flex-wrap gap-2">
+            <form action={triggerSeoAnalysisAction.bind(null, clientId)}>
+              <Button type="submit" variant="outline" size="lg">
+                <Search className="h-4 w-4" /> Run SEO analysis
+              </Button>
+            </form>
+            <form action={triggerAnalyzeClientAction.bind(null, clientId)}>
+              <Button type="submit" size="lg">
+                <Sparkles className="h-4 w-4" /> Analyze this client
+              </Button>
+            </form>
+          </div>
         )}
       </div>
 

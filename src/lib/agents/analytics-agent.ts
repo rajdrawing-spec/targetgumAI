@@ -1,9 +1,10 @@
-import { z } from 'zod/v4'
+import type { z } from 'zod/v4'
 import { assembleClientContext, renderContextAsText } from '@/lib/clients/context-router'
 import { runStructuredAiTask } from '@/lib/ai/gateway'
 import { executeTool } from '@/lib/tools/execute'
 import type { AuthContext } from '@/lib/rbac/types'
 import { registerAgent } from './registry'
+import { AnalysisResultSchema, RecommendationSchema } from './schemas'
 
 /**
  * The Marketing Analytics Agent (BRD-PRD Section 25.3): analyzes a
@@ -39,27 +40,8 @@ export async function registerMarketingAnalyticsAgent(): Promise<void> {
 }
 
 // --- Structured output schema (BRD Section 39/71) ---
-// zod/v4, not classic 'zod' - required by the AI Gateway's structured
-// outputs (src/lib/ai/gateway.ts) - see docs/DECISIONS.md.
-
-const RecommendationSchema = z.object({
-  priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']),
-  area: z.string().describe('e.g. "Google Ads", "Instagram", "SEO"'),
-  finding: z.string().describe('What was observed, grounded in the evidence given'),
-  evidence: z.array(z.string()).describe('Specific numbers/facts from the provided data that support this finding'),
-  likelyCause: z.string().optional().describe('State as a hypothesis, not a certainty, when causality is uncertain'),
-  recommendation: z.string(),
-  expectedImpact: z.string().optional(),
-  confidence: z.number().min(0).max(1),
-  requiresApproval: z
-    .boolean()
-    .describe('true for anything beyond reporting/analysis - this agent never executes actions itself'),
-})
-
-const AnalysisResultSchema = z.object({
-  summary: z.string().describe('A short (2-4 sentence) plain-language summary of what matters most'),
-  recommendations: z.array(RecommendationSchema),
-})
+// Shared with every other analysis agent (./schemas.ts) - see that file's
+// doc comment for why.
 
 export interface AnalyticsRunInput {
   ctx: AuthContext

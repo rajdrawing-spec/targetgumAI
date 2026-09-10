@@ -17,6 +17,7 @@ import { acceptRecommendation, rejectRecommendation } from '@/lib/recommendation
 import { updateTaskStatus } from '@/lib/recommendations/tasks'
 import { generateClientReportFromInternal } from '@/lib/reports/generate'
 import { runAnalyzeClientWorkflow } from '@/lib/workflows/analyze-client-workflow'
+import { runSeoAnalysisWorkflow } from '@/lib/workflows/seo-analysis-workflow'
 import type { TaskStatus } from '@prisma/client'
 
 /**
@@ -57,6 +58,26 @@ export async function triggerAnalyzeClientAction(clientId: string): Promise<void
   revalidatePath('/dashboard/tasks')
   revalidatePath('/dashboard/approvals')
   revalidatePath('/dashboard/ai-runs')
+}
+
+export async function triggerSeoAnalysisAction(clientId: string): Promise<void> {
+  const ctx = await requireCtx()
+  const to = new Date()
+  const from = new Date(to.getTime() - DEFAULT_RANGE_DAYS * 24 * 60 * 60 * 1000)
+
+  await runSeoAnalysisWorkflow({
+    ctx,
+    clientId,
+    range: { from: from.toISOString().slice(0, 10), to: to.toISOString().slice(0, 10) },
+  })
+
+  revalidatePath(`/dashboard/clients/${clientId}`)
+  revalidatePath('/dashboard/seo')
+  revalidatePath('/dashboard/recommendations')
+  revalidatePath('/dashboard/tasks')
+  revalidatePath('/dashboard/approvals')
+  revalidatePath('/dashboard/ai-runs')
+  revalidatePath('/dashboard/reports')
 }
 
 export async function acceptRecommendationAction(recommendationId: string, clientId: string): Promise<void> {
