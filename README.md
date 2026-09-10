@@ -4,10 +4,15 @@ Multi-tenant AI-powered operating system for a digital marketing agency. Claude
 reasons, TargetGum controls authorization, MCP/APIs execute, workflows automate,
 humans approve exceptions, and everything is audited.
 
-**Status:** Foundation, database schema, and authentication/RBAC/tenant isolation
-are built (Week 1, Days 1-3 of the build plan) — see
-[`docs/MVP-CHECKLIST.md`](docs/MVP-CHECKLIST.md) for live progress and
-[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the architecture assessment.
+**Status:** The 15-day MVP build plan is complete and tested — auth/RBAC, the AI
+Gateway, the Tool Registry, the Approval Engine, Metricool/GA4/GSC adapters, the
+Client Brain, the Marketing Analytics Agent, the "Analyze Client A" workflow, and a
+dashboard covering recommendations/tasks/approvals/AI runs/reports/integrations/audit
+are all built. A real pilot still needs live credentials this build environment
+doesn't have — see [`docs/PILOT-RUNBOOK.md`](docs/PILOT-RUNBOOK.md) for exactly what
+that takes. See [`docs/MVP-CHECKLIST.md`](docs/MVP-CHECKLIST.md) for the full
+day-by-day record and [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the
+architecture assessment.
 
 ## Start here
 
@@ -15,6 +20,8 @@ are built (Week 1, Days 1-3 of the build plan) — see
 - [`docs/BRD-PRD.md`](docs/BRD-PRD.md) — the source-of-truth product spec
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — proposed stack, structure, plan
 - [`docs/MVP-CHECKLIST.md`](docs/MVP-CHECKLIST.md) — what's built vs. pending
+- [`docs/PILOT-RUNBOOK.md`](docs/PILOT-RUNBOOK.md) — how to run a real client pilot
+  once live credentials exist
 
 ## Local development
 

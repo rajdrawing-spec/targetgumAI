@@ -14,6 +14,18 @@ The first operational social/ads integration (BRD Section 15).
   ads write endpoints at all (not an account-plan limitation — see docs/INTEGRATIONS.md).
   **Safety invariant:** `schedulePost`/`createPost` always send `draft: true` to
   Metricool — nothing in this adapter can cause real-world publication (docs/DECISIONS.md).
+  `parseMetricRows`/`numericField`/`stringField` (Day 15) parse
+  `getAnalyticsDataByMetrics`'s real `{ rows: [[...values, "YYYYMMDD"]] }` response
+  shape — found via this session's own live Metricool connection to differ from what
+  was originally assumed from documentation; see docs/INTEGRATIONS.md and
+  docs/DECISIONS.md for the full story, and
+  `tests/unit/metricool-provider.test.ts` for the tests pinning it down.
+- `connect.ts` (Day 15) — `connectClientToMetricoolBrand(ctx, clientId, brandId,
+  label?)`: the missing onboarding step through Day 14 - gated by
+  `integrations.manage`, verifies the brand id via a real `getConnectedNetworks` call
+  (marks the connection `CONNECTED` only on success, `ERROR` with the real message
+  otherwise) rather than trusting whatever the caller typed. The dashboard's client
+  detail page (`src/app/dashboard/clients/[clientId]/page.tsx`) is its only caller.
 - `mock-provider.ts` — `MetricoolMockProvider`: full in-memory implementation of both
   interfaces, including ads writes (as accepted no-ops), so workflows can be built and
   tested without credentials (BRD Section 92).

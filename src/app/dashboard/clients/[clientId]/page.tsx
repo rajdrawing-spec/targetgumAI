@@ -10,7 +10,7 @@ import { listTasks } from '@/lib/recommendations/tasks'
 import { listApprovals } from '@/lib/approvals/approvals'
 import { listReports } from '@/lib/reports/generate'
 import { ForbiddenError } from '@/lib/rbac/errors'
-import { triggerAnalyzeClientAction } from '../../actions'
+import { connectMetricoolBrandAction, triggerAnalyzeClientAction } from '../../actions'
 
 /**
  * Client detail: the "Analyze Client A" trigger (BRD Section 46/43 - "the
@@ -42,6 +42,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ c
     listAiRuns(ctx, { clientId, limit: 10 }),
   ])
   const connections = allConnections.filter((c) => c.clientId === clientId)
+  const canManageIntegrations = ctx.permissions.has('integrations.manage')
 
   return (
     <div className="space-y-8">
@@ -98,9 +99,41 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ c
             {connections.map((c) => (
               <li key={c.id}>
                 {c.integrationAccount.integration.provider}: <span className="text-gray-600">{c.status}</span>
+                {c.lastErrorMessage && <span className="text-red-600"> — {c.lastErrorMessage}</span>}
               </li>
             ))}
           </ul>
+        )}
+        {canManageIntegrations && (
+          <form action={connectMetricoolBrandAction.bind(null, clientId)} className="mt-3 flex flex-wrap items-end gap-2 rounded border border-gray-200 p-3">
+            <div>
+              <label htmlFor="brandId" className="block text-xs text-gray-500">
+                Metricool brand id
+              </label>
+              <input
+                id="brandId"
+                name="brandId"
+                type="text"
+                required
+                placeholder="e.g. 6818704"
+                className="mt-1 w-40 rounded border border-gray-300 px-3 py-1.5 text-sm"
+              />
+            </div>
+            <div>
+              <label htmlFor="label" className="block text-xs text-gray-500">
+                Label (optional)
+              </label>
+              <input
+                id="label"
+                name="label"
+                type="text"
+                className="mt-1 w-40 rounded border border-gray-300 px-3 py-1.5 text-sm"
+              />
+            </div>
+            <button type="submit" className="rounded border border-gray-300 px-3 py-1.5 text-sm hover:bg-gray-50">
+              Connect Metricool brand
+            </button>
+          </form>
         )}
       </section>
 

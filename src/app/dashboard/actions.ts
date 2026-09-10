@@ -1,8 +1,11 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { redirect } from 'next/navigation'
 import { getCurrentAuthContext } from '@/lib/auth/current-context'
 import { approveApproval, rejectApproval } from '@/lib/approvals/approvals'
+import { createClient } from '@/lib/clients/create'
+import { connectClientToMetricoolBrand } from '@/lib/integrations/metricool/connect'
 import { acceptRecommendation, rejectRecommendation } from '@/lib/recommendations/persist'
 import { updateTaskStatus } from '@/lib/recommendations/tasks'
 import { generateClientReportFromInternal } from '@/lib/reports/generate'
@@ -86,6 +89,25 @@ export async function rejectApprovalAction(approvalId: string, clientId: string,
   await rejectApproval(ctx, approvalId, reason || 'No reason given.')
   revalidatePath('/dashboard/approvals')
   revalidatePath(`/dashboard/clients/${clientId}`)
+}
+
+export async function createClientAction(formData: FormData): Promise<void> {
+  const ctx = await requireCtx()
+  const name = String(formData.get('name') ?? '')
+  const client = await createClient(ctx, { name })
+  revalidatePath('/dashboard/clients')
+  revalidatePath('/dashboard')
+  redirect(`/dashboard/clients/${client.id}`)
+}
+
+export async function connectMetricoolBrandAction(clientId: string, formData: FormData): Promise<void> {
+  const ctx = await requireCtx()
+  const brandId = String(formData.get('brandId') ?? '')
+  const label = String(formData.get('label') ?? '')
+  await connectClientToMetricoolBrand(ctx, clientId, brandId, label)
+  revalidatePath(`/dashboard/clients/${clientId}`)
+  revalidatePath('/dashboard/integrations')
+  revalidatePath('/dashboard')
 }
 
 export async function generateClientReportAction(internalReportId: string): Promise<void> {

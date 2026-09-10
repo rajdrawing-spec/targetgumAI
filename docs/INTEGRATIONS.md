@@ -1,10 +1,14 @@
 # Integrations — TargetGum AI Marketing OS
 
-Status: **Metricool (Day 6) and GA4/GSC (Day 7) implemented.** Provider interfaces
+Status: **Metricool (Day 6) and GA4/GSC (Day 7) implemented; Metricool's analytics
+parsing corrected against real live data (Day 15).** Provider interfaces
 (`src/lib/integrations/providers.ts`), the connection/health model
 (`src/lib/integrations/health.ts`), and real + mock adapters for Metricool
 (`src/lib/integrations/metricool/`), GA4 (`.../ga4/`), and GSC (`.../gsc/`) all exist.
-Canva remains design-only (Phase 1, optional).
+Canva remains design-only (Phase 1, optional). Day 15 also verified the Metricool
+adapter against this session's own live MCP connection (not just documented schemas)
+and found + fixed a real parsing bug - see "`getAnalyticsDataByMetrics` real response
+shape" below.
 
 ## Principle: Provider Abstraction (BRD-PRD Section 109-112)
 
@@ -80,8 +84,8 @@ implemented, not speculatively here.
 | Capability | MVP Provider | Status |
 |---|---|---|
 | AI reasoning | Claude | Implemented (Day 4) - orchestration verified, live API call pending a key |
-| Social scheduling / analytics | Metricool MCP | Implemented (Day 6) - adapter built and unit-tested against verified tool schemas; not live-tested (no METRICOOL_MCP_URL configured anywhere this code has run) |
-| Supported ad analysis (read) | Metricool MCP | Implemented (Day 6), same live-test caveat as above |
+| Social scheduling / analytics | Metricool MCP | Implemented (Day 6), analytics parsing corrected against real response data (Day 15) - adapter unit-tested against the verified live shape; the deployed app itself still has no `METRICOOL_MCP_URL` of its own, so wire-level connectivity from the app is not live-tested |
+| Supported ad analysis (read) | Metricool MCP | Implemented (Day 6), same real-shape fix and live-test caveat as above; the `campaigns` connector's exact shape is inferred from the verified `evolution` connector, not independently confirmed (no populated ads account available) |
 | Ad management (write) | — | **Confirmed unavailable via Metricool.** No adapter write path exists; would need a native Google/Meta Ads integration (Phase 2) if ever required |
 | Website analytics | GA4 | Implemented (Day 7) via official `googleapis` client; not live-tested (no OAuth app configured) |
 | Search analytics | Google Search Console | Implemented (Day 7), same caveat as above |
@@ -147,11 +151,62 @@ provider (Metricool or native) adds write support.
   Metricool tool call resolves and records against a real `IntegrationConnection`, and
   refuses to run (raising `IntegrationUnavailableError`, never fabricating data) if a
   client has no connection or the connection isn't `CONNECTED`.
-- **Not live-verified**: no `METRICOOL_MCP_URL`/`METRICOOL_API_KEY` is configured in
-  any environment this code has run in. The adapter's request-building logic (which
-  tool, which arguments, the `draft: true` safety invariant) is unit-tested against an
-  injected fake MCP client; the actual wire connection to a real Metricool MCP server
-  has not been exercised. See docs/EXTERNAL-APPROVALS.md.
+- **Not live-verified for writes/wire-level connectivity**: no `METRICOOL_MCP_URL`/
+  `METRICOOL_API_KEY` is configured in the *deployed app's* environment. The adapter's
+  request-building logic (which tool, which arguments, the `draft: true` safety
+  invariant) is unit-tested against an injected fake MCP client. See
+  docs/EXTERNAL-APPROVALS.md.
+
+### `getAnalyticsDataByMetrics` real response shape — found and fixed (Day 15)
+
+This session's own live `Metricool_Social_Media_Management` MCP connection (the same
+one used for the Day 1 schema check above) made it possible to verify `getAnalytics`/
+`getCampaigns`/`getCampaignPerformance` against **real returned data**, not just
+documented schemas — and that surfaced a real, previously undetected bug.
+
+**What was assumed** (from documentation alone, Day 6): `getAnalyticsDataByMetrics`
+returns a `fieldId`-keyed object of numeric values, e.g. `{ "IGEV01": 170 }`.
+
+**What it actually returns** (verified live against brand `TargetGum`, id `6818704`,
+network `instagram`, connector `evolution`):
+
+```json
+{ "rows": [["170.0", "0.0", null, null, "20260831"], ["169.0", "0.0", null, null, "20260907"]] }
+```
+
+One row **per date** in the range, values **positional** (same order as the requested
+`metrics` array), numbers as **strings**, `null` for a day with no data, and a
+**trailing `YYYYMMDD` date string** appended after the requested metrics.
+
+**Impact before the fix**: `getAnalytics`'s field-mapping loop did `Object.entries(data)`
+on `{rows: [...]}`, which yields one `["rows", <array>]` entry — the loop was a no-op,
+so every normalized field (`reach`, `impressions`, `engagement`, etc.) came back
+`undefined` on every call, silently. `getCampaigns` checked `Array.isArray(data)`,
+which is `false` for `{rows: [...]}`, so it always returned `[]`. `getCampaignPerformance`
+wrapped the whole `{rows: [...]}` object as a single fake row, producing one bogus
+record with `providerCampaignId: "unknown"` and no metrics. None of this threw or
+failed validation — the Zod output schemas mark every metric field `.optional()`, so
+empty/wrong data passed through the Tool Registry silently. This would have made the
+MVP's core "Analyze Client A" workflow run against a *real* Metricool connection and
+produce a report with no real numbers in it, while looking like it succeeded.
+
+**Fix** (`src/lib/integrations/metricool/provider.ts`): `parseMetricRows` now parses
+the real `{rows: [[...]]}` shape - positional values matched back to their requested
+`fieldId`, a `numericField`/`stringField` helper per row (campaign *names* are
+strings, not numbers - a second latent bug the original code's `typeof x === 'number'`
+guard would have masked identically), and the trailing date parsed into `period`.
+`getAnalytics` now returns one `SocialMetricValue` per date (a genuine time series)
+rather than an artificial single aggregate. Also added: "interactions" (Metricool's
+real field name for Instagram engagement, seen live) now maps to the normalized
+`engagement` field, alongside the pre-existing "engagement" substring match.
+
+**Still not independently verified**: the `campaigns` connector (used by
+`getCampaigns`/`getCampaignPerformance`) is assumed to share the same `{rows: [[...]]}`
+wire shape as the verified `evolution` connector (same underlying tool) but was not
+independently tested live - no brand with a connected, populated ads account was
+available (docs/EXTERNAL-APPROVALS.md). Locked in by
+`tests/unit/metricool-provider.test.ts`'s new real-shape test cases either way, so a
+future regression back toward the old (wrong) assumption fails loudly.
 
 ### GA4 / GSC adapter — implementation notes (Day 7)
 

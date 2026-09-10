@@ -44,11 +44,63 @@ interface RawScheduledPost {
   [key: string]: unknown
 }
 
-function assertString(value: unknown, context: string): string {
-  if (typeof value !== 'string') {
-    throw new Error(`Metricool returned an unexpected response shape (${context}): ${JSON.stringify(value)}`)
-  }
-  return value
+/**
+ * `getAnalyticsDataByMetrics`'s real response shape - verified live against
+ * a real brand (TargetGum, id 6818704) during Day 15 pilot-readiness work,
+ * NOT the shape originally assumed from documentation alone (a `fieldId`-
+ * keyed object). It is `{ rows: [[...values in the same order as the
+ * requested `metrics` array..., "YYYYMMDD"]] }` - one row per date in the
+ * range, numeric values as strings, `null` for a day with no data, and a
+ * trailing `YYYYMMDD` date string appended after the requested metrics.
+ * Confirmed for the `evolution` connector; the `campaigns` connector
+ * (`getCampaigns`/`getCampaignPerformance` below) reuses the same
+ * underlying tool and is assumed to follow the same wire shape, but that
+ * specific connector was not independently live-verified (no connected ads
+ * account was available to test against - docs/EXTERNAL-APPROVALS.md).
+ */
+interface MetricsRowsResponse {
+  rows?: unknown[][]
+}
+
+interface ParsedMetricRow {
+  /** fieldId -> the raw value Metricool returned for that field on this row (still a string for numbers - not every field is numeric, e.g. a campaign's `name`, so this stays unconverted; use `numericField` below to read a specific field as a number). */
+  values: Map<string, unknown>
+  /** The row's YYYYMMDD date, if the response included the expected trailing date element. */
+  date?: string
+}
+
+function parseMetricRows(data: unknown, fieldIds: string[]): ParsedMetricRow[] {
+  const rows = data && typeof data === 'object' && Array.isArray((data as MetricsRowsResponse).rows)
+    ? (data as MetricsRowsResponse).rows!
+    : []
+
+  return rows.map((row) => {
+    const values = new Map<string, unknown>()
+    fieldIds.forEach((fieldId, i) => values.set(fieldId, row[i] ?? null))
+    const trailing = row[fieldIds.length]
+    const date = typeof trailing === 'string' && /^\d{8}$/.test(trailing) ? trailing : undefined
+    return { values, date }
+  })
+}
+
+/** Reads one field of a parsed row as a number, or undefined if it's null/missing/non-numeric (e.g. a name field). */
+function numericField(row: ParsedMetricRow, fieldId: string): number | undefined {
+  const raw = row.values.get(fieldId)
+  if (raw == null) return undefined
+  const num = Number(raw)
+  return Number.isFinite(num) ? num : undefined
+}
+
+/** Reads one field of a parsed row as a string, or undefined if it's null/missing. */
+function stringField(row: ParsedMetricRow, fieldId: string): string | undefined {
+  const raw = row.values.get(fieldId)
+  return raw == null ? undefined : String(raw)
+}
+
+/** "20260831" -> "2026-08-31". Returns the input unchanged if it isn't in that shape. */
+function formatMetricoolDate(yyyymmdd: string): string {
+  if (!/^\d{8}$/.test(yyyymmdd)) return yyyymmdd
+  return `${yyyymmdd.slice(0, 4)}-${yyyymmdd.slice(4, 6)}-${yyyymmdd.slice(6, 8)}`
 }
 
 async function findBrand(brandId: string): Promise<RawBrand> {
@@ -174,31 +226,37 @@ export const MetricoolProvider: SocialProvider & Partial<AdsProvider> = {
       return []
     }
 
+    const fieldIds = availableMetrics.map((m) => m.fieldId)
     const data = (await callMetricoolTool('getAnalyticsDataByMetrics', {
       brandId,
       from: range.from,
       to: range.to,
-      metrics: availableMetrics.map((m) => m.fieldId),
+      metrics: fieldIds,
     })) as unknown
 
-    // Best-effort field mapping: match each returned value back to its
-    // metric name and place it into the normalized shape where the name
-    // matches a known field; always preserved verbatim in `raw` regardless.
-    // Refine this once Day 9's Analytics Agent is a real consumer and the
-    // actual response shape for social (non-ads) evolution data is
-    // exercised end-to-end - it wasn't verified beyond the googleAds
-    // example checked during Day 1.
+    // One row per date in the range (verified live shape - see
+    // parseMetricRows above). Each becomes its own SocialMetricValue rather
+    // than collapsing the whole range into one object, since the data
+    // genuinely is a time series, not a single aggregate.
     const metricByFieldId = new Map(availableMetrics.map((m) => [m.fieldId, m.metricName]))
     const now = new Date().toISOString()
-    const value: SocialMetricValue = { source: 'metricool', retrievedAt: now, period: `${range.from}..${range.to}`, raw: data }
+    const rows = parseMetricRows(data, fieldIds)
 
-    if (data && typeof data === 'object') {
-      for (const [fieldId, fieldValue] of Object.entries(data as Record<string, unknown>)) {
+    return rows.map((row) => {
+      const value: SocialMetricValue = {
+        source: 'metricool',
+        retrievedAt: now,
+        period: row.date ? formatMetricoolDate(row.date) : `${range.from}..${range.to}`,
+        raw: data,
+      }
+      for (const fieldId of row.values.keys()) {
+        const fieldValue = numericField(row, fieldId)
+        if (fieldValue == null) continue
         const name = metricByFieldId.get(fieldId)?.toLowerCase()
-        if (!name || typeof fieldValue !== 'number') continue
+        if (!name) continue
         if (name.includes('reach')) value.reach = fieldValue
         else if (name.includes('impression')) value.impressions = fieldValue
-        else if (name.includes('engagement')) value.engagement = fieldValue
+        else if (name.includes('engagement') || name.includes('interaction')) value.engagement = fieldValue
         else if (name.includes('like')) value.likes = fieldValue
         else if (name.includes('comment')) value.comments = fieldValue
         else if (name.includes('share')) value.shares = fieldValue
@@ -207,9 +265,8 @@ export const MetricoolProvider: SocialProvider & Partial<AdsProvider> = {
         else if (name.includes('follower')) value.followers = fieldValue
         else if (name.includes('video') && name.includes('view')) value.videoViews = fieldValue
       }
-    }
-
-    return [value]
+      return value
+    })
   },
 
   // --- AdsProvider: read-only, per docs/INTEGRATIONS.md verified findings ---
@@ -226,24 +283,25 @@ export const MetricoolProvider: SocialProvider & Partial<AdsProvider> = {
 
     // Campaign *listing* (as opposed to performance) isn't independently
     // verified beyond the field schema - this reuses getAnalyticsDataByMetrics
-    // with an unbounded-ish recent window, best-effort. Refine once a real
-    // connected ads account is available to test against (docs/EXTERNAL-APPROVALS.md).
+    // with an unbounded-ish recent window, best-effort, and assumes the
+    // same `{rows: [[...]]}` shape verified for the `evolution` connector
+    // (see parseMetricRows above) - not independently confirmed for
+    // `campaigns`. Refine once a real connected ads account is available to
+    // test against (docs/EXTERNAL-APPROVALS.md).
     const to = new Date().toISOString()
     const from = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString()
+    const fieldIds = availableMetrics.map((m) => m.fieldId)
     const data = (await callMetricoolTool('getAnalyticsDataByMetrics', {
       brandId,
       from,
       to,
-      metrics: availableMetrics.map((m) => m.fieldId),
+      metrics: fieldIds,
     })) as unknown
 
-    return Array.isArray(data)
-      ? (data as Array<Record<string, unknown>>).map((row) => ({
-          providerCampaignId: assertString(row[nameField.fieldId] ?? row.name, 'campaign name'),
-          name: assertString(row[nameField.fieldId] ?? row.name, 'campaign name'),
-          channel,
-        }))
-      : []
+    return parseMetricRows(data, fieldIds)
+      .map((row) => stringField(row, nameField.fieldId))
+      .filter((name): name is string => name != null && name !== '')
+      .map((name) => ({ providerCampaignId: name, name, channel }))
   },
 
   async getCampaignPerformance(brandId, channel, range) {
@@ -253,28 +311,33 @@ export const MetricoolProvider: SocialProvider & Partial<AdsProvider> = {
     })) as Array<{ fieldId: string; metricName: string }>
     if (availableMetrics.length === 0) return []
 
+    const nameField = availableMetrics.find((m) => m.metricName === 'name')
+    const fieldIds = availableMetrics.map((m) => m.fieldId)
     const data = (await callMetricoolTool('getAnalyticsDataByMetrics', {
       brandId,
       from: range.from,
       to: range.to,
-      metrics: availableMetrics.map((m) => m.fieldId),
+      metrics: fieldIds,
     })) as unknown
 
     const metricByFieldId = new Map(availableMetrics.map((m) => [m.fieldId, m.metricName]))
     const now = new Date().toISOString()
-    const rows = Array.isArray(data) ? (data as Array<Record<string, unknown>>) : [data as Record<string, unknown>]
+    const rows = parseMetricRows(data, fieldIds)
 
     return rows.map((row) => {
+      const providerCampaignId = (nameField && stringField(row, nameField.fieldId)) || 'unknown'
       const perf: AdCampaignPerformance = {
         source: 'metricool',
         retrievedAt: now,
-        period: `${range.from}..${range.to}`,
-        providerCampaignId: assertString(row.name ?? row.providerCampaignId ?? 'unknown', 'campaign id'),
-        raw: row,
+        period: row.date ? formatMetricoolDate(row.date) : `${range.from}..${range.to}`,
+        providerCampaignId,
+        raw: Object.fromEntries(row.values),
       }
-      for (const [fieldId, fieldValue] of Object.entries(row)) {
+      for (const fieldId of row.values.keys()) {
+        const fieldValue = numericField(row, fieldId)
+        if (fieldValue == null) continue
         const name = metricByFieldId.get(fieldId)?.toLowerCase()
-        if (!name || typeof fieldValue !== 'number') continue
+        if (!name) continue
         if (name === 'spent') perf.spend = fieldValue
         else if (name === 'impressions') perf.impressions = fieldValue
         else if (name === 'clicks') perf.clicks = fieldValue

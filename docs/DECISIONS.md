@@ -614,6 +614,73 @@ audit even after a workflow is redefined/removed) — that would call for
 
 ---
 
+## 2026-09-10 — Day 15: fixed a real Metricool parsing bug found via live (not mocked) data
+
+**Decision:** Rewrote `getAnalytics`/`getCampaigns`/`getCampaignPerformance` in
+`src/lib/integrations/metricool/provider.ts` to parse `getAnalyticsDataByMetrics`'s
+actual response shape (`{ rows: [[...positional values..., "YYYYMMDD"]] }`), replacing
+code that assumed a `fieldId`-keyed object.
+
+**Rationale:** This session has its own live, already-connected Metricool MCP
+connection (account `info@tapashub.com`), independent of the deployed app's missing
+`METRICOOL_MCP_URL`. Day 15's pilot-readiness pass used it to call
+`getAnalyticsDataByMetrics` against a real brand (TargetGum, id `6818704`) and compare
+the actual response against what the adapter's parsing code expected. They didn't
+match: the real shape is an object with a `rows` array of positional value arrays
+(numbers as strings, a trailing date), not the `fieldId`-keyed object the Day 6
+implementation assumed from documentation alone. The bug was silent - Zod's
+`.optional()` on every metric field meant broken parsing produced empty-but-valid
+output, not a thrown error, so no test (all built against mocks matching the *wrong*
+assumed shape) could have caught it. Only checking against real data did.
+
+**Trade-off accepted:** the `campaigns` connector (ad campaign listing/performance)
+is assumed to share the same wire shape as the verified `evolution` connector (same
+underlying MCP tool) but wasn't independently confirmed - no brand with a populated,
+connected ads account was available in this account. Flagged in
+`docs/EXTERNAL-APPROVALS.md` as still needing confirmation once one exists.
+
+**Revisit if:** a populated ads account becomes available and the `campaigns`
+connector's real shape turns out to differ from `evolution`'s.
+
+**Broader lesson, applied going forward:** "verified against documented schemas" and
+"verified against live data" are different claims - this codebase's docs (Day 6's
+original `docs/INTEGRATIONS.md` entry) said the former but read, in places, like the
+latter. Every "not live-verified" entry in `docs/EXTERNAL-APPROVALS.md` should keep
+being read literally, and any future case where live access to a *read-only* external
+system exists (even indirectly, like this session's own Metricool MCP connection)
+should be used to check real response shapes before calling an adapter done, not just
+its request-building logic.
+
+---
+
+## 2026-09-10 — Day 15: client creation and Metricool connection, missing until now
+
+**Decision:** Added `createClient` (`src/lib/clients/create.ts`, gated by
+`clients.manage`) and `connectClientToMetricoolBrand`
+(`src/lib/integrations/metricool/connect.ts`, gated by `integrations.manage`,
+verifies the brand id via a real `getConnectedNetworks` call rather than trusting it),
+plus dashboard forms for both.
+
+**Rationale:** Auditing the codebase against BRD Section 84's MVP Exit Criteria
+("Real client can be created") during Day 15 found a real gap: every `Client` row up
+to that point came from `prisma/seed.ts` or test factories - `connectClientToProviderAccount`
+(`src/lib/integrations/health.ts`, since Day 6) had no caller anywhere in the app
+itself. A genuine pilot needs both a real code path to create the pilot client and a
+way to connect it to Metricool (which, unlike GA4/GSC, needs no OAuth app - BRD
+Section 92/the earlier ORM-style decision above - so this could be a same-request
+"connect and verify" action rather than a multi-step OAuth flow).
+
+**Trade-off accepted:** GA4/GSC connection still has no UI - those need a real OAuth
+app (Google Cloud client id/secret) and callback route neither of which exist in this
+environment (`docs/EXTERNAL-APPROVALS.md`), and pasting a raw refresh token into a
+form is the wrong security pattern to build even as a stopgap. Left as documented,
+explicitly blocked infrastructure rather than a half-built credential-paste form.
+
+**Revisit if:** a real Google Cloud OAuth app becomes available - build the actual
+OAuth consent + callback flow then, not a manual-token form now.
+
+---
+
 ## Template for future entries
 
 ```text
