@@ -1,7 +1,11 @@
 # Approval Engine — TargetGum AI Marketing OS
 
-Status: **Design draft.** Implemented at the end of Week 1 / start of Week 2 per
-`docs/MVP-CHECKLIST.md`, after auth/RBAC and the AI Gateway exist.
+Status: **Design draft — not yet implemented.** Scheduled for Day 10 per
+`docs/MVP-CHECKLIST.md`. Until then, `src/lib/tools/execute.ts` (Day 5) hard-blocks
+every HIGH/CRITICAL-risk tool call rather than executing it unapproved or building a
+partial stub — see `docs/DECISIONS.md`. LOW/MEDIUM-risk tools already execute through
+the full authorization chain (permission, client access, agent allowlist) and are
+fully audited; only the approval step itself is missing.
 
 ## Risk Classification (BRD-PRD Section 21)
 

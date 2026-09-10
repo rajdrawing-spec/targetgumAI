@@ -106,11 +106,45 @@ from the SDK's compile-time-checked types plus the mocked-client integration
 suite above; a real end-to-end smoke test (like the Day 3 auth one) is
 pending the user providing a key, tracked in `docs/EXTERNAL-APPROVALS.md`.
 
-### Day 5 — Tool registry, permission system, audit events
+### Day 5 — Tool registry, permission system, audit events ✅ DONE
 
-- [ ] Tool Registry schema + implementation
-- [ ] Per-agent tool allowlist enforcement
-- [ ] Append-only `audit_events` writer
+- [x] Tool Registry implementation (`src/lib/tools/registry.ts`):
+      `registerTool()` upserts declarative metadata into the `Tool` table and
+      keeps the executable implementation (Zod schemas + `execute`) in an
+      in-memory map — Postgres can't store either
+- [x] `executeTool()` (`src/lib/tools/execute.ts`) — the single entry point,
+      walking the full BRD Section 31 authorization chain before anything
+      runs: required permissions → client access (tenant isolation extends
+      to tool calls) → agent allowlist → risk level → input schema, only
+      then executing, then output schema → `ToolExecution` row →
+      `audit_events`
+- [x] Per-agent tool allowlist enforcement: `registerAgent()`
+      (`src/lib/agents/registry.ts`) syncs `Agent` + `AgentTool` rows; an
+      agent calling a tool outside its allowlist is denied and audited
+- [x] Append-only `audit_events` writer (`src/lib/audit/record.ts`):
+      `recordAuditEvent` is the only write path (no update/delete exposed);
+      `listAuditEvents` is the tenant-scoped, `audit.read`-gated reader
+- [x] **HIGH/CRITICAL-risk tools are hard-blocked**, not silently allowed —
+      there's no Approval Engine yet (Day 10), so per BRD Section 21's
+      "approval required"/"approval always required," the only safe default
+      until then is deny, not execute-unchecked. `RiskLevelBlockedError`
+      makes this explicit rather than a silent no-op.
+- [x] Idempotency (BRD Section 57): a repeated call with the same
+      `idempotencyKey` returns the prior `SUCCEEDED` result instead of
+      re-executing — verified with a test that would fail if it re-ran
+- [x] Every outcome is audited — success, failure, AND denial (not just
+      successes) — verified for each authorization-chain failure mode
+- [x] 15 new tests: tool registration/upsert mechanics, end-to-end
+      execution with real audit trail, idempotency short-circuit, output-
+      schema-validation failure (integration); permission denial, cross-
+      client denial, agent-allowlist denial, risk-level block, unknown-tool
+      denial — all audited (security, mapping directly to BRD Section 80
+      scenario 2 "agent tries to call an unauthorized tool"); audit-read
+      RBAC (integration)
+
+No real tools are registered yet — Day 5 delivers the mechanism only, tested
+against throwaway `test.*` tools defined in the test files themselves. The
+first real tools (Metricool) land in Day 6.
 
 ## Week 2 — Intelligence
 

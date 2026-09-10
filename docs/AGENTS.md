@@ -1,7 +1,10 @@
 # Agents — TargetGum AI Marketing OS
 
-Status: **Design draft.** No agents are implemented yet (Week 2, after the AI Gateway
-foundation in Day 4). This document records the agent contract and the MVP agent set.
+Status: **Design draft.** No real agents are implemented yet — that's Day 9+ (Week 2),
+once the AI Gateway (Day 4) and a real Client Brain (Day 8) exist for them to reason
+over. The *mechanism* for declaring an agent contract exists as of Day 5
+(`src/lib/agents/registry.ts` — `registerAgent()`), tested against throwaway test
+agents only. This document records the agent contract and the MVP agent set.
 
 ## Agent Contract (BRD-PRD Section 26)
 

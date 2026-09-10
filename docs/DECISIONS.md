@@ -5,6 +5,47 @@ Newest entries at the top.
 
 ---
 
+## 2026-09-10 — HIGH/CRITICAL-risk tools are hard-blocked until the Approval Engine exists (Day 5)
+
+**Decision:** `executeTool()` throws `RiskLevelBlockedError` for any tool whose
+`riskLevel` is HIGH or CRITICAL — unconditionally, even for super_admin — rather than
+executing it or silently no-op'ing.
+
+**Rationale:** BRD-PRD Section 21 defaults HIGH to "approval required" and CRITICAL
+to "approval always required, no override." The Approval Engine that would actually
+route such a request to a human doesn't exist until Day 10. Building a partial/stub
+approval flow now would be worse than an honest hard block: a stub invites someone to
+assume approvals are enforced when they aren't. Denying outright is the only option
+consistent with "approval before risk" (BRD Section 3.4) given what's built so far.
+
+**Revisit:** Day 10 replaces this hard block with a real gate — HIGH/CRITICAL calls
+create a `PENDING` `Approval` row and wait, rather than deny immediately.
+
+---
+
+## 2026-09-10 — Agent/Tool registration uses find-then-create/update, not `upsert` (Day 5)
+
+**Decision:** `registerTool()` and `registerAgent()` do `findFirst({ organizationId:
+null, key })` then `create` or `update`, rather than `db.tool.upsert({ where: {
+organizationId_key: { organizationId: null, key } } })`.
+
+**Rationale:** `Tool` and `Agent` use `@@unique([organizationId, key])` for tenant-
+scoped tools, but system-wide tools/agents have `organizationId: null` — and Postgres
+does not enforce uniqueness across multiple NULLs in a compound unique index. Prisma's
+compound-unique `upsert`/`findUnique` still *works* as a read (`WHERE organization_id
+IS NULL AND key = ?`), so this isn't broken today, but the DB-level constraint can't
+actually stop two racing `registerTool()` calls from creating two system-wide rows
+with the same key. Acceptable for now because registration happens idempotently at
+single-process startup (never concurrent) — flagged here because it's a real gap if
+registration ever needs to be concurrency-safe (e.g. multiple server instances booting
+simultaneously and racing to register the same built-in tool).
+
+**Revisit if:** that concurrency scenario becomes real — add a Postgres partial unique
+index (`CREATE UNIQUE INDEX ... ON tools (key) WHERE organization_id IS NULL`) via a
+raw-SQL migration, since Prisma's schema DSL can't express a partial index directly.
+
+---
+
 ## 2026-09-10 — AI Gateway uses named model tiers, not a single hardcoded model (Day 4)
 
 **Decision:** `src/lib/ai/models.ts` defines three tiers — `fast` (Haiku 4.5), `default`
