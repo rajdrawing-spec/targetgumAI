@@ -1,12 +1,11 @@
 import { redirect } from 'next/navigation'
+import { ScrollText } from 'lucide-react'
 import { getCurrentAuthContext } from '@/lib/auth/current-context'
 import { listAuditEvents } from '@/lib/audit/record'
-
-const RESULT_STYLE: Record<string, string> = {
-  SUCCESS: 'bg-green-50 text-green-700',
-  FAILURE: 'bg-red-50 text-red-700',
-  DENIED: 'bg-amber-50 text-amber-700',
-}
+import { PageHeader } from '@/components/ui/page-header'
+import { Card } from '@/components/ui/card'
+import { StatusBadge } from '@/components/ui/badge'
+import { EmptyState } from '@/components/ui/empty-state'
 
 /**
  * BRD-PRD Section 28. `listAuditEvents` requires `audit.read` - only
@@ -21,37 +20,38 @@ export default async function AuditPage() {
   const events = await listAuditEvents(ctx, { limit: 200 })
 
   return (
-    <div className="space-y-4">
-      <h1 className="text-xl font-semibold">Audit trail</h1>
+    <div className="space-y-6">
+      <PageHeader title="Audit trail" description="Every action taken by staff, agents, and tools - never edited or deleted." />
+
       {events.length === 0 ? (
-        <p className="text-sm text-gray-400">No audit events yet.</p>
+        <EmptyState icon={ScrollText} title="No audit events yet" />
       ) : (
-        <table className="w-full text-left text-sm">
-          <thead className="text-gray-500">
-            <tr>
-              <th className="pb-2 font-medium">When</th>
-              <th className="pb-2 font-medium">Action</th>
-              <th className="pb-2 font-medium">Result</th>
-              <th className="pb-2 font-medium">Provider / tool</th>
-              <th className="pb-2 font-medium">Error</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
-            {events.map((event) => (
-              <tr key={event.id}>
-                <td className="py-2 text-gray-500">{event.timestamp.toISOString().slice(0, 19).replace('T', ' ')}</td>
-                <td className="py-2">{event.action}</td>
-                <td className="py-2">
-                  <span className={`rounded px-2 py-0.5 text-xs ${RESULT_STYLE[event.result] ?? 'bg-gray-100 text-gray-600'}`}>
-                    {event.result}
-                  </span>
-                </td>
-                <td className="py-2 text-gray-500">{[event.provider, event.tool].filter(Boolean).join(' / ') || '—'}</td>
-                <td className="py-2 text-gray-500">{event.error ?? '—'}</td>
+        <Card className="overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead className="text-xs uppercase tracking-wide text-muted-foreground">
+              <tr className="border-b border-border">
+                <th className="px-4 py-3 font-medium">When</th>
+                <th className="px-4 py-3 font-medium">Action</th>
+                <th className="px-4 py-3 font-medium">Result</th>
+                <th className="px-4 py-3 font-medium">Provider / tool</th>
+                <th className="px-4 py-3 font-medium">Error</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {events.map((event) => (
+                <tr key={event.id}>
+                  <td className="whitespace-nowrap px-4 py-3 text-muted-foreground">{event.timestamp.toISOString().slice(0, 19).replace('T', ' ')}</td>
+                  <td className="px-4 py-3 font-medium text-foreground">{event.action}</td>
+                  <td className="px-4 py-3">
+                    <StatusBadge status={event.result} />
+                  </td>
+                  <td className="px-4 py-3 text-muted-foreground">{[event.provider, event.tool].filter(Boolean).join(' / ') || '—'}</td>
+                  <td className="px-4 py-3 text-destructive">{event.error ?? <span className="text-muted-foreground">—</span>}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Card>
       )}
     </div>
   )

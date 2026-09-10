@@ -1,3 +1,95 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/**
+ * Design tokens (HSL triplets, unitless - consumed by tailwind.config.ts
+ * as `hsl(var(--token) / <alpha-value>)`). One deliberate palette: a
+ * violet brand color for primary actions/focus, a warm-neutral slate
+ * scale for everything else, and status colors used consistently
+ * everywhere a state is shown (integration health, approval/recommendation
+ * priority, audit result). Dark mode redefines the same tokens under
+ * `.dark` - every component reads the token, never a raw color, so theming
+ * is automatic.
+ */
+@layer base {
+  :root {
+    --background: 220 20% 98%;
+    --foreground: 222 28% 12%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222 28% 12%;
+
+    --muted: 220 16% 95%;
+    --muted-foreground: 220 9% 46%;
+
+    --border: 220 14% 90%;
+    --input: 220 14% 90%;
+    --ring: 255 70% 60%;
+
+    --primary: 255 70% 60%;
+    --primary-foreground: 0 0% 100%;
+    --primary-hover: 255 70% 54%;
+
+    --secondary: 220 16% 95%;
+    --secondary-foreground: 222 28% 16%;
+
+    --accent: 255 60% 96%;
+    --accent-foreground: 255 45% 34%;
+
+    --success: 152 60% 36%;
+    --success-bg: 152 55% 94%;
+    --warning: 32 90% 42%;
+    --warning-bg: 40 92% 93%;
+    --destructive: 0 72% 48%;
+    --destructive-bg: 0 80% 96%;
+    --info: 217 80% 52%;
+    --info-bg: 214 90% 95%;
+
+    --radius: 0.625rem;
+  }
+
+  .dark {
+    --background: 224 24% 8%;
+    --foreground: 220 20% 94%;
+
+    --card: 223 22% 11%;
+    --card-foreground: 220 20% 94%;
+
+    --muted: 222 18% 15%;
+    --muted-foreground: 220 10% 63%;
+
+    --border: 222 16% 18%;
+    --input: 222 16% 18%;
+    --ring: 255 75% 68%;
+
+    --primary: 255 75% 68%;
+    --primary-foreground: 224 24% 10%;
+    --primary-hover: 255 75% 74%;
+
+    --secondary: 222 18% 15%;
+    --secondary-foreground: 220 20% 94%;
+
+    --accent: 255 30% 20%;
+    --accent-foreground: 255 70% 85%;
+
+    --success: 152 55% 48%;
+    --success-bg: 152 40% 14%;
+    --warning: 38 92% 58%;
+    --warning-bg: 38 60% 15%;
+    --destructive: 0 75% 62%;
+    --destructive-bg: 0 50% 16%;
+    --info: 217 85% 66%;
+    --info-bg: 217 45% 16%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: 'cv11', 'ss01';
+  }
+}

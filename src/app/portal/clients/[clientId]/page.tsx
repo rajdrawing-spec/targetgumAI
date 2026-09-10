@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
+import { Lightbulb, FileText, MessageSquare, Check, X } from 'lucide-react'
 import { getCurrentAuthContext } from '@/lib/auth/current-context'
 import { getAuthorizedClient } from '@/lib/db/tenant'
 import { listRecommendations } from '@/lib/recommendations/persist'
@@ -10,6 +11,11 @@ import {
   portalRejectRecommendationAction,
   submitFeedbackAction,
 } from '../../actions'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { StatusBadge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Textarea } from '@/components/ui/input'
+import { EmptyState } from '@/components/ui/empty-state'
 
 /**
  * The Client Portal's main view for one client (BRD Section 4.4): review
@@ -38,78 +44,91 @@ export default async function PortalClientPage({ params }: { params: Promise<{ c
   ])
 
   return (
-    <div className="space-y-8">
-      <h1 className="text-xl font-semibold">{client.name}</h1>
+    <div className="space-y-6">
+      <h1 className="text-2xl font-semibold tracking-tight text-foreground">{client.name}</h1>
 
-      <section>
-        <h2 className="text-sm font-semibold text-gray-700">Recommendations</h2>
-        {recommendations.length === 0 ? (
-          <p className="mt-2 text-sm text-gray-400">Nothing to review right now.</p>
-        ) : (
-          <ul className="mt-2 space-y-3">
-            {recommendations.map((rec) => (
-              <li key={rec.id} className="rounded border border-gray-200 p-4 text-sm">
-                <div className="flex items-center justify-between">
-                  <span className="font-medium">
-                    [{rec.priority}] {rec.area}
-                  </span>
-                  <span className="text-xs text-gray-500">{rec.status}</span>
-                </div>
-                <p className="mt-1 text-gray-700">{rec.finding}</p>
-                <p className="mt-1 text-gray-500">→ {rec.recommendation}</p>
-
-                {rec.status === 'RECOMMENDED' && (
-                  <div className="mt-3 flex gap-2">
-                    <form action={portalAcceptRecommendationAction.bind(null, rec.id, clientId)}>
-                      <button type="submit" className="rounded bg-gray-900 px-3 py-1 text-xs font-medium text-white hover:bg-gray-800">
-                        Approve
-                      </button>
-                    </form>
-                    <form action={portalRejectRecommendationAction.bind(null, rec.id, clientId, 'Rejected from client portal.')}>
-                      <button type="submit" className="rounded border border-gray-300 px-3 py-1 text-xs hover:bg-gray-50">
-                        Decline
-                      </button>
-                    </form>
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Lightbulb className="h-4 w-4 text-muted-foreground" /> Recommendations
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {recommendations.length === 0 ? (
+            <EmptyState icon={Lightbulb} title="Nothing to review right now" />
+          ) : (
+            <ul className="space-y-3">
+              {recommendations.map((rec) => (
+                <li key={rec.id} className="rounded-md border border-border p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <StatusBadge status={rec.priority} />
+                      <span className="text-sm font-medium text-foreground">{rec.area}</span>
+                    </div>
+                    <StatusBadge status={rec.status} />
                   </div>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+                  <p className="mt-2 text-sm text-foreground">{rec.finding}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">→ {rec.recommendation}</p>
 
-      <section>
-        <h2 className="text-sm font-semibold text-gray-700">Reports</h2>
-        {reports.length === 0 ? (
-          <p className="mt-2 text-sm text-gray-400">No reports yet.</p>
-        ) : (
-          <ul className="mt-2 space-y-1 text-sm">
-            {reports.map((report) => (
-              <li key={report.id}>
-                <Link href={`/portal/reports/${report.id}`} className="hover:underline">
-                  {report.title}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+                  {rec.status === 'RECOMMENDED' && (
+                    <div className="mt-3 flex gap-2">
+                      <form action={portalAcceptRecommendationAction.bind(null, rec.id, clientId)}>
+                        <Button type="submit" size="sm">
+                          <Check className="h-3.5 w-3.5" /> Approve
+                        </Button>
+                      </form>
+                      <form action={portalRejectRecommendationAction.bind(null, rec.id, clientId, 'Rejected from client portal.')}>
+                        <Button type="submit" variant="outline" size="sm">
+                          <X className="h-3.5 w-3.5" /> Decline
+                        </Button>
+                      </form>
+                    </div>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
 
-      <section>
-        <h2 className="text-sm font-semibold text-gray-700">Feedback</h2>
-        <form action={submitFeedbackAction.bind(null, clientId)} className="mt-2 space-y-2">
-          <textarea
-            name="content"
-            required
-            rows={3}
-            placeholder="Anything you'd like your team to know..."
-            className="w-full rounded border border-gray-300 px-3 py-2 text-sm"
-          />
-          <button type="submit" className="rounded border border-gray-300 px-3 py-1.5 text-sm hover:bg-gray-50">
-            Send feedback
-          </button>
-        </form>
-      </section>
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <FileText className="h-4 w-4 text-muted-foreground" /> Reports
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {reports.length === 0 ? (
+            <EmptyState icon={FileText} title="No reports yet" />
+          ) : (
+            <ul className="divide-y divide-border">
+              {reports.map((report) => (
+                <li key={report.id} className="py-2.5 first:pt-0 last:pb-0">
+                  <Link href={`/portal/reports/${report.id}`} className="text-sm font-medium text-foreground hover:text-primary">
+                    {report.title}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <MessageSquare className="h-4 w-4 text-muted-foreground" /> Feedback
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form action={submitFeedbackAction.bind(null, clientId)} className="space-y-3">
+            <Textarea name="content" required rows={3} placeholder="Anything you'd like your team to know…" />
+            <Button type="submit" variant="outline">
+              Send feedback
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
     </div>
   )
 }

@@ -1,8 +1,14 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
+import { CheckSquare, ArrowRight } from 'lucide-react'
 import { getCurrentAuthContext } from '@/lib/auth/current-context'
 import { listTasksForOrg } from '@/lib/recommendations/tasks'
 import { updateTaskStatusAction } from '../actions'
+import { PageHeader } from '@/components/ui/page-header'
+import { Card, CardContent } from '@/components/ui/card'
+import { StatusBadge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { EmptyState } from '@/components/ui/empty-state'
 
 const NEXT_STATUS: Record<string, { status: 'IN_PROGRESS' | 'DONE'; label: string } | undefined> = {
   OPEN: { status: 'IN_PROGRESS', label: 'Start' },
@@ -17,36 +23,40 @@ export default async function TasksPage() {
   const canUpdate = ctx.permissions.has('tasks.create')
 
   return (
-    <div className="space-y-4">
-      <h1 className="text-xl font-semibold">Tasks</h1>
+    <div className="space-y-6">
+      <PageHeader title="Tasks" description="Work items across every client, newest first." />
+
       {tasks.length === 0 ? (
-        <p className="text-sm text-gray-400">No tasks yet.</p>
+        <EmptyState icon={CheckSquare} title="No tasks yet" />
       ) : (
-        <ul className="space-y-2">
+        <div className="space-y-2">
           {tasks.map((task) => {
             const next = NEXT_STATUS[task.status]
             return (
-              <li key={task.id} className="flex items-center justify-between rounded border border-gray-200 p-3 text-sm">
-                <div>
-                  <Link href={`/dashboard/clients/${task.clientId}`} className="font-medium hover:underline">
-                    {task.client?.name ?? task.clientId}
-                  </Link>
-                  <span className="text-gray-500"> — {task.title}</span>
-                  <div className="text-xs text-gray-400">
-                    {task.priority} · {task.status}
+              <Card key={task.id}>
+                <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
+                  <div className="min-w-0">
+                    <Link href={`/dashboard/clients/${task.clientId}`} className="text-sm font-semibold text-foreground hover:text-primary">
+                      {task.client?.name ?? task.clientId}
+                    </Link>
+                    <p className="text-sm text-muted-foreground">{task.title}</p>
+                    <div className="mt-1.5 flex items-center gap-1.5">
+                      <StatusBadge status={task.priority} />
+                      <StatusBadge status={task.status} />
+                    </div>
                   </div>
-                </div>
-                {canUpdate && next && (
-                  <form action={updateTaskStatusAction.bind(null, task.id, task.clientId, next.status)}>
-                    <button type="submit" className="rounded border border-gray-300 px-3 py-1 text-xs hover:bg-gray-50">
-                      {next.label}
-                    </button>
-                  </form>
-                )}
-              </li>
+                  {canUpdate && next && (
+                    <form action={updateTaskStatusAction.bind(null, task.id, task.clientId, next.status)}>
+                      <Button type="submit" variant="outline" size="sm">
+                        {next.label} <ArrowRight className="h-3.5 w-3.5" />
+                      </Button>
+                    </form>
+                  )}
+                </CardContent>
+              </Card>
             )
           })}
-        </ul>
+        </div>
       )}
     </div>
   )

@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
+import { Users, ShieldCheck, Lightbulb, CheckSquare, ArrowUpRight, Plug } from 'lucide-react'
 import { getCurrentAuthContext } from '@/lib/auth/current-context'
 import { listAiRuns } from '@/lib/ai/runs'
 import { listAccessibleClients } from '@/lib/clients/list'
@@ -7,6 +8,11 @@ import { listIntegrationConnectionsForOrg } from '@/lib/integrations/health'
 import { listRecommendationsForOrg } from '@/lib/recommendations/persist'
 import { listTasksForOrg } from '@/lib/recommendations/tasks'
 import { listApprovals } from '@/lib/approvals/approvals'
+import { PageHeader } from '@/components/ui/page-header'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { StatusBadge } from '@/components/ui/badge'
+import { EmptyState } from '@/components/ui/empty-state'
+import { cn } from '@/lib/utils'
 
 /**
  * Dashboard Overview (BRD-PRD Section 42's home dashboard): active clients,
@@ -35,93 +41,147 @@ export default async function DashboardOverviewPage() {
 
   return (
     <div className="space-y-8">
-      <h1 className="text-xl font-semibold">Overview</h1>
+      <PageHeader title="Overview" description="What needs attention across every client you can see." />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Active clients" value={clients.length} href="/dashboard/clients" />
-        <StatCard label="Pending approvals" value={pendingApprovals.length} href="/dashboard/approvals" />
-        <StatCard label="High-priority recommendations" value={highPriorityRecs.length} href="/dashboard/recommendations" />
-        <StatCard label="Open tasks" value={openTasks.length} href="/dashboard/tasks" />
+        <StatCard label="Active clients" value={clients.length} href="/dashboard/clients" icon={Users} />
+        <StatCard
+          label="Pending approvals"
+          value={pendingApprovals.length}
+          href="/dashboard/approvals"
+          icon={ShieldCheck}
+          tone={pendingApprovals.length > 0 ? 'warning' : 'default'}
+        />
+        <StatCard
+          label="High-priority recommendations"
+          value={highPriorityRecs.length}
+          href="/dashboard/recommendations"
+          icon={Lightbulb}
+          tone={highPriorityRecs.length > 0 ? 'warning' : 'default'}
+        />
+        <StatCard label="Open tasks" value={openTasks.length} href="/dashboard/tasks" icon={CheckSquare} />
       </div>
 
-      <section>
-        <Link href="/dashboard/integrations" className="text-sm font-semibold text-gray-700 hover:underline">
-          Integration health
-        </Link>
-        {connections.length === 0 ? (
-          <p className="mt-2 text-sm text-gray-400">No integrations connected yet.</p>
-        ) : (
-          <div className="mt-2 flex flex-wrap gap-3 text-sm">
-            {Object.entries(connectionsByStatus).map(([status, count]) => (
-              <span
-                key={status}
-                className={`rounded px-2 py-1 ${status === 'CONNECTED' ? 'bg-green-50 text-green-700' : 'bg-amber-50 text-amber-700'}`}
-              >
-                {status}: {count}
-              </span>
-            ))}
-          </div>
-        )}
-      </section>
-
-      <section>
-        <h2 className="text-sm font-semibold text-gray-700">Recent AI runs</h2>
-        {recentAiRuns.length === 0 ? (
-          <p className="mt-2 text-sm text-gray-400">No AI runs yet.</p>
-        ) : (
-          <table className="mt-2 w-full text-left text-sm">
-            <thead className="text-gray-500">
-              <tr>
-                <th className="pb-2 font-medium">Client</th>
-                <th className="pb-2 font-medium">Model</th>
-                <th className="pb-2 font-medium">Status</th>
-                <th className="pb-2 font-medium">Cost</th>
-                <th className="pb-2 font-medium">When</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {recentAiRuns.map((run) => (
-                <tr key={run.id}>
-                  <td className="py-2">{run.client?.name ?? '—'}</td>
-                  <td className="py-2">{run.model}</td>
-                  <td className="py-2">{run.status}</td>
-                  <td className="py-2">
-                    {run.estimatedCostCents != null ? `$${(run.estimatedCostCents / 100).toFixed(3)}` : '—'}
-                  </td>
-                  <td className="py-2 text-gray-500">{run.createdAt.toISOString().slice(0, 16).replace('T', ' ')}</td>
-                </tr>
+      <Card>
+        <CardHeader className="flex-row items-center justify-between space-y-0">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Plug className="h-4 w-4 text-muted-foreground" /> Integration health
+          </CardTitle>
+          <Link href="/dashboard/integrations" className="flex items-center gap-1 text-xs font-medium text-primary hover:underline">
+            View all <ArrowUpRight className="h-3 w-3" />
+          </Link>
+        </CardHeader>
+        <CardContent>
+          {connections.length === 0 ? (
+            <EmptyState icon={Plug} title="No integrations connected yet" description="Connect a client to Metricool from its detail page to start pulling real data." />
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {Object.entries(connectionsByStatus).map(([status, count]) => (
+                <StatusBadge key={status} status={status} className="gap-1.5">
+                  <span className="font-semibold">{count}</span>
+                </StatusBadge>
               ))}
-            </tbody>
-          </table>
-        )}
-      </section>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
-      <section>
-        <h2 className="text-sm font-semibold text-gray-700">High-priority recommendations</h2>
-        {highPriorityRecs.length === 0 ? (
-          <p className="mt-2 text-sm text-gray-400">Nothing needs attention right now.</p>
-        ) : (
-          <ul className="mt-2 space-y-1 text-sm">
-            {highPriorityRecs.map((rec) => (
-              <li key={rec.id}>
-                <Link href={`/dashboard/clients/${rec.clientId}`} className="text-gray-900 hover:underline">
-                  {rec.client?.name ?? rec.clientId}
-                </Link>
-                <span className="text-gray-500"> — {rec.finding}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Recent AI runs</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {recentAiRuns.length === 0 ? (
+            <EmptyState icon={Users} title="No AI runs yet" description="Run an analysis from a client's page to see it here." />
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="text-xs uppercase tracking-wide text-muted-foreground">
+                  <tr>
+                    <th className="pb-2 font-medium">Client</th>
+                    <th className="pb-2 font-medium">Model</th>
+                    <th className="pb-2 font-medium">Status</th>
+                    <th className="pb-2 font-medium">Cost</th>
+                    <th className="pb-2 font-medium">When</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {recentAiRuns.map((run) => (
+                    <tr key={run.id}>
+                      <td className="py-2.5 font-medium">{run.client?.name ?? '—'}</td>
+                      <td className="py-2.5 text-muted-foreground">{run.model}</td>
+                      <td className="py-2.5">
+                        <StatusBadge status={run.status} />
+                      </td>
+                      <td className="py-2.5 text-muted-foreground">
+                        {run.estimatedCostCents != null ? `$${(run.estimatedCostCents / 100).toFixed(3)}` : '—'}
+                      </td>
+                      <td className="py-2.5 text-muted-foreground">{run.createdAt.toISOString().slice(0, 16).replace('T', ' ')}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">High-priority recommendations</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {highPriorityRecs.length === 0 ? (
+            <EmptyState icon={Lightbulb} title="Nothing needs attention right now" />
+          ) : (
+            <ul className="divide-y divide-border">
+              {highPriorityRecs.map((rec) => (
+                <li key={rec.id} className="py-2.5 first:pt-0 last:pb-0">
+                  <Link href={`/dashboard/clients/${rec.clientId}`} className="text-sm font-medium text-foreground hover:text-primary">
+                    {rec.client?.name ?? rec.clientId}
+                  </Link>
+                  <p className="text-sm text-muted-foreground">{rec.finding}</p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }
 
-function StatCard({ label, value, href }: { label: string; value: number; href: string }) {
+function StatCard({
+  label,
+  value,
+  href,
+  icon: Icon,
+  tone = 'default',
+}: {
+  label: string
+  value: number
+  href: string
+  icon: React.ComponentType<{ className?: string }>
+  tone?: 'default' | 'warning'
+}) {
   return (
-    <Link href={href} className="block rounded border border-gray-200 p-4 hover:border-gray-300">
-      <div className="text-2xl font-semibold">{value}</div>
-      <div className="mt-1 text-sm text-gray-500">{label}</div>
+    <Link href={href}>
+      <Card className="transition-shadow hover:shadow-popover">
+        <CardContent className="flex items-center justify-between p-5">
+          <div>
+            <p className="text-2xl font-semibold tracking-tight text-foreground">{value}</p>
+            <p className="mt-1 text-sm text-muted-foreground">{label}</p>
+          </div>
+          <div
+            className={cn(
+              'flex h-9 w-9 items-center justify-center rounded-lg',
+              tone === 'warning' && value > 0 ? 'bg-warning-bg text-warning' : 'bg-muted text-muted-foreground',
+            )}
+          >
+            <Icon className="h-5 w-5" />
+          </div>
+        </CardContent>
+      </Card>
     </Link>
   )
 }

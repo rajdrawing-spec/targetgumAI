@@ -1,9 +1,15 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
+import { ShieldCheck, Check, X } from 'lucide-react'
 import { getCurrentAuthContext } from '@/lib/auth/current-context'
 import { listApprovals } from '@/lib/approvals/approvals'
 import { listAccessibleClients } from '@/lib/clients/list'
 import { approveApprovalAction, rejectApprovalAction } from '../actions'
+import { PageHeader } from '@/components/ui/page-header'
+import { Card, CardContent } from '@/components/ui/card'
+import { StatusBadge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { EmptyState } from '@/components/ui/empty-state'
 
 export default async function ApprovalsPage() {
   const ctx = await getCurrentAuthContext()
@@ -17,41 +23,45 @@ export default async function ApprovalsPage() {
   const canDecide = ctx.permissions.has('approvals.approve')
 
   return (
-    <div className="space-y-4">
-      <h1 className="text-xl font-semibold">Approvals</h1>
-      {approvals.length === 0 ? (
-        <p className="text-sm text-gray-400">No approval requests.</p>
-      ) : (
-        <ul className="space-y-3">
-          {approvals.map((approval) => (
-            <li key={approval.id} className="rounded border border-gray-200 p-4 text-sm">
-              <div className="flex items-center justify-between">
-                <Link href={`/dashboard/clients/${approval.clientId}`} className="font-medium hover:underline">
-                  {clientNameById.get(approval.clientId) ?? approval.clientId}
-                </Link>
-                <span className="text-xs text-gray-500">
-                  {approval.riskLevel} · {approval.status}
-                </span>
-              </div>
-              <p className="mt-2 text-gray-700">{approval.actionSummary}</p>
+    <div className="space-y-6">
+      <PageHeader title="Approvals" description="HIGH/CRITICAL-risk actions waiting for a human decision." />
 
-              {canDecide && approval.status === 'PENDING' && (
-                <div className="mt-3 flex gap-2">
-                  <form action={approveApprovalAction.bind(null, approval.id, approval.clientId)}>
-                    <button type="submit" className="rounded bg-gray-900 px-3 py-1 text-xs font-medium text-white hover:bg-gray-800">
-                      Approve
-                    </button>
-                  </form>
-                  <form action={rejectApprovalAction.bind(null, approval.id, approval.clientId, 'Rejected from dashboard.')}>
-                    <button type="submit" className="rounded border border-gray-300 px-3 py-1 text-xs hover:bg-gray-50">
-                      Reject
-                    </button>
-                  </form>
+      {approvals.length === 0 ? (
+        <EmptyState icon={ShieldCheck} title="No approval requests" />
+      ) : (
+        <div className="space-y-3">
+          {approvals.map((approval) => (
+            <Card key={approval.id}>
+              <CardContent className="p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <Link href={`/dashboard/clients/${approval.clientId}`} className="text-sm font-semibold text-foreground hover:text-primary">
+                    {clientNameById.get(approval.clientId) ?? approval.clientId}
+                  </Link>
+                  <div className="flex items-center gap-1.5">
+                    <StatusBadge status={approval.riskLevel} />
+                    <StatusBadge status={approval.status} />
+                  </div>
                 </div>
-              )}
-            </li>
+                <p className="mt-2 text-sm text-foreground">{approval.actionSummary}</p>
+
+                {canDecide && approval.status === 'PENDING' && (
+                  <div className="mt-3 flex gap-2">
+                    <form action={approveApprovalAction.bind(null, approval.id, approval.clientId)}>
+                      <Button type="submit" size="sm">
+                        <Check className="h-3.5 w-3.5" /> Approve
+                      </Button>
+                    </form>
+                    <form action={rejectApprovalAction.bind(null, approval.id, approval.clientId, 'Rejected from dashboard.')}>
+                      <Button type="submit" variant="outline" size="sm">
+                        <X className="h-3.5 w-3.5" /> Reject
+                      </Button>
+                    </form>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           ))}
-        </ul>
+        </div>
       )}
     </div>
   )

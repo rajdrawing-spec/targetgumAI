@@ -725,6 +725,45 @@ than `recommendations.review` currently provides.
 
 ---
 
+## 2026-09-10 — Design system pass: CSS-variable tokens + a small hand-built component library, not shadcn's CLI
+
+**Decision:** Adopted a proper design token system (HSL CSS variables for
+background/foreground/primary/secondary/muted/accent/card/border/ring plus
+semantic status colors - success/warning/destructive/info - each with a light
+and dark definition), a violet primary brand color, the Inter font via
+`next/font/google`, and a small hand-written component library
+(`src/components/ui/`: `Button`, `Badge`/`StatusBadge`, `Card`, `Input`/
+`Textarea`/`Label`, `EmptyState`, `PageHeader`) plus a sidebar-based dashboard
+shell with `lucide-react` icons throughout. Every page in `src/app/dashboard/`
+and `src/app/portal/` was rebuilt on these primitives.
+
+**Rationale:** The MVP build (Days 1-15) deliberately used bare Tailwind
+utility classes throughout - correct sequencing per `CLAUDE.md`'s "build
+incrementally" and the BRD's phased plan, since proving the system worked
+mattered more than how it looked. Once asked directly to raise visual
+quality, doing it as a real token system rather than one-off color tweaks
+per page means every future page automatically matches (badges, cards,
+buttons all read from the same palette) and dark mode support is nearly
+free (the tokens already have `.dark` definitions, `darkMode: 'class'` was
+already configured in `tailwind.config.ts` from Day 1 anticipating this).
+
+**Trade-off accepted:** hand-writing the component library instead of
+running the shadcn/ui CLI (`docs/ARCHITECTURE.md`'s originally documented
+plan, "shadcn components added on demand") - this environment can `npm
+install` packages but the shadcn CLI's registry-fetch flow wasn't verified
+here, and the actual components needed (Button/Badge/Card/Input) are a
+small, well-understood set not worth the extra dependency surface. Added
+`clsx`/`tailwind-merge`/`class-variance-authority` (shadcn's own
+dependencies) so a later `npx shadcn add <component>` still drops in
+cleanly on top of this if a more complex component (a real Select, a Dialog)
+is ever needed.
+
+**Revisit if:** a component with real interaction complexity (a combobox, a
+modal, a date range picker) is needed - reach for the shadcn CLI or Radix
+primitives directly at that point rather than hand-rolling one.
+
+---
+
 ## Template for future entries
 
 ```text

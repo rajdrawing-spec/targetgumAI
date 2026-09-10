@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
+import { Sparkles, LogOut } from 'lucide-react'
 import { getCurrentAuthContext } from '@/lib/auth/current-context'
 import { signOut } from '@/lib/auth'
 
@@ -23,11 +24,14 @@ export default async function PortalLayout({ children }: { children: React.React
   if (!ctx.isClientUser) redirect('/dashboard')
 
   return (
-    <div className="min-h-screen">
-      <header className="border-b border-gray-200">
-        <div className="mx-auto flex max-w-4xl items-center justify-between px-6 py-4">
-          <Link href="/portal" className="text-sm font-semibold">
-            TargetGum
+    <div className="min-h-screen bg-background">
+      <header className="border-b border-border bg-card">
+        <div className="mx-auto flex max-w-3xl items-center justify-between px-6 py-4">
+          <Link href="/portal" className="flex items-center gap-2.5">
+            <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary text-primary-foreground">
+              <Sparkles className="h-3.5 w-3.5" />
+            </div>
+            <span className="text-sm font-semibold tracking-tight">TargetGum</span>
           </Link>
           <form
             action={async () => {
@@ -35,13 +39,13 @@ export default async function PortalLayout({ children }: { children: React.React
               await signOut({ redirectTo: '/sign-in' })
             }}
           >
-            <button type="submit" className="text-sm text-gray-500 hover:text-gray-900">
-              Sign out
+            <button type="submit" className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
+              <LogOut className="h-3.5 w-3.5" /> Sign out
             </button>
           </form>
         </div>
       </header>
-      <main className="mx-auto max-w-4xl px-6 py-8">{children}</main>
+      <main className="mx-auto max-w-3xl px-6 py-8">{children}</main>
     </div>
   )
 }

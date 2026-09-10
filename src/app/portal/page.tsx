@@ -1,7 +1,10 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
+import { ArrowRight, Users } from 'lucide-react'
 import { getCurrentAuthContext } from '@/lib/auth/current-context'
 import { listAccessibleClients } from '@/lib/clients/list'
+import { Card, CardContent } from '@/components/ui/card'
+import { EmptyState } from '@/components/ui/empty-state'
 
 /**
  * A `client_user` is normally linked to exactly one client - go straight
@@ -20,20 +23,23 @@ export default async function PortalOverviewPage() {
   }
 
   return (
-    <div className="space-y-4">
-      <h1 className="text-xl font-semibold">Your clients</h1>
+    <div className="space-y-6">
+      <h1 className="text-xl font-semibold tracking-tight text-foreground">Your clients</h1>
       {clients.length === 0 ? (
-        <p className="text-sm text-gray-400">No client is linked to your account yet.</p>
+        <EmptyState icon={Users} title="No client is linked to your account yet" />
       ) : (
-        <ul className="divide-y divide-gray-100 rounded border border-gray-200">
+        <div className="space-y-2">
           {clients.map((client) => (
-            <li key={client.id}>
-              <Link href={`/portal/clients/${client.id}`} className="block px-4 py-3 text-sm hover:bg-gray-50">
-                {client.name}
-              </Link>
-            </li>
+            <Link key={client.id} href={`/portal/clients/${client.id}`}>
+              <Card className="transition-shadow hover:shadow-popover">
+                <CardContent className="flex items-center justify-between p-4">
+                  <span className="text-sm font-medium text-foreground">{client.name}</span>
+                  <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                </CardContent>
+              </Card>
+            </Link>
           ))}
-        </ul>
+        </div>
       )}
     </div>
   )

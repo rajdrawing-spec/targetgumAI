@@ -1,9 +1,13 @@
 import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
+import { ChevronLeft, FileText, Lightbulb } from 'lucide-react'
 import { getCurrentAuthContext } from '@/lib/auth/current-context'
 import { getReport } from '@/lib/reports/generate'
 import type { ReportContent } from '@/lib/reports/generate'
 import { ForbiddenError } from '@/lib/rbac/errors'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { StatusBadge } from '@/components/ui/badge'
+import { EmptyState } from '@/components/ui/empty-state'
 
 /**
  * `getReport` already refuses an INTERNAL report to a client_user
@@ -29,56 +33,74 @@ export default async function PortalReportDetailPage({ params }: { params: Promi
   return (
     <div className="space-y-6">
       <div>
-        <Link href={`/portal/clients/${report.clientId}`} className="text-xs text-gray-500 hover:underline">
-          ← Back
+        <Link href={`/portal/clients/${report.clientId}`} className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground">
+          <ChevronLeft className="h-3.5 w-3.5" /> Back
         </Link>
-        <h1 className="text-xl font-semibold">{report.title}</h1>
-        <p className="text-sm text-gray-500">
+        <h1 className="mt-2 text-2xl font-semibold tracking-tight text-foreground">{report.title}</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
           {content.periodStart} – {content.periodEnd}
         </p>
       </div>
 
-      <section>
-        <h2 className="text-sm font-semibold text-gray-700">Summary</h2>
-        <p className="mt-1 text-sm text-gray-700">{content.summary}</p>
-      </section>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Summary</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm leading-relaxed text-foreground">{content.summary}</p>
+        </CardContent>
+      </Card>
 
-      <section>
-        <h2 className="text-sm font-semibold text-gray-700">Findings</h2>
-        {content.findings.length === 0 ? (
-          <p className="mt-2 text-sm text-gray-400">No findings.</p>
-        ) : (
-          <ul className="mt-2 space-y-2 text-sm">
-            {content.findings.map((finding, i) => (
-              <li key={i} className="rounded border border-gray-200 p-3">
-                <span className="font-medium">
-                  [{finding.priority}] {finding.area}
-                </span>
-                <p className="mt-1 text-gray-700">{finding.finding}</p>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <FileText className="h-4 w-4 text-muted-foreground" /> Findings
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {content.findings.length === 0 ? (
+            <EmptyState icon={FileText} title="No findings" />
+          ) : (
+            <ul className="space-y-3">
+              {content.findings.map((finding, i) => (
+                <li key={i} className="rounded-md border border-border p-3">
+                  <div className="flex items-center gap-2">
+                    <StatusBadge status={finding.priority} />
+                    <span className="text-sm font-medium text-foreground">{finding.area}</span>
+                  </div>
+                  <p className="mt-1.5 text-sm text-foreground">{finding.finding}</p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
 
-      <section>
-        <h2 className="text-sm font-semibold text-gray-700">Recommendations</h2>
-        {content.recommendations.length === 0 ? (
-          <p className="mt-2 text-sm text-gray-400">No recommendations.</p>
-        ) : (
-          <ul className="mt-2 space-y-2 text-sm">
-            {content.recommendations.map((rec, i) => (
-              <li key={i} className="rounded border border-gray-200 p-3">
-                <span className="font-medium">
-                  [{rec.priority}] {rec.area}
-                </span>
-                <p className="mt-1 text-gray-700">{rec.recommendation}</p>
-                {rec.expectedImpact && <p className="mt-1 text-xs text-gray-500">Expected impact: {rec.expectedImpact}</p>}
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Lightbulb className="h-4 w-4 text-muted-foreground" /> Recommendations
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {content.recommendations.length === 0 ? (
+            <EmptyState icon={Lightbulb} title="No recommendations" />
+          ) : (
+            <ul className="space-y-3">
+              {content.recommendations.map((rec, i) => (
+                <li key={i} className="rounded-md border border-border p-3">
+                  <div className="flex items-center gap-2">
+                    <StatusBadge status={rec.priority} />
+                    <span className="text-sm font-medium text-foreground">{rec.area}</span>
+                  </div>
+                  <p className="mt-1.5 text-sm text-foreground">{rec.recommendation}</p>
+                  {rec.expectedImpact && <p className="mt-1 text-xs text-muted-foreground">Expected impact: {rec.expectedImpact}</p>}
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }

@@ -2,12 +2,9 @@
 
 import { signIn } from 'next-auth/react'
 import { useState, type FormEvent } from 'react'
-
-/**
- * Minimal credentials sign-in form, enough to exercise the auth/MFA flow
- * end-to-end (Day 3 of docs/MVP-CHECKLIST.md). The real dashboard shell and
- * design pass land later - this intentionally stays plain.
- */
+import { Sparkles, AlertCircle } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Input, Label } from '@/components/ui/input'
 
 const ERROR_MESSAGES: Record<string, string> = {
   invalid_credentials: 'Incorrect email or password.',
@@ -45,72 +42,86 @@ export default function SignInPage() {
       return
     }
 
-    window.location.href = '/dashboard'
+    // Root route resolves to /dashboard or /portal depending on role.
+    window.location.href = '/'
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center p-8">
-      <form onSubmit={handleSubmit} className="w-full max-w-sm space-y-4">
-        <h1 className="text-xl font-semibold">Sign in</h1>
+    <main className="relative flex min-h-screen items-center justify-center overflow-hidden p-6">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -top-40 left-1/2 h-[36rem] w-[36rem] -translate-x-1/2 rounded-full bg-primary/10 blur-3xl"
+      />
 
-        <div className="space-y-1">
-          <label htmlFor="email" className="block text-sm text-gray-600">
-            Email
-          </label>
-          <input
-            id="email"
-            type="email"
-            required
-            disabled={needsMfa}
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full rounded border border-gray-300 px-3 py-2 text-sm"
-          />
-        </div>
-
-        <div className="space-y-1">
-          <label htmlFor="password" className="block text-sm text-gray-600">
-            Password
-          </label>
-          <input
-            id="password"
-            type="password"
-            required
-            disabled={needsMfa}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full rounded border border-gray-300 px-3 py-2 text-sm"
-          />
-        </div>
-
-        {needsMfa && (
-          <div className="space-y-1">
-            <label htmlFor="totpCode" className="block text-sm text-gray-600">
-              Authenticator code
-            </label>
-            <input
-              id="totpCode"
-              type="text"
-              inputMode="numeric"
-              autoFocus
-              required
-              value={totpCode}
-              onChange={(e) => setTotpCode(e.target.value)}
-              className="w-full rounded border border-gray-300 px-3 py-2 text-sm"
-            />
+      <div className="relative w-full max-w-sm">
+        <div className="mb-8 flex flex-col items-center gap-3 text-center">
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-card">
+            <Sparkles className="h-5 w-5" strokeWidth={2} />
           </div>
-        )}
+          <div>
+            <h1 className="text-lg font-semibold tracking-tight text-foreground">TargetGum</h1>
+            <p className="text-sm text-muted-foreground">AI Marketing OS</p>
+          </div>
+        </div>
 
-        {error && <p className="text-sm text-red-600">{error}</p>}
+        <div className="rounded-xl border border-border bg-card p-6 shadow-card">
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                required
+                autoFocus
+                disabled={needsMfa}
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@agency.com"
+              />
+            </div>
 
-        <button
-          type="submit"
-          disabled={submitting}
-          className="w-full rounded bg-gray-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
-        >
-          {needsMfa ? 'Verify' : 'Sign in'}
-        </button>
-      </form>
+            <div>
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                type="password"
+                required
+                disabled={needsMfa}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+              />
+            </div>
+
+            {needsMfa && (
+              <div>
+                <Label htmlFor="totpCode">Authenticator code</Label>
+                <Input
+                  id="totpCode"
+                  type="text"
+                  inputMode="numeric"
+                  autoFocus
+                  required
+                  value={totpCode}
+                  onChange={(e) => setTotpCode(e.target.value)}
+                  placeholder="123456"
+                />
+              </div>
+            )}
+
+            {error && (
+              <div className="flex items-start gap-2 rounded-md bg-destructive-bg px-3 py-2 text-sm text-destructive">
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                <span>{error}</span>
+              </div>
+            )}
+
+            <Button type="submit" disabled={submitting} className="w-full" size="lg">
+              {submitting ? 'Signing in…' : needsMfa ? 'Verify' : 'Sign in'}
+            </Button>
+          </form>
+        </div>
+      </div>
     </main>
   )
 }

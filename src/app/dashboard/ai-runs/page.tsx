@@ -1,7 +1,12 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
+import { Bot } from 'lucide-react'
 import { getCurrentAuthContext } from '@/lib/auth/current-context'
 import { listAiRuns } from '@/lib/ai/runs'
+import { PageHeader } from '@/components/ui/page-header'
+import { Card } from '@/components/ui/card'
+import { StatusBadge } from '@/components/ui/badge'
+import { EmptyState } from '@/components/ui/empty-state'
 
 export default async function AiRunsPage() {
   const ctx = await getCurrentAuthContext()
@@ -10,49 +15,54 @@ export default async function AiRunsPage() {
   const runs = await listAiRuns(ctx, { limit: 100 })
 
   return (
-    <div className="space-y-4">
-      <h1 className="text-xl font-semibold">AI Runs</h1>
+    <div className="space-y-6">
+      <PageHeader title="AI Runs" description="Every Claude call this workspace has made, with cost and timing." />
+
       {runs.length === 0 ? (
-        <p className="text-sm text-gray-400">No AI runs yet.</p>
+        <EmptyState icon={Bot} title="No AI runs yet" />
       ) : (
-        <table className="w-full text-left text-sm">
-          <thead className="text-gray-500">
-            <tr>
-              <th className="pb-2 font-medium">Client</th>
-              <th className="pb-2 font-medium">Model</th>
-              <th className="pb-2 font-medium">Prompt</th>
-              <th className="pb-2 font-medium">Status</th>
-              <th className="pb-2 font-medium">Tokens (in/out)</th>
-              <th className="pb-2 font-medium">Cost</th>
-              <th className="pb-2 font-medium">Duration</th>
-              <th className="pb-2 font-medium">When</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
-            {runs.map((run) => (
-              <tr key={run.id}>
-                <td className="py-2">
-                  {run.clientId ? (
-                    <Link href={`/dashboard/clients/${run.clientId}`} className="hover:underline">
-                      {run.client?.name ?? run.clientId}
-                    </Link>
-                  ) : (
-                    '—'
-                  )}
-                </td>
-                <td className="py-2">{run.model}</td>
-                <td className="py-2 text-gray-500">{run.promptVersion}</td>
-                <td className="py-2">{run.status}</td>
-                <td className="py-2 text-gray-500">
-                  {run.inputTokens ?? '—'} / {run.outputTokens ?? '—'}
-                </td>
-                <td className="py-2">{run.estimatedCostCents != null ? `$${(run.estimatedCostCents / 100).toFixed(3)}` : '—'}</td>
-                <td className="py-2 text-gray-500">{run.durationMs != null ? `${run.durationMs}ms` : '—'}</td>
-                <td className="py-2 text-gray-500">{run.createdAt.toISOString().slice(0, 16).replace('T', ' ')}</td>
+        <Card className="overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead className="text-xs uppercase tracking-wide text-muted-foreground">
+              <tr className="border-b border-border">
+                <th className="px-4 py-3 font-medium">Client</th>
+                <th className="px-4 py-3 font-medium">Model</th>
+                <th className="px-4 py-3 font-medium">Prompt</th>
+                <th className="px-4 py-3 font-medium">Status</th>
+                <th className="px-4 py-3 font-medium">Tokens (in/out)</th>
+                <th className="px-4 py-3 font-medium">Cost</th>
+                <th className="px-4 py-3 font-medium">Duration</th>
+                <th className="px-4 py-3 font-medium">When</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {runs.map((run) => (
+                <tr key={run.id}>
+                  <td className="px-4 py-3">
+                    {run.clientId ? (
+                      <Link href={`/dashboard/clients/${run.clientId}`} className="font-medium text-foreground hover:text-primary">
+                        {run.client?.name ?? run.clientId}
+                      </Link>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-foreground">{run.model}</td>
+                  <td className="px-4 py-3 text-muted-foreground">{run.promptVersion}</td>
+                  <td className="px-4 py-3">
+                    <StatusBadge status={run.status} />
+                  </td>
+                  <td className="px-4 py-3 text-muted-foreground">
+                    {run.inputTokens ?? '—'} / {run.outputTokens ?? '—'}
+                  </td>
+                  <td className="px-4 py-3 text-foreground">{run.estimatedCostCents != null ? `$${(run.estimatedCostCents / 100).toFixed(3)}` : '—'}</td>
+                  <td className="px-4 py-3 text-muted-foreground">{run.durationMs != null ? `${run.durationMs}ms` : '—'}</td>
+                  <td className="px-4 py-3 text-muted-foreground">{run.createdAt.toISOString().slice(0, 16).replace('T', ' ')}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Card>
       )}
     </div>
   )
