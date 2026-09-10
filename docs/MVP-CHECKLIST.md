@@ -59,12 +59,52 @@ recovery-code persistence/UI, rate limiting on the credentials endpoint,
 CSRF-protected server actions for anything beyond Auth.js's own routes, and
 a real sign-up/user-invitation flow (dev users are seed-script-only so far).
 
-### Day 4 — Claude integration, AI Gateway, structured outputs, AI run tracking
+### Day 4 — Claude integration, AI Gateway, structured outputs, AI run tracking ✅ DONE
 
-- [ ] `src/lib/ai/` Claude client wrapper
-- [ ] Prompt versioning (`prompts/`)
-- [ ] Structured output validation (Zod schemas)
-- [ ] `ai_runs` persistence
+- [x] `src/lib/ai/client.ts` — lazy Anthropic client singleton (constructed
+      on first use, not at import time - same fix as the Day 3 Nodemailer
+      gotcha, since ANTHROPIC_API_KEY legitimately isn't set during
+      build/typecheck/tests)
+- [x] `src/lib/ai/models.ts` — named model tiers (`fast`/`default`/
+      `reasoning`) resolved to concrete model IDs in one place, plus
+      per-tier USD pricing for cost estimation (BRD Section 73's cost-tiering
+      requirement — deliberately not hardcoded to one model everywhere)
+- [x] Prompt versioning (`prompts/<category>/vN.md` + `src/lib/ai/prompts.ts`):
+      loads the latest (or an explicit) version, interpolates `{{variables}}`,
+      and refuses to interpolate any variable whose *name* looks like a
+      secret (docs/SECURITY.md)
+- [x] Structured output validation via Claude's native `output_config.format`
+      + `zodOutputFormat()` (not manual JSON parsing or tool-choice forcing)
+      — schemas for this must be built with `zod/v4` specifically (see
+      docs/DECISIONS.md for why the app has two zod import paths)
+- [x] `ai_runs` persistence (`src/lib/ai/gateway.ts`): every call creates a
+      RUNNING row up front and finalizes it SUCCEEDED/FAILED with token
+      counts, estimated cost, and duration — never fabricated data (BRD
+      Section 56)
+- [x] Retry policy: transient API errors (rate limit, connection, 5xx) retry
+      with backoff; non-retryable errors (bad request, auth, etc.) fail
+      immediately; a schema-validation failure gets one extra attempt
+- [x] Real starter prompts for all three categories (`analytics`, `content`,
+      `reporting`), not placeholders — each encodes the relevant BRD rules
+      (evidence-based findings, brand-voice constraints, no invented metrics)
+      even though no agent consumes them yet (that's Day 9)
+- [x] 15 new tests (unit: models, prompts, client-guard; integration:
+      full gateway orchestration — success, retry-then-succeed,
+      non-retryable-fails-fast, invalid-output-retry, exhausted-retries —
+      against a real Postgres `ai_runs` table with an injected fake
+      Anthropic client)
+
+**Not done yet, deliberately** (Day 5+): tool permission checking (no Tool
+Registry exists until Day 5 — this gateway runs single structured-output
+calls, no tool use), Context Router / Client Brain retrieval (Day 8, once
+Client Brain has real CRUD and data), and any actual agent wiring these
+prompts into a real workflow (Day 9 Analytics Agent).
+
+**Known gap:** no live call against the real Anthropic API has been made —
+this sandbox has no `ANTHROPIC_API_KEY` configured. Confidence today comes
+from the SDK's compile-time-checked types plus the mocked-client integration
+suite above; a real end-to-end smoke test (like the Day 3 auth one) is
+pending the user providing a key, tracked in `docs/EXTERNAL-APPROVALS.md`.
 
 ### Day 5 — Tool registry, permission system, audit events
 

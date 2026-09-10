@@ -1,10 +1,12 @@
 # Architecture Assessment — TargetGum AI Marketing OS
 
-Status: **Foundation (Day 1), full database schema/migrations (Day 2), and
-authentication/RBAC/tenant isolation (Day 3) complete** — including a live,
-manually-verified end-to-end sign-in flow, not just automated tests. See
-`docs/MVP-CHECKLIST.md` for current progress. Day 4 (Claude integration / AI
-Gateway) is next.
+Status: **Foundation (Day 1), full database schema/migrations (Day 2),
+authentication/RBAC/tenant isolation (Day 3), and the AI Gateway (Day 4)
+complete** — Day 3 verified live via a manual end-to-end sign-in flow; Day 4
+verified via a mocked-client integration suite against a real database (no
+live Anthropic API call yet — no API key configured in this environment, see
+`docs/EXTERNAL-APPROVALS.md`). See `docs/MVP-CHECKLIST.md` for current
+progress. Day 5 (Tool Registry, permission system, audit events) is next.
 
 This document is the architecture assessment and implementation plan requested by
 `docs/BRD-PRD.md` Section 116. It proposes the technology stack, repository structure,

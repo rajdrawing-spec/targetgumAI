@@ -5,6 +5,63 @@ Newest entries at the top.
 
 ---
 
+## 2026-09-10 — AI Gateway uses named model tiers, not a single hardcoded model (Day 4)
+
+**Decision:** `src/lib/ai/models.ts` defines three tiers — `fast` (Haiku 4.5), `default`
+(Sonnet 5, overridable via `ANTHROPIC_DEFAULT_MODEL`), `reasoning` (Opus 5) — and every
+AI Gateway call picks a tier, never a raw model string.
+
+**Rationale:** BRD-PRD Section 73 explicitly asks for cost control by client/workflow/
+model and to "use cheaper/faster models where appropriate and reserve stronger
+reasoning models for tasks that benefit from them." This is a multi-tenant product
+running routine analysis for many clients — unlike a one-off engineering task, per-run
+model cost compounds across clients and cadence (BRD Section 65's daily/weekly/monthly
+scheduled workflows). Centralizing the tier→model mapping in one file means a future
+model swap (e.g. a new Haiku release) is a one-line change, not a grep-and-replace.
+
+**Model IDs used:** `claude-haiku-4-5-20251001` (fast), `claude-sonnet-5` (default),
+`claude-opus-5` (reasoning). The Haiku ID carries a date suffix while the other two
+don't — that's deliberate, matching what this environment's own model-identity
+reference gives for Haiku 4.5 specifically (not a copy-paste error).
+
+**Pricing** (USD per 1M tokens, for `estimateCostCents`): Haiku 4.5 $1.00/$5.00,
+Sonnet 5 $2.00/$10.00, Opus 5 $5.00/$25.00. These will drift as Anthropic updates
+pricing — there's no live pricing API to poll, so refresh this table by hand
+(re-consult current Anthropic pricing) when it's noticed to be stale, and note the
+update here.
+
+**Which agent uses which tier is not decided yet** — that's a Day 9+ (Analytics
+Agent) decision once there's a real workload to tune against, not something to guess
+at while building the gateway itself.
+
+---
+
+## 2026-09-10 — Structured outputs via native `output_config.format`, not tool-choice forcing (Day 4)
+
+**Decision:** `runStructuredAiTask` uses `client.messages.parse()` with
+`output_config: { format: zodOutputFormat(schema) }` — Anthropic's native structured-
+output feature — rather than the older pattern of defining a fake "tool" and forcing
+`tool_choice` to get JSON back.
+
+**Rationale:** This is the SDK's own recommended approach for schema-constrained
+output (confirmed against the bundled Claude API reference, not assumed from
+training). It's simpler, and `response.parsed_output` is either the validated,
+correctly-typed object or `null` — no manual `JSON.parse` + Zod `.safeParse` dance,
+and no risk of the model narrating outside a tool call.
+
+**Gotcha this forced:** `zodOutputFormat()` requires schemas built from `zod/v4`
+specifically (the SDK's typing imports `zod/v4`, not the classic `zod` v3 API this
+project uses everywhere else, e.g. `src/lib/auth/config.ts`'s credentials schema).
+The installed `zod` package (^3.24, resolved to 3.25.x) ships both APIs under one
+package — `import { z } from 'zod'` for everything else, `import { z } from 'zod/v4'`
+only inside `src/lib/ai/` for schemas passed to the gateway. This is a real footgun
+for future contributors: **a schema built with the classic `zod` import will not
+satisfy `zodOutputFormat`'s type**, and the two APIs are similar but not identical
+(error customization especially differs). Flagged here rather than only in a code
+comment because it's easy to miss.
+
+---
+
 ## 2026-09-10 — Session strategy: JWT, not database (Day 3)
 
 **Decision:** `session.strategy = 'jwt'` in the Auth.js config, even though the

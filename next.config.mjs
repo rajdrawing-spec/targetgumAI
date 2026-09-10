@@ -1,6 +1,13 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  // prompts/*.md are read from disk at request time (src/lib/ai/prompts.ts),
+  // not imported as modules - without this, a serverless deployment (e.g.
+  // Vercel) can tree-shake them out of the function bundle since Next's file
+  // tracer only follows imports. See docs/DECISIONS.md.
+  outputFileTracingIncludes: {
+    '/**': ['./prompts/**/*'],
+  },
   // Secure headers baseline (Section 29 - Security Architecture).
   // Expanded/hardened as auth and integrations land.
   async headers() {
