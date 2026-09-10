@@ -764,6 +764,58 @@ primitives directly at that point rather than hand-rolling one.
 
 ---
 
+## 2026-09-10 — Palette/typography replacement: warm-neutral + terracotta, replacing the violet token system
+
+**Decision:** Replaced the violet-brand HSL token system from the prior
+design-system pass with a fully specified warm-neutral palette (a cream
+`--bg-page`/white `--bg-surface`, a three-tier text scale `--text-primary`/
+`--text-secondary`/`--text-muted`, a terracotta `--primary` reserved for
+CTAs/active nav/key metrics, and five single-purpose status hues - sage
+(success), dusty-blue (info), lavender (reserved for future AI-generated-
+content badges, not yet wired to any element), mustard (warning), rose
+(destructive)). Values are stored as HSL triplets (not hex) so Tailwind's
+`bg-x/NN` opacity-modifier syntax keeps working; every triplet renders the
+exact hex specified. Added one derived tier not in the source spec: a
+darker "-text" reading of each status hue for badge/table text, because the
+raw hues are ~2-3:1 contrast on white (too low for small text) - the raw
+hue stays the canonical swatch for dots/tints, the darker "-text" variant
+(~4.5-6.5:1) is what `success`/`warning`/`destructive`/`info` actually
+resolve to. Typography: font-weight capped at 400/500 everywhere
+(`font-semibold`/`font-bold` purged from all 18 files that had them),
+`uppercase`/`tracking-wide` table headers removed in favor of sentence
+case, `StatusBadge` now renders `toSentenceCase(status)` instead of the raw
+enum ("IN_PROGRESS" → "In progress"), a new `text-caption` token/utility
+added for labels/timestamps/table headers (previously these shared
+`text-muted-foreground` with body-secondary text; the spec wants three
+distinct tiers), and `tabular-nums` added to every numeric column and stat
+value. Dropped the `.dark` token block entirely - grep confirmed zero
+`dark:` classes and no theme toggle anywhere in the app, so it was dead
+weight duplicating every color for a mode nothing could reach.
+
+**Rationale:** Direct, specific feedback that the violet palette read as
+"basic" and the UX as unpolished; the replacement palette, exact hex
+values, and typographic rules (weight ceiling, sentence case, a 3-tier text
+scale, tabular numerals) were fully specified rather than left to
+interpretation, so token-for-token color/typography implementation was the
+right scope - explicitly *not* a layout or component-structure change
+(confirmed by audit: no hardcoded colors existed anywhere in the codebase
+before this pass, so the change is contained to `globals.css`,
+`tailwind.config.ts`, and per-file className edits, no JSX restructuring).
+
+**Trade-off accepted:** the exact status hues given (sage/mustard/rose/
+dusty-blue) are not text-safe on their own (WCAG contrast 1.9-3.2:1) - held
+the literal hex values as canonical swatches per the spec, and derived a
+separate darker "-text" stop of the same hue for anywhere that hue is used
+as small text, rather than silently substituting a different color or
+shipping illegible badges.
+
+**Revisit if:** a real AI-generated-content marker is added to the product
+(recommendations already carry `aiRunId`, so this is the obvious next
+touchpoint) - wire the reserved `--lavender`/`ai` token to it then, rather
+than retrofitting a new color at that point.
+
+---
+
 ## Template for future entries
 
 ```text

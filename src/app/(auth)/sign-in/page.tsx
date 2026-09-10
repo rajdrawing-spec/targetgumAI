@@ -59,7 +59,7 @@ export default function SignInPage() {
             <Sparkles className="h-5 w-5" strokeWidth={2} />
           </div>
           <div>
-            <h1 className="text-lg font-semibold tracking-tight text-foreground">TargetGum</h1>
+            <h1 className="text-lg font-medium tracking-tight text-foreground">TargetGum</h1>
             <p className="text-sm text-muted-foreground">AI Marketing OS</p>
           </div>
         </div>

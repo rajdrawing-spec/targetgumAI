@@ -36,7 +36,7 @@ export default async function TasksPage() {
               <Card key={task.id}>
                 <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
                   <div className="min-w-0">
-                    <Link href={`/dashboard/clients/${task.clientId}`} className="text-sm font-semibold text-foreground hover:text-primary">
+                    <Link href={`/dashboard/clients/${task.clientId}`} className="text-sm font-medium text-foreground hover:text-primary">
                       {task.client?.name ?? task.clientId}
                     </Link>
                     <p className="text-sm text-muted-foreground">{task.title}</p>

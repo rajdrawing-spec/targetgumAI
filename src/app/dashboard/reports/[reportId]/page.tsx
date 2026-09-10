@@ -6,7 +6,7 @@ import { getReport } from '@/lib/reports/generate'
 import type { ReportContent } from '@/lib/reports/generate'
 import { generateClientReportAction } from '../../actions'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge, StatusBadge } from '@/components/ui/badge'
+import { Badge, StatusBadge, toSentenceCase } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
 
@@ -26,9 +26,9 @@ export default async function ReportDetailPage({ params }: { params: Promise<{ r
         </Link>
         <div className="mt-2 flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight text-foreground">{report.title}</h1>
+            <h1 className="text-2xl font-medium tracking-tight text-foreground">{report.title}</h1>
             <div className="mt-1.5 flex items-center gap-2">
-              <Badge variant="neutral">{report.type}</Badge>
+              <Badge variant="neutral">{toSentenceCase(report.type)}</Badge>
               <span className="text-sm text-muted-foreground">
                 {content.periodStart} – {content.periodEnd}
               </span>
@@ -72,12 +72,12 @@ export default async function ReportDetailPage({ params }: { params: Promise<{ r
                       <span className="text-sm font-medium text-foreground">{finding.area}</span>
                     </div>
                     {finding.confidence != null && (
-                      <span className="text-xs text-muted-foreground">confidence: {finding.confidence}</span>
+                      <span className="text-xs text-caption">Confidence: {finding.confidence}</span>
                     )}
                   </div>
                   <p className="mt-1.5 text-sm text-foreground">{finding.finding}</p>
                   {finding.evidence && finding.evidence.length > 0 && (
-                    <ul className="mt-2 list-inside list-disc space-y-0.5 text-xs text-muted-foreground">
+                    <ul className="mt-2 list-inside list-disc space-y-0.5 text-xs text-caption">
                       {finding.evidence.map((e, j) => (
                         <li key={j}>{e}</li>
                       ))}
@@ -108,7 +108,7 @@ export default async function ReportDetailPage({ params }: { params: Promise<{ r
                     <span className="text-sm font-medium text-foreground">{rec.area}</span>
                   </div>
                   <p className="mt-1.5 text-sm text-foreground">{rec.recommendation}</p>
-                  {rec.expectedImpact && <p className="mt-1 text-xs text-muted-foreground">Expected impact: {rec.expectedImpact}</p>}
+                  {rec.expectedImpact && <p className="mt-1 text-xs text-caption">Expected impact: {rec.expectedImpact}</p>}
                 </li>
               ))}
             </ul>

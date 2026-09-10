@@ -78,7 +78,7 @@ export default async function DashboardOverviewPage() {
             <div className="flex flex-wrap gap-2">
               {Object.entries(connectionsByStatus).map(([status, count]) => (
                 <StatusBadge key={status} status={status} className="gap-1.5">
-                  <span className="font-semibold">{count}</span>
+                  <span className="font-medium tabular-nums">{count}</span>
                 </StatusBadge>
               ))}
             </div>
@@ -96,7 +96,7 @@ export default async function DashboardOverviewPage() {
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
-                <thead className="text-xs uppercase tracking-wide text-muted-foreground">
+                <thead className="text-xs text-caption">
                   <tr>
                     <th className="pb-2 font-medium">Client</th>
                     <th className="pb-2 font-medium">Model</th>
@@ -113,10 +113,10 @@ export default async function DashboardOverviewPage() {
                       <td className="py-2.5">
                         <StatusBadge status={run.status} />
                       </td>
-                      <td className="py-2.5 text-muted-foreground">
+                      <td className="py-2.5 tabular-nums text-muted-foreground">
                         {run.estimatedCostCents != null ? `$${(run.estimatedCostCents / 100).toFixed(3)}` : '—'}
                       </td>
-                      <td className="py-2.5 text-muted-foreground">{run.createdAt.toISOString().slice(0, 16).replace('T', ' ')}</td>
+                      <td className="py-2.5 tabular-nums text-caption">{run.createdAt.toISOString().slice(0, 16).replace('T', ' ')}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -169,7 +169,7 @@ function StatCard({
       <Card className="transition-shadow hover:shadow-popover">
         <CardContent className="flex items-center justify-between p-5">
           <div>
-            <p className="text-2xl font-semibold tracking-tight text-foreground">{value}</p>
+            <p className="text-2xl font-medium tabular-nums tracking-tight text-foreground">{value}</p>
             <p className="mt-1 text-sm text-muted-foreground">{label}</p>
           </div>
           <div

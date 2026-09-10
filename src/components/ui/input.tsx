@@ -30,5 +30,5 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaHTMLAttributes<H
 Textarea.displayName = 'Textarea'
 
 export function Label({ className, ...props }: LabelHTMLAttributes<HTMLLabelElement>) {
-  return <label className={cn('mb-1.5 block text-xs font-medium text-muted-foreground', className)} {...props} />
+  return <label className={cn('mb-1.5 block text-xs font-medium text-caption', className)} {...props} />
 }

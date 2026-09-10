@@ -31,7 +31,7 @@ export default async function PortalLayout({ children }: { children: React.React
             <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary text-primary-foreground">
               <Sparkles className="h-3.5 w-3.5" />
             </div>
-            <span className="text-sm font-semibold tracking-tight">TargetGum</span>
+            <span className="text-sm font-medium tracking-tight">TargetGum</span>
           </Link>
           <form
             action={async () => {

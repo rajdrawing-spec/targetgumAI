@@ -40,14 +40,14 @@ export default async function DashboardLayout({ children }: { children: React.Re
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
             <Sparkles className="h-4 w-4" strokeWidth={2} />
           </div>
-          <span className="text-sm font-semibold tracking-tight">TargetGum</span>
+          <span className="text-sm font-medium tracking-tight">TargetGum</span>
         </div>
         <DashboardNav />
         <div className="mt-auto border-t border-border p-3">
           <div className="flex items-center justify-between gap-2 rounded-md px-2 py-1.5">
             <div className="min-w-0">
               <p className="truncate text-xs font-medium text-foreground">{ROLE_LABEL[ctx.roleKey] ?? ctx.roleKey}</p>
-              <p className="truncate text-xs text-muted-foreground">Signed in</p>
+              <p className="truncate text-xs text-caption">Signed in</p>
             </div>
             <form
               action={async () => {

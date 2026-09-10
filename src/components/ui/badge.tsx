@@ -70,6 +70,12 @@ const STATUS_VARIANT: Record<string, BadgeProps['variant']> = {
   URGENT: 'destructive',
 }
 
+/** "IN_PROGRESS" -> "In progress" - sentence case, not the raw enum shouting case. */
+export function toSentenceCase(status: string): string {
+  const words = status.replace(/_/g, ' ').toLowerCase()
+  return words.charAt(0).toUpperCase() + words.slice(1)
+}
+
 export function StatusBadge({
   status,
   className,
@@ -77,12 +83,12 @@ export function StatusBadge({
 }: {
   status: string
   className?: string
-  /** Appended after the default label (the status text, underscores turned to spaces) - e.g. a count. */
+  /** Appended after the default label - e.g. a count. */
   children?: ReactNode
 }) {
   return (
     <Badge variant={STATUS_VARIANT[status] ?? 'neutral'} className={className}>
-      {status.replace(/_/g, ' ')}
+      {toSentenceCase(status)}
       {children}
     </Badge>
   )

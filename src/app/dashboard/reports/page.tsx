@@ -5,7 +5,7 @@ import { getCurrentAuthContext } from '@/lib/auth/current-context'
 import { listReportsForOrg } from '@/lib/reports/generate'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
+import { Badge, toSentenceCase } from '@/components/ui/badge'
 import { EmptyState } from '@/components/ui/empty-state'
 
 export default async function ReportsPage() {
@@ -30,13 +30,13 @@ export default async function ReportsPage() {
             >
               <div className="min-w-0">
                 <p className="truncate text-sm font-medium text-foreground">{report.title}</p>
-                <p className="text-xs text-muted-foreground">{report.client?.name ?? report.clientId}</p>
+                <p className="text-xs text-caption">{report.client?.name ?? report.clientId}</p>
               </div>
               <div className="flex shrink-0 items-center gap-3">
-                <span className="hidden text-xs text-muted-foreground sm:inline">
+                <span className="hidden text-xs tabular-nums text-caption sm:inline">
                   {report.periodStart.toISOString().slice(0, 10)} – {report.periodEnd.toISOString().slice(0, 10)}
                 </span>
-                <Badge variant="neutral">{report.type}</Badge>
+                <Badge variant="neutral">{toSentenceCase(report.type)}</Badge>
                 <ChevronRight className="h-4 w-4 text-muted-foreground" />
               </div>
             </Link>

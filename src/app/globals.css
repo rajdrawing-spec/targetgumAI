@@ -4,83 +4,62 @@
 
 /**
  * Design tokens (HSL triplets, unitless - consumed by tailwind.config.ts
- * as `hsl(var(--token) / <alpha-value>)`). One deliberate palette: a
- * violet brand color for primary actions/focus, a warm-neutral slate
- * scale for everything else, and status colors used consistently
- * everywhere a state is shown (integration health, approval/recommendation
- * priority, audit result). Dark mode redefines the same tokens under
- * `.dark` - every component reads the token, never a raw color, so theming
- * is automatic.
+ * as `hsl(var(--token) / <alpha-value>)`, which is what makes Tailwind's
+ * opacity modifiers like `bg-primary/10` work). Values are stored as HSL
+ * rather than hex purely for that mechanism; every variable below still
+ * renders as the exact hex color named in its comment.
+ *
+ * Palette: a warm off-white surface, a warm-neutral three-tier text scale
+ * (primary/secondary/muted), a single terracotta primary reserved for CTAs
+ * / active nav / key metrics, and five status hues (sage/dusty-blue/
+ * lavender/mustard/rose) each used for exactly one semantic role - see the
+ * "usage" comment on each. No dark theme: the app has no theme toggle and
+ * no `dark:` classes exist anywhere, so a second palette would only be
+ * dead weight to maintain.
  */
 @layer base {
   :root {
-    --background: 220 20% 98%;
-    --foreground: 222 28% 12%;
+    /* ---- Palette ---- */
+    --bg-page: 45 29% 97%; /* #FAF9F6 */
+    --bg-surface: 0 0% 100%; /* #FFFFFF */
+    --border: 40 21% 89%; /* #E8E4DC */
 
-    --card: 0 0% 100%;
-    --card-foreground: 222 28% 12%;
+    --text-primary: 30 5% 16%; /* #2C2A28 - headings, emphasized values */
+    --text-secondary: 39 6% 45%; /* #7A756C - body copy */
+    --text-muted: 40 9% 62%; /* #A8A296 - labels, timestamps, captions */
 
-    --muted: 220 16% 95%;
-    --muted-foreground: 220 9% 46%;
+    --primary: 14 49% 59%; /* #C97B63 - CTAs, active nav, key metrics ONLY */
+    --primary-hover: 14 41% 51%; /* #B56850 */
+    --primary-tint: 19 52% 92%; /* #F5E6DF - primary's light surface (active nav bg, avatar chips) */
 
-    --border: 220 14% 90%;
-    --input: 220 14% 90%;
-    --ring: 255 70% 60%;
+    --sage: 97 15% 58%; /* #8FA383 - success / healthy status */
+    --dusty-blue: 209 20% 57%; /* #7C93A8 - info / neutral status */
+    --lavender: 262 17% 63%; /* #9B8FB0 - AI-generated content badges only */
+    --mustard: 41 61% 57%; /* #D4A94E - warnings */
+    --rose: 342 42% 64%; /* #C97B93 - errors / alerts */
 
-    --primary: 255 70% 60%;
-    --primary-foreground: 0 0% 100%;
-    --primary-hover: 255 70% 54%;
-
-    --secondary: 220 16% 95%;
-    --secondary-foreground: 222 28% 16%;
-
-    --accent: 255 60% 96%;
-    --accent-foreground: 255 45% 34%;
-
-    --success: 152 60% 36%;
-    --success-bg: 152 55% 94%;
-    --warning: 32 90% 42%;
-    --warning-bg: 40 92% 93%;
-    --destructive: 0 72% 48%;
-    --destructive-bg: 0 80% 96%;
-    --info: 217 80% 52%;
-    --info-bg: 214 90% 95%;
+    /* ---- Derived (not in the source spec, needed to make the palette
+       above actually usable for UI chrome) ----
+       - a soft tint of each status hue, for badge/callout backgrounds
+       - a darker "-text" reading of each status hue: the raw hues above
+         are ~2-3:1 contrast on white, too low for small badge text, so
+         text uses this darker stop of the same hue (~4.5-6.5:1) while
+         the raw hue above stays the canonical swatch for dots/backgrounds
+       - one neutral hover wash between --border and --bg-page, for
+         row/link hover states that need to read against a white card */
+    --sage-tint: 97 25% 94%;
+    --sage-text: 97 28% 32%;
+    --dusty-blue-tint: 209 30% 95%;
+    --dusty-blue-text: 209 30% 36%;
+    --lavender-tint: 262 25% 95%;
+    --lavender-text: 262 22% 40%;
+    --mustard-tint: 41 65% 93%;
+    --mustard-text: 41 60% 36%;
+    --rose-tint: 342 45% 95%;
+    --rose-text: 342 38% 42%;
+    --surface-hover: 40 21% 94%;
 
     --radius: 0.625rem;
-  }
-
-  .dark {
-    --background: 224 24% 8%;
-    --foreground: 220 20% 94%;
-
-    --card: 223 22% 11%;
-    --card-foreground: 220 20% 94%;
-
-    --muted: 222 18% 15%;
-    --muted-foreground: 220 10% 63%;
-
-    --border: 222 16% 18%;
-    --input: 222 16% 18%;
-    --ring: 255 75% 68%;
-
-    --primary: 255 75% 68%;
-    --primary-foreground: 224 24% 10%;
-    --primary-hover: 255 75% 74%;
-
-    --secondary: 222 18% 15%;
-    --secondary-foreground: 220 20% 94%;
-
-    --accent: 255 30% 20%;
-    --accent-foreground: 255 70% 85%;
-
-    --success: 152 55% 48%;
-    --success-bg: 152 40% 14%;
-    --warning: 38 92% 58%;
-    --warning-bg: 38 60% 15%;
-    --destructive: 0 75% 62%;
-    --destructive-bg: 0 50% 16%;
-    --info: 217 85% 66%;
-    --info-bg: 217 45% 16%;
   }
 }
 
@@ -89,7 +68,13 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-muted-foreground antialiased;
+    font-size: 0.875rem;
+    line-height: 1.6;
     font-feature-settings: 'cv11', 'ss01';
+  }
+  h1, h2, h3, h4, h5, h6 {
+    @apply text-foreground;
+    font-weight: 500;
   }
 }

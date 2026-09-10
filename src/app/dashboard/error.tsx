@@ -22,7 +22,7 @@ export default function DashboardError({ error, reset }: { error: Error & { dige
           <AlertTriangle className="h-4 w-4" />
         </div>
         <div>
-          <h1 className="text-sm font-semibold text-destructive">Something went wrong</h1>
+          <h1 className="text-sm font-medium text-destructive">Something went wrong</h1>
           <p className="mt-1 text-sm text-destructive/90">{error.message || 'An unexpected error occurred.'}</p>
         </div>
       </div>

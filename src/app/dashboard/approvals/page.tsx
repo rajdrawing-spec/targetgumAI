@@ -34,7 +34,7 @@ export default async function ApprovalsPage() {
             <Card key={approval.id}>
               <CardContent className="p-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <Link href={`/dashboard/clients/${approval.clientId}`} className="text-sm font-semibold text-foreground hover:text-primary">
+                  <Link href={`/dashboard/clients/${approval.clientId}`} className="text-sm font-medium text-foreground hover:text-primary">
                     {clientNameById.get(approval.clientId) ?? approval.clientId}
                   </Link>
                   <div className="flex items-center gap-1.5">

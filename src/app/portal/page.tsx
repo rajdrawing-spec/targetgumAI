@@ -24,7 +24,7 @@ export default async function PortalOverviewPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-xl font-semibold tracking-tight text-foreground">Your clients</h1>
+      <h1 className="text-xl font-medium tracking-tight text-foreground">Your clients</h1>
       {clients.length === 0 ? (
         <EmptyState icon={Users} title="No client is linked to your account yet" />
       ) : (

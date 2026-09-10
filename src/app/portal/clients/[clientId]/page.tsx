@@ -45,7 +45,7 @@ export default async function PortalClientPage({ params }: { params: Promise<{ c
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold tracking-tight text-foreground">{client.name}</h1>
+      <h1 className="text-2xl font-medium tracking-tight text-foreground">{client.name}</h1>
 
       <Card>
         <CardHeader>

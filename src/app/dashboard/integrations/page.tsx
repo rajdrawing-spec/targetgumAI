@@ -24,7 +24,7 @@ export default async function IntegrationsPage() {
       ) : (
         <Card className="overflow-x-auto">
           <table className="w-full text-left text-sm">
-            <thead className="text-xs uppercase tracking-wide text-muted-foreground">
+            <thead className="text-xs text-caption">
               <tr className="border-b border-border">
                 <th className="px-4 py-3 font-medium">Client</th>
                 <th className="px-4 py-3 font-medium">Provider</th>
@@ -47,7 +47,7 @@ export default async function IntegrationsPage() {
                   <td className="px-4 py-3">
                     <StatusBadge status={c.status} />
                   </td>
-                  <td className="px-4 py-3 text-muted-foreground">
+                  <td className="px-4 py-3 tabular-nums text-caption">
                     {c.lastSuccessfulSyncAt ? c.lastSuccessfulSyncAt.toISOString().slice(0, 16).replace('T', ' ') : '—'}
                   </td>
                   <td className="px-4 py-3 text-destructive">

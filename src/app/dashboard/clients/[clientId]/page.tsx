@@ -23,7 +23,7 @@ import { listReports } from '@/lib/reports/generate'
 import { ForbiddenError } from '@/lib/rbac/errors'
 import { connectMetricoolBrandAction, triggerAnalyzeClientAction } from '../../actions'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge, StatusBadge } from '@/components/ui/badge'
+import { Badge, StatusBadge, toSentenceCase } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input, Label } from '@/components/ui/input'
 import { EmptyState } from '@/components/ui/empty-state'
@@ -69,14 +69,14 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ c
 
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-accent text-base font-semibold text-accent-foreground">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-accent text-base font-medium text-accent-foreground">
             {client.name.slice(0, 2).toUpperCase()}
           </div>
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight text-foreground">{client.name}</h1>
+            <h1 className="text-2xl font-medium tracking-tight text-foreground">{client.name}</h1>
             <div className="mt-1 flex items-center gap-1.5">
-              <Badge variant={client.status === 'ACTIVE' ? 'success' : 'neutral'}>{client.status}</Badge>
-              <Badge variant="neutral">automation: {client.automationLevel}</Badge>
+              <Badge variant={client.status === 'ACTIVE' ? 'success' : 'neutral'}>{toSentenceCase(client.status)}</Badge>
+              <Badge variant="neutral">Automation: {toSentenceCase(client.automationLevel)}</Badge>
             </div>
           </div>
         </div>
@@ -99,19 +99,19 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ c
           <CardContent>
             <dl className="grid grid-cols-2 gap-4 sm:grid-cols-4">
               <div>
-                <dt className="text-xs text-muted-foreground">Max daily ad budget</dt>
+                <dt className="text-xs text-caption">Max daily ad budget</dt>
                 <dd className="mt-0.5 text-sm font-medium text-foreground">{policy.maxDailyAdBudget?.toString() ?? '—'}</dd>
               </div>
               <div>
-                <dt className="text-xs text-muted-foreground">Auto-publish social</dt>
+                <dt className="text-xs text-caption">Auto-publish social</dt>
                 <dd className="mt-0.5 text-sm font-medium text-foreground">{policy.autoPublishSocial ? 'Yes' : 'No'}</dd>
               </div>
               <div>
-                <dt className="text-xs text-muted-foreground">Auto-change ads</dt>
+                <dt className="text-xs text-caption">Auto-change ads</dt>
                 <dd className="mt-0.5 text-sm font-medium text-foreground">{policy.autoChangeAds ? 'Yes' : 'No'}</dd>
               </div>
               <div>
-                <dt className="text-xs text-muted-foreground">Approval for launches</dt>
+                <dt className="text-xs text-caption">Approval for launches</dt>
                 <dd className="mt-0.5 text-sm font-medium text-foreground">{policy.requireApprovalForCampaignLaunch ? 'Required' : 'Not required'}</dd>
               </div>
             </dl>
@@ -256,7 +256,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ c
                       {report.title}
                     </Link>
                     <Badge variant="neutral" className="shrink-0">
-                      {report.type}
+                      {toSentenceCase(report.type)}
                     </Badge>
                   </li>
                 ))}
@@ -281,7 +281,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ c
                     <span className="text-sm text-foreground">{run.model}</span>
                     <div className="flex shrink-0 items-center gap-1.5">
                       <StatusBadge status={run.status} />
-                      <span className="text-xs text-muted-foreground">{run.createdAt.toISOString().slice(0, 16).replace('T', ' ')}</span>
+                      <span className="text-xs tabular-nums text-caption">{run.createdAt.toISOString().slice(0, 16).replace('T', ' ')}</span>
                     </div>
                   </li>
                 ))}

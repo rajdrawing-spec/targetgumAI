@@ -28,7 +28,7 @@ export default async function AuditPage() {
       ) : (
         <Card className="overflow-x-auto">
           <table className="w-full text-left text-sm">
-            <thead className="text-xs uppercase tracking-wide text-muted-foreground">
+            <thead className="text-xs text-caption">
               <tr className="border-b border-border">
                 <th className="px-4 py-3 font-medium">When</th>
                 <th className="px-4 py-3 font-medium">Action</th>
@@ -40,7 +40,7 @@ export default async function AuditPage() {
             <tbody className="divide-y divide-border">
               {events.map((event) => (
                 <tr key={event.id}>
-                  <td className="whitespace-nowrap px-4 py-3 text-muted-foreground">{event.timestamp.toISOString().slice(0, 19).replace('T', ' ')}</td>
+                  <td className="whitespace-nowrap px-4 py-3 tabular-nums text-caption">{event.timestamp.toISOString().slice(0, 19).replace('T', ' ')}</td>
                   <td className="px-4 py-3 font-medium text-foreground">{event.action}</td>
                   <td className="px-4 py-3">
                     <StatusBadge status={event.result} />

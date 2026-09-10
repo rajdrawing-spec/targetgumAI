@@ -36,7 +36,7 @@ export default async function PortalReportDetailPage({ params }: { params: Promi
         <Link href={`/portal/clients/${report.clientId}`} className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground">
           <ChevronLeft className="h-3.5 w-3.5" /> Back
         </Link>
-        <h1 className="mt-2 text-2xl font-semibold tracking-tight text-foreground">{report.title}</h1>
+        <h1 className="mt-2 text-2xl font-medium tracking-tight text-foreground">{report.title}</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           {content.periodStart} – {content.periodEnd}
         </p>

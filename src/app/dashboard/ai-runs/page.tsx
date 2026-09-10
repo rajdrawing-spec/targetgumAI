@@ -23,7 +23,7 @@ export default async function AiRunsPage() {
       ) : (
         <Card className="overflow-x-auto">
           <table className="w-full text-left text-sm">
-            <thead className="text-xs uppercase tracking-wide text-muted-foreground">
+            <thead className="text-xs text-caption">
               <tr className="border-b border-border">
                 <th className="px-4 py-3 font-medium">Client</th>
                 <th className="px-4 py-3 font-medium">Model</th>
@@ -52,12 +52,12 @@ export default async function AiRunsPage() {
                   <td className="px-4 py-3">
                     <StatusBadge status={run.status} />
                   </td>
-                  <td className="px-4 py-3 text-muted-foreground">
+                  <td className="px-4 py-3 tabular-nums text-muted-foreground">
                     {run.inputTokens ?? '—'} / {run.outputTokens ?? '—'}
                   </td>
-                  <td className="px-4 py-3 text-foreground">{run.estimatedCostCents != null ? `$${(run.estimatedCostCents / 100).toFixed(3)}` : '—'}</td>
-                  <td className="px-4 py-3 text-muted-foreground">{run.durationMs != null ? `${run.durationMs}ms` : '—'}</td>
-                  <td className="px-4 py-3 text-muted-foreground">{run.createdAt.toISOString().slice(0, 16).replace('T', ' ')}</td>
+                  <td className="px-4 py-3 tabular-nums text-foreground">{run.estimatedCostCents != null ? `$${(run.estimatedCostCents / 100).toFixed(3)}` : '—'}</td>
+                  <td className="px-4 py-3 tabular-nums text-muted-foreground">{run.durationMs != null ? `${run.durationMs}ms` : '—'}</td>
+                  <td className="px-4 py-3 tabular-nums text-caption">{run.createdAt.toISOString().slice(0, 16).replace('T', ' ')}</td>
                 </tr>
               ))}
             </tbody>
