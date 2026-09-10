@@ -39,6 +39,7 @@ export const PERMISSIONS = [
   'recommendations.review',
   'feedback.create',
   'analysis.trigger',
+  'content.manage',
 ] as const
 
 export type Permission = (typeof PERMISSIONS)[number]
@@ -54,6 +55,21 @@ export type Permission = (typeof PERMISSIONS)[number]
  * assigned clients" (Section 4.2): they can edit clients already assigned
  * to them (still enforced by `assertClientAccess`, not by this permission
  * alone), but not create new ones org-wide.
+ *
+ * `content.manage` (Phase 2 social content calendar, BRD Section 66/48/85):
+ * covers the whole staff-side `ContentCalendarItem` lifecycle - create,
+ * edit while draft, submit for review, approve, schedule (draft-only via
+ * Metricool, never a real publish - `src/lib/integrations/metricool/
+ * provider.ts`'s safety rule), cancel. Granted to `account_manager` and
+ * `marketing_employee` both, deliberately not split into a separate
+ * "approve" permission the way Approvals are: BRD 4.3 explicitly gives
+ * Marketing Employee "Create/schedule social posts" (they can carry an item
+ * through the whole lifecycle themselves), while 4.2's "Approve selected
+ * actions" already covers Account Manager doing the same for someone
+ * else's draft - one permission serves both without inventing a
+ * restriction neither role list asks for. `client_user` gets none of this -
+ * BRD 4.4 lists only "View content/creative" (read-only), served by the
+ * existing `clients.read` grant everyone already has, same as reports.
  */
 export const ROLE_PERMISSIONS: Record<SystemRoleKey, readonly Permission[]> = {
   super_admin: PERMISSIONS,
@@ -67,6 +83,7 @@ export const ROLE_PERMISSIONS: Record<SystemRoleKey, readonly Permission[]> = {
     'recommendations.review',
     'feedback.create',
     'analysis.trigger',
+    'content.manage',
   ],
   marketing_employee: [
     'clients.read',
@@ -75,6 +92,7 @@ export const ROLE_PERMISSIONS: Record<SystemRoleKey, readonly Permission[]> = {
     'reports.read',
     'recommendations.review',
     'analysis.trigger',
+    'content.manage',
   ],
   // Client User (BRD Section 4.4): "View own dashboard, View reports,
   // Review recommendations, Approve allowed actions, Provide feedback,

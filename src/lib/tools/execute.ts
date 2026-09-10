@@ -14,6 +14,7 @@ import {
   ToolOutputValidationError,
 } from './errors'
 import { getToolImplementation } from './registry'
+import { ensureToolsRegistered } from './bootstrap'
 import type { ToolDefinition } from './types'
 
 /**
@@ -32,6 +33,10 @@ import type { ToolDefinition } from './types'
  * ApprovalRequiredError. Call `executeApprovedTool` once a human approves
  * it to actually run the tool - see docs/DECISIONS.md for why Day 10
  * replaced the Day 5 hard block with this instead of executing directly.
+ *
+ * `authorizeCall` calls `ensureToolsRegistered()` (./bootstrap.ts) before
+ * looking a tool up - see that file for why this matters (a fresh server
+ * process's in-memory tool implementation map starts empty).
  */
 
 export interface ExecuteToolInput {
@@ -85,6 +90,7 @@ async function authorizeCall(
 ): Promise<AuthorizedCall> {
   const { ctx, toolKey } = params
 
+  await ensureToolsRegistered()
   const toolRow = await db.tool.findFirst({ where: { key: toolKey, enabled: true } })
   const impl = getToolImplementation(toolKey)
   if (!toolRow || !impl) {

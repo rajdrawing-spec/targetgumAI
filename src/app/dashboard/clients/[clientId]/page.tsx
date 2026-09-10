@@ -10,18 +10,20 @@ import {
   Bot,
   SlidersHorizontal,
   ChevronLeft,
+  CalendarDays,
 } from 'lucide-react'
 import { getCurrentAuthContext } from '@/lib/auth/current-context'
 import { getAuthorizedClient } from '@/lib/db/tenant'
 import { listAiRuns } from '@/lib/ai/runs'
 import { getClientPolicy } from '@/lib/clients/brain'
+import { listContentCalendarItems } from '@/lib/content-calendar/persist'
 import { listIntegrationConnectionsForOrg } from '@/lib/integrations/health'
 import { listRecommendations } from '@/lib/recommendations/persist'
 import { listTasks } from '@/lib/recommendations/tasks'
 import { listApprovals } from '@/lib/approvals/approvals'
 import { listReports } from '@/lib/reports/generate'
 import { ForbiddenError } from '@/lib/rbac/errors'
-import { connectMetricoolBrandAction, triggerAnalyzeClientAction } from '../../actions'
+import { connectMetricoolBrandAction, createContentItemAction, triggerAnalyzeClientAction } from '../../actions'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge, StatusBadge, toSentenceCase } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -48,7 +50,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ c
     throw error
   }
 
-  const [policy, recommendations, tasks, approvals, reports, allConnections, aiRuns] = await Promise.all([
+  const [policy, recommendations, tasks, approvals, reports, allConnections, aiRuns, contentItems] = await Promise.all([
     getClientPolicy(ctx, clientId),
     listRecommendations(ctx, clientId),
     listTasks(ctx, clientId),
@@ -56,10 +58,12 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ c
     listReports(ctx, clientId),
     listIntegrationConnectionsForOrg(ctx),
     listAiRuns(ctx, { clientId, limit: 10 }),
+    listContentCalendarItems(ctx, clientId),
   ])
   const connections = allConnections.filter((c) => c.clientId === clientId)
   const canManageIntegrations = ctx.permissions.has('integrations.manage')
   const canTriggerAnalysis = ctx.permissions.has('analysis.trigger')
+  const canManageContent = ctx.permissions.has('content.manage')
 
   return (
     <div className="space-y-6">
@@ -290,6 +294,55 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ c
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <CalendarDays className="h-4 w-4 text-muted-foreground" /> Content calendar
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {contentItems.length === 0 ? (
+            <EmptyState icon={CalendarDays} title="Nothing planned yet" />
+          ) : (
+            <ul className="divide-y divide-border">
+              {contentItems.map((item) => (
+                <li key={item.id} className="flex items-center justify-between gap-2 py-2.5 first:pt-0 last:pb-0">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm text-foreground">{item.caption || item.platform}</p>
+                    <p className="text-xs tabular-nums text-caption">
+                      {item.platform} · {item.publishDate.toISOString().slice(0, 10)}
+                    </p>
+                  </div>
+                  <StatusBadge status={item.status} className="shrink-0" />
+                </li>
+              ))}
+            </ul>
+          )}
+          {canManageContent && (
+            <form action={createContentItemAction.bind(null, clientId)} className="flex flex-wrap items-end gap-3 rounded-md border border-dashed border-border p-3">
+              <div>
+                <Label htmlFor="platform">Platform</Label>
+                <Input id="platform" name="platform" type="text" required placeholder="e.g. instagram" className="w-36" />
+              </div>
+              <div>
+                <Label htmlFor="publishDate">Publish date</Label>
+                <Input id="publishDate" name="publishDate" type="date" required className="w-40" />
+              </div>
+              <div className="min-w-[14rem] flex-1">
+                <Label htmlFor="caption">Caption</Label>
+                <Input id="caption" name="caption" type="text" placeholder="Post copy…" />
+              </div>
+              <Button type="submit" variant="outline">
+                Add to calendar
+              </Button>
+            </form>
+          )}
+          <p className="text-xs text-caption">
+            Review, approve, and schedule from the <Link href="/dashboard/content-calendar" className="text-primary hover:underline">content calendar</Link> page.
+          </p>
+        </CardContent>
+      </Card>
     </div>
   )
 }

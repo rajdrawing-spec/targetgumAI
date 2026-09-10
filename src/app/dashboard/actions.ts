@@ -5,6 +5,13 @@ import { redirect } from 'next/navigation'
 import { getCurrentAuthContext } from '@/lib/auth/current-context'
 import { approveApproval, rejectApproval } from '@/lib/approvals/approvals'
 import { createClient } from '@/lib/clients/create'
+import {
+  approveContentCalendarItem,
+  cancelContentCalendarItem,
+  createContentCalendarItem,
+  scheduleContentCalendarItem,
+  submitContentForReview,
+} from '@/lib/content-calendar/persist'
 import { connectClientToMetricoolBrand } from '@/lib/integrations/metricool/connect'
 import { acceptRecommendation, rejectRecommendation } from '@/lib/recommendations/persist'
 import { updateTaskStatus } from '@/lib/recommendations/tasks'
@@ -108,6 +115,48 @@ export async function connectMetricoolBrandAction(clientId: string, formData: Fo
   revalidatePath(`/dashboard/clients/${clientId}`)
   revalidatePath('/dashboard/integrations')
   revalidatePath('/dashboard')
+}
+
+export async function createContentItemAction(clientId: string, formData: FormData): Promise<void> {
+  const ctx = await requireCtx()
+  const platform = String(formData.get('platform') ?? '')
+  const publishDate = new Date(String(formData.get('publishDate') ?? ''))
+  const caption = String(formData.get('caption') ?? '') || undefined
+  await createContentCalendarItem(ctx, clientId, { platform, publishDate, caption })
+  revalidatePath('/dashboard/content-calendar')
+  revalidatePath(`/dashboard/clients/${clientId}`)
+}
+
+export async function submitContentForReviewAction(itemId: string, clientId: string): Promise<void> {
+  const ctx = await requireCtx()
+  await submitContentForReview(ctx, itemId)
+  revalidatePath('/dashboard/content-calendar')
+  revalidatePath(`/dashboard/clients/${clientId}`)
+}
+
+export async function approveContentItemAction(itemId: string, clientId: string): Promise<void> {
+  const ctx = await requireCtx()
+  await approveContentCalendarItem(ctx, itemId)
+  revalidatePath('/dashboard/content-calendar')
+  revalidatePath(`/dashboard/clients/${clientId}`)
+}
+
+export async function cancelContentItemAction(itemId: string, clientId: string): Promise<void> {
+  const ctx = await requireCtx()
+  await cancelContentCalendarItem(ctx, itemId)
+  revalidatePath('/dashboard/content-calendar')
+  revalidatePath(`/dashboard/clients/${clientId}`)
+}
+
+export async function scheduleContentItemAction(itemId: string, clientId: string, formData: FormData): Promise<void> {
+  const ctx = await requireCtx()
+  const networks = String(formData.get('networks') ?? '')
+    .split(',')
+    .map((n) => n.trim())
+    .filter(Boolean)
+  await scheduleContentCalendarItem(ctx, itemId, { networks })
+  revalidatePath('/dashboard/content-calendar')
+  revalidatePath(`/dashboard/clients/${clientId}`)
 }
 
 export async function generateClientReportAction(internalReportId: string): Promise<void> {

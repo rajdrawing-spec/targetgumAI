@@ -789,8 +789,51 @@ permission array underneath didn't grant any of that), some newly discovered:
 
 typecheck, lint, full test suite (188/188), and production build all pass.
 
-Not yet started from the Phase 2 list (BRD Section 85): Canva creative workflow,
-social content calendar, automated social scheduling, more advanced reporting, a
-Meta/Google Ads direct integration, weekly automated intelligence (needs the
-BullMQ/Redis job infrastructure `docs/ARCHITECTURE.md` proposes but nothing built
-yet), SEO workflows, competitor analysis.
+### Social content calendar ✅ DONE
+
+Implements BRD Section 66's `content_calendar` entity and Section 48's MVP
+Social Scheduling flow: `src/lib/content-calendar/persist.ts` covers the full
+`IDEA -> DRAFT -> IN_REVIEW -> APPROVED -> SCHEDULED` lifecycle (`CANCELLED`
+reachable from any non-terminal state), gated by a new `content.manage`
+permission (`account_manager` + `marketing_employee`, docs/DECISIONS.md has
+the full rationale). Scheduling calls the existing `metricool.schedule_post`
+Tool Registry entry through `executeTool` - always a Metricool *draft*, never
+a real publish (that's the still-open "Automated social scheduling" item
+below). New "Content calendar" dashboard page (status-transition actions
+across every client), a create-form + read-only card on the client detail
+page, and a read-only "Content" card in the Client Portal - which closes the
+"View content/creative" gap in BRD Section 4.4 flagged as missing when the
+Phase 2 permission audit was done.
+
+Also fixed a real, previously-unnoticed bug found while wiring this in:
+nothing in the running app ever called `registerMetricoolTools()`/
+`registerGA4Tools()`/`registerGSCTools()`/`registerMarketingAnalyticsAgent()`
+outside test suites' own setup - a fresh server process's Tool Registry had
+no in-memory implementations registered at all, so `executeTool` would have
+thrown `ToolNotFoundError` on the very first tool call in production,
+"Analyze this client" included. Fixed with `src/lib/tools/bootstrap.ts`'s
+idempotent `ensureToolsRegistered()`, called at the top of every
+`executeTool` invocation. docs/DECISIONS.md has the full account.
+
+7 new tests (195 total, up from 188) in `tests/integration/
+content-calendar.test.ts` - the full lifecycle, permission checks in both
+directions, cross-client denial, the integration-unavailable path (never
+fabricates a provider post id, leaves the item APPROVED rather than FAILED),
+and a dedicated test proving the bootstrap fix by resetting the tool
+registry and calling `executeTool` with no explicit registration call in
+that test file. All 188 pre-existing tests still pass unchanged.
+
+End-to-end smoke-verified live with Playwright: connected Client A to
+Metricool (mock provider), created a content item as `marketing_employee`,
+carried it through submit-for-review/approve/schedule and confirmed a real
+Metricool mock draft id came back, then confirmed the Client Portal shows
+both items read-only with no action buttons. Fixture data and scratch
+scripts removed afterward.
+
+typecheck, lint, full test suite (195/195), and production build all pass.
+
+Not yet started from the Phase 2 list (BRD Section 85): Canva creative
+workflow, automated social scheduling, more advanced reporting, a Meta/Google
+Ads direct integration, weekly automated intelligence (needs the BullMQ/Redis
+job infrastructure `docs/ARCHITECTURE.md` proposes but nothing built yet),
+SEO workflows, competitor analysis.

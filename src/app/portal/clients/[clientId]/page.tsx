@@ -1,7 +1,8 @@
 import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
-import { Lightbulb, FileText, MessageSquare, Check, X } from 'lucide-react'
+import { Lightbulb, FileText, MessageSquare, Check, X, CalendarDays } from 'lucide-react'
 import { getCurrentAuthContext } from '@/lib/auth/current-context'
+import { listContentCalendarItems } from '@/lib/content-calendar/persist'
 import { getAuthorizedClient } from '@/lib/db/tenant'
 import { listRecommendations } from '@/lib/recommendations/persist'
 import { listReports } from '@/lib/reports/generate'
@@ -21,9 +22,11 @@ import { EmptyState } from '@/components/ui/empty-state'
  * The Client Portal's main view for one client (BRD Section 4.4): review
  * and accept/reject recommendations, see CLIENT-facing reports
  * (`listReports` already redacts to CLIENT-type only for a client_user -
- * `src/lib/reports/generate.ts`), and leave feedback. No tasks, no
- * Approval-Engine approvals, no AI runs, no integration detail - none of
- * that is a client capability per Section 4.4.
+ * `src/lib/reports/generate.ts`), view content/creative (read-only -
+ * `listContentCalendarItems` gates on `clients.read`, which client_user
+ * already holds, same as reports; no `content.manage` needed to view), and
+ * leave feedback. No tasks, no Approval-Engine approvals, no AI runs, no
+ * integration detail - none of that is a client capability per Section 4.4.
  */
 export default async function PortalClientPage({ params }: { params: Promise<{ clientId: string }> }) {
   const { clientId } = await params
@@ -38,9 +41,10 @@ export default async function PortalClientPage({ params }: { params: Promise<{ c
     throw error
   }
 
-  const [recommendations, reports] = await Promise.all([
+  const [recommendations, reports, contentItems] = await Promise.all([
     listRecommendations(ctx, clientId),
     listReports(ctx, clientId),
+    listContentCalendarItems(ctx, clientId),
   ])
 
   return (
@@ -107,6 +111,33 @@ export default async function PortalClientPage({ params }: { params: Promise<{ c
                   <Link href={`/portal/reports/${report.id}`} className="text-sm font-medium text-foreground hover:text-primary">
                     {report.title}
                   </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <CalendarDays className="h-4 w-4 text-muted-foreground" /> Content
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {contentItems.length === 0 ? (
+            <EmptyState icon={CalendarDays} title="Nothing planned yet" />
+          ) : (
+            <ul className="divide-y divide-border">
+              {contentItems.map((item) => (
+                <li key={item.id} className="flex items-center justify-between gap-2 py-2.5 first:pt-0 last:pb-0">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm text-foreground">{item.caption || item.platform}</p>
+                    <p className="text-xs tabular-nums text-caption">
+                      {item.platform} · {item.publishDate.toISOString().slice(0, 10)}
+                    </p>
+                  </div>
+                  <StatusBadge status={item.status} className="shrink-0" />
                 </li>
               ))}
             </ul>

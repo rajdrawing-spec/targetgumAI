@@ -68,6 +68,12 @@ const STATUS_VARIANT: Record<string, BadgeProps['variant']> = {
   HIGH: 'warning',
   CRITICAL: 'destructive',
   URGENT: 'destructive',
+  // Content calendar (ContentStatus) - APPROVED/CANCELLED/FAILED above are shared.
+  IDEA: 'neutral',
+  DRAFT: 'neutral',
+  IN_REVIEW: 'info',
+  SCHEDULED: 'info',
+  PUBLISHED: 'success',
 }
 
 /** "IN_PROGRESS" -> "In progress" - sentence case, not the raw enum shouting case. */

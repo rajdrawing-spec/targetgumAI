@@ -816,6 +816,89 @@ than retrofitting a new color at that point.
 
 ---
 
+## 2026-09-10 — Phase 2: social content calendar, `content.manage` permission, and a Tool Registry bootstrap fix found along the way
+
+**Decision:** Built the first Phase 2 item picked from BRD Section 85's
+backlog - the social content calendar (Section 66's `content_calendar`
+entity, Section 48's MVP Social Scheduling flow). `src/lib/content-
+calendar/persist.ts` implements the full lifecycle: `IDEA -> DRAFT ->
+IN_REVIEW -> APPROVED -> SCHEDULED`, with `CANCELLED` reachable from any
+non-terminal state. `scheduleContentCalendarItem` (`APPROVED -> SCHEDULED`)
+calls the already-registered `metricool.schedule_post` Tool Registry entry
+through `executeTool` - same authorization/audit chain as every other tool
+call, never the Metricool provider directly (CLAUDE.md rule 6). Because
+that tool's adapter always sends `draft: true` (`src/lib/integrations/
+metricool/provider.ts`'s safety rule), `PUBLISHED` is not reachable from
+this module - a real publish is its own HIGH-risk, Approval-Engine-gated
+tool, the separate "Automated social scheduling" Phase 2 item.
+
+New permission `content.manage` (`src/lib/rbac/permissions.ts`) covers
+create/edit-while-draft/submit-for-review/approve/schedule/cancel, granted
+to both `account_manager` and `marketing_employee` - deliberately one
+permission, not split into a separate "approve" grant the way the formal
+Approval Engine is: BRD 4.3 explicitly gives Marketing Employee "Create/
+schedule social posts" (the whole lifecycle themselves), while 4.2's
+"Approve selected actions" already covers Account Manager doing the same
+for someone else's draft. `client_user` gets no new permission at all -
+reading the calendar (`listContentCalendarItems`, gated on the existing
+`clients.read` every role already holds, same pattern as
+`recommendations`/`reports`) is what closes BRD 4.4's previously-
+unimplemented "View content/creative" - noted as a gap in
+`docs/MVP-CHECKLIST.md`'s Phase 2 section since the Client Portal audit.
+Surfaced in the UI as: a new "Content calendar" dashboard page (owns the
+status-transition actions - submit/approve/schedule/cancel - across every
+client, same split as Recommendations/Tasks between their aggregate page
+and a client's own detail page), a read-only + create-form card on the
+client detail page, and a read-only card in the Client Portal.
+
+**A real bug found and fixed while wiring `scheduleContentCalendarItem`:**
+nothing in the running app ever called `registerMetricoolTools()`/
+`registerGA4Tools()`/`registerGSCTools()`/`registerMarketingAnalyticsAgent()`
+outside test suites' own `beforeAll` blocks. `registerTool` stores a tool's
+callable implementation in an in-memory `Map` (`src/lib/tools/
+registry.ts`) that a fresh server process starts with empty; `executeTool`
+would resolve the `Tool` database row fine (also upserted by
+`registerTool`) but find no matching implementation, throwing
+`ToolNotFoundError` on literally the first tool call of a new process - "
+Analyze this client" included, not just this new Schedule button. Not
+caught earlier because every prior live verification in this environment
+seeded `AiRun`/`Recommendation` rows directly rather than actually
+triggering the workflow through a running server process. Fixed with
+`src/lib/tools/bootstrap.ts`'s `ensureToolsRegistered()` - idempotent,
+guarded by a module-scope flag, called at the top of `executeTool`'s
+`authorizeCall` (`src/lib/tools/execute.ts`) so every tool call is
+self-healing regardless of entry point. Live-verified end-to-end with
+Playwright: connected a client to Metricool, created a content item as
+`marketing_employee`, carried it through submit/approve/schedule, and
+confirmed a real Metricool mock draft id came back - proving the bootstrap
+fix, not just the content-calendar logic in isolation.
+
+**Rationale:** Reused every existing pattern (permission-per-module,
+`getOwnedX`/`assertClientAccess` ownership checks, aggregate-page-owns-
+actions/detail-page-owns-creation, `executeTool` for the one external
+side-effect) rather than inventing new ones - this module should read as
+unsurprising to anyone who's read `recommendations/persist.ts` or
+`tasks.ts`. The bootstrap fix was in-scope rather than deferred: without
+it, the very feature being built wouldn't work the first time a real
+server process tried to schedule anything.
+
+**Trade-off accepted:** `ClientPolicy.autoPublishSocial` is not consulted
+anywhere in this module, even though BRD Section 21 calls "prepare
+scheduled content" MEDIUM risk with a "configurable" default. No other
+module in this codebase makes tool execution conditional on a `ClientPolicy`
+field yet (risk level is a static property of the tool, per
+`src/lib/tools/registry.ts`) - inventing a first instance of dynamic,
+policy-driven authorization for this one feature would be a bigger,
+less-consistent change than the feature itself.
+
+**Revisit if:** `ClientPolicy`-driven risk/approval logic gets built for
+any module (the natural point to also wire `autoPublishSocial` in here),
+or when the "Automated social scheduling" / Canva creative workflow Phase 2
+items land and need `PUBLISHED`/`CreativeAsset` wiring this module
+deliberately left untouched.
+
+---
+
 ## Template for future entries
 
 ```text
