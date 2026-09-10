@@ -284,9 +284,38 @@ connection is not. Tracked in `docs/EXTERNAL-APPROVALS.md`.
 No agent consumes this yet — Day 9's Analytics Agent is the first real caller of
 `assembleClientContext`.
 
-### Day 9 — Analytics Agent
+### Day 9 — Analytics Agent ✅ DONE
 
-- [ ] Marketing Analytics Agent (contract, tools, prompts)
+- [x] Marketing Analytics Agent (`src/lib/agents/analytics-agent.ts`) —
+      contract registered via `registerAgent()` (Day 5) with an allowlist
+      of exactly its five LOW-risk read tools (Metricool social analytics/
+      ad campaigns/ad performance, GA4, GSC) — verified by test, including
+      that every one of them is LOW risk (this agent cannot execute
+      anything, only analyze - BRD Section 19)
+- [x] `runMarketingAnalysis()` — the first real pipeline tying together
+      every prior day: Context Router (Day 8) → Tool Registry execution
+      against real `IntegrationConnection`s (Days 5-7) → AI Gateway
+      structured output (Day 4) against `prompts/analytics/v1.md` (Day 4)
+- [x] Structured output schema matches BRD Section 39/71 (priority, area,
+      finding, evidence, likelyCause, recommendation, expectedImpact,
+      confidence, requiresApproval) — built with `zod/v4` per the Day 4 gotcha
+- [x] **Partial-failure tolerance**: one integration failing doesn't abort
+      the run — it's recorded as a data gap and the analysis proceeds on
+      what's available (verified: Metricool connected, GA4/GSC not →
+      still analyzes, gaps reported)
+- [x] **All-failure guard**: if every data source is unavailable, the agent
+      returns early (`aiRunId: null`, empty recommendations) without
+      calling Claude at all — verified the mocked Claude client is never
+      invoked in this case, so cost isn't spent analyzing nothing (BRD
+      Section 73 cost control) and nothing is fabricated (Section 56)
+- [x] 4 new tests (126 total): agent registration/allowlist correctness;
+      full pipeline end-to-end with a real DB + injected fake Anthropic
+      client, asserting the actual prompt sent to Claude contains the
+      gathered data and Client Brain context (not just that *a* call
+      happened); partial-gap tolerance; the all-failure guard
+
+Nothing produced here is persisted — Day 10 wires `AnalysisResult` into the
+`recommendations` table, task creation, and the approval flow.
 
 ### Day 10 — Recommendation engine, tasks, approvals
 

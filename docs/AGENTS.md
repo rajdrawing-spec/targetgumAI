@@ -1,10 +1,11 @@
 # Agents — TargetGum AI Marketing OS
 
-Status: **Design draft.** No real agents are implemented yet — that's Day 9+ (Week 2),
-once the AI Gateway (Day 4) and a real Client Brain (Day 8) exist for them to reason
-over. The *mechanism* for declaring an agent contract exists as of Day 5
-(`src/lib/agents/registry.ts` — `registerAgent()`), tested against throwaway test
-agents only. This document records the agent contract and the MVP agent set.
+Status: **Marketing Analytics Agent implemented (Day 9)** —
+`src/lib/agents/analytics-agent.ts`, the first real agent: Context Router → Tool
+Registry (Metricool/GA4/GSC) → AI Gateway structured output. Read-only by
+construction (every allowed tool is LOW risk). Orchestrator, Client Intelligence,
+Content, and Creative agents remain design-only. This document records the agent
+contract and the MVP agent set.
 
 ## Agent Contract (BRD-PRD Section 26)
 
