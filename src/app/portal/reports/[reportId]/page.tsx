@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
-import { ChevronLeft, FileText, Lightbulb } from 'lucide-react'
+import { ChevronLeft, FileText, Lightbulb, TrendingUp } from 'lucide-react'
 import { getCurrentAuthContext } from '@/lib/auth/current-context'
 import { getReport } from '@/lib/reports/generate'
 import type { ReportContent } from '@/lib/reports/generate'
@@ -8,6 +8,7 @@ import { ForbiddenError } from '@/lib/rbac/errors'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { StatusBadge } from '@/components/ui/badge'
 import { EmptyState } from '@/components/ui/empty-state'
+import { TrendList } from '@/components/ui/trend-list'
 
 /**
  * `getReport` already refuses an INTERNAL report to a client_user
@@ -50,6 +51,19 @@ export default async function PortalReportDetailPage({ params }: { params: Promi
           <p className="text-sm leading-relaxed text-foreground">{content.summary}</p>
         </CardContent>
       </Card>
+
+      {content.trends && content.trends.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <TrendingUp className="h-4 w-4 text-muted-foreground" /> Results
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <TrendList trends={content.trends} />
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>

@@ -877,8 +877,50 @@ afterward.
 
 typecheck, lint, full test suite (201/201), and production build all pass.
 
+### More advanced reporting ✅ DONE
+
+Wired up `AnalyticsSnapshot` - present in the schema since Day 1 for
+exactly this (BRD Section 69), never actually written to by any code until
+now - to give reports real period-over-period metric trends, the "Results"
+piece of BRD Section 41's client report structure. `src/lib/analytics/
+metrics.ts` turns each agent's already-gathered provider data into
+canonical, source-prefixed metric rows (summed for event/count metrics,
+*recomputed* rather than averaged for rate metrics like CTR/CPA/ROAS/
+position, max-not-sum for the one gauge metric). `src/lib/analytics/
+snapshots.ts` compares each new value against the most recent prior
+snapshot and persists it. Both the Marketing Analytics Agent and the SEO
+Agent now return a `metrics` array; `generateReport` persists + compares
+them and attaches the result as `ReportContent.trends`, shown on both
+INTERNAL and CLIENT reports via a new `src/components/ui/trend-list.tsx`
+(deliberately doesn't color changes green/red - a rising number isn't
+always good, e.g. CPA or average position - shows the plain direction and
+lets the reader judge). `generateClientReportFromInternal` carries trends
+through unchanged.
+
+9 new tests (210 total, up from 201): 7 unit tests in `tests/unit/
+analytics-metrics.test.ts` covering the aggregation math directly (sum vs.
+weighted-average vs. max semantics, division-by-zero safety, never
+fabricating a zero for an unreported metric - one of these caught a real
+bug in the first `sum()` implementation, see docs/DECISIONS.md), and 2
+integration tests in `tests/integration/reports.test.ts` covering the full
+persist-and-compare flow (first report has no prior value, a later one
+computes the correct % change, both persisted as real `AnalyticsSnapshot`
+rows) and that a metrics-free analysis produces no `trends` field at all.
+All 201 pre-existing tests pass unchanged.
+
+End-to-end smoke-verified live with Playwright, through the real
+`generateReport()` pipeline (not a raw DB insert): generated two periods
+of reports for the same client with realistic metrics, confirmed the
+second report's Results section showed correct real percentages (e.g.
+sessions 7,100 → 8,400 correctly showing "+18.3%", CPA $18.40 → $14.19
+correctly showing "-22.9%" with a down arrow) against hand-verified math,
+and confirmed the trends carry through unchanged when generating the
+CLIENT-facing version. Fixture data and scratch scripts removed afterward.
+
+typecheck, lint, full test suite (210/210), and production build all pass.
+
 Not yet started from the Phase 2 list (BRD Section 85): Canva creative
-workflow, automated social scheduling, more advanced reporting, a Meta/Google
-Ads direct integration, weekly automated intelligence (needs the BullMQ/Redis
-job infrastructure `docs/ARCHITECTURE.md` proposes but nothing built yet),
+workflow, automated social scheduling, a Meta/Google Ads direct
+integration, weekly automated intelligence (needs the BullMQ/Redis job
+infrastructure `docs/ARCHITECTURE.md` proposes but nothing built yet),
 competitor analysis.

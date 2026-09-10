@@ -1,6 +1,9 @@
 import type { z } from 'zod/v4'
 import { assembleClientContext, renderContextAsText } from '@/lib/clients/context-router'
 import { runStructuredAiTask } from '@/lib/ai/gateway'
+import { aggregateAdPerformance, aggregateGa4Report, aggregateGscRows, aggregateSocialMetrics } from '@/lib/analytics/metrics'
+import type { MetricSnapshotInput } from '@/lib/analytics/metrics'
+import type { AdCampaignPerformance, AnalyticsReportRow, SeoQueryRow, SocialMetricValue } from '@/lib/integrations/providers'
 import { executeTool } from '@/lib/tools/execute'
 import type { AuthContext } from '@/lib/rbac/types'
 import { registerAgent } from './registry'
@@ -59,6 +62,8 @@ export interface AnalysisResult {
   aiRunId: string | null
   /** Integrations that failed or had no connection - never silently omitted, per BRD Section 56 (no fabricated data). */
   dataGaps: string[]
+  /** Validated, aggregated per-metric values from the gathered data (src/lib/analytics/metrics.ts) - what src/lib/reports/generate.ts persists as AnalyticsSnapshot rows and compares period-over-period. Never derived from anything Claude said. */
+  metrics: MetricSnapshotInput[]
 }
 
 async function tryGatherData(
@@ -88,6 +93,7 @@ export async function runMarketingAnalysis(input: AnalyticsRunInput): Promise<An
 
   const dataGaps: string[] = []
   const dataBlocks: string[] = []
+  const metrics: MetricSnapshotInput[] = []
 
   const socialAnalytics = await tryGatherData('Metricool social analytics', dataGaps, () =>
     executeTool({
@@ -98,7 +104,10 @@ export async function runMarketingAnalysis(input: AnalyticsRunInput): Promise<An
       input: { network: input.socialNetwork, ...range },
     }),
   )
-  if (socialAnalytics) dataBlocks.push(`Social analytics (${input.socialNetwork}):\n${JSON.stringify(socialAnalytics, null, 2)}`)
+  if (socialAnalytics) {
+    dataBlocks.push(`Social analytics (${input.socialNetwork}):\n${JSON.stringify(socialAnalytics, null, 2)}`)
+    metrics.push(...aggregateSocialMetrics(socialAnalytics as SocialMetricValue[]))
+  }
 
   const adCampaigns = await tryGatherData('Metricool ad campaigns', dataGaps, () =>
     executeTool({
@@ -120,7 +129,10 @@ export async function runMarketingAnalysis(input: AnalyticsRunInput): Promise<An
       input: { channel: input.adsChannel, ...range },
     }),
   )
-  if (adPerformance) dataBlocks.push(`Ad performance (${input.adsChannel}):\n${JSON.stringify(adPerformance, null, 2)}`)
+  if (adPerformance) {
+    dataBlocks.push(`Ad performance (${input.adsChannel}):\n${JSON.stringify(adPerformance, null, 2)}`)
+    metrics.push(...aggregateAdPerformance(adPerformance as AdCampaignPerformance[]))
+  }
 
   const ga4Report = await tryGatherData('GA4 report', dataGaps, () =>
     executeTool({
@@ -136,7 +148,10 @@ export async function runMarketingAnalysis(input: AnalyticsRunInput): Promise<An
       },
     }),
   )
-  if (ga4Report) dataBlocks.push(`GA4 report:\n${JSON.stringify(ga4Report, null, 2)}`)
+  if (ga4Report) {
+    dataBlocks.push(`GA4 report:\n${JSON.stringify(ga4Report, null, 2)}`)
+    metrics.push(...aggregateGa4Report(ga4Report as AnalyticsReportRow[]))
+  }
 
   const gscPerformance = await tryGatherData('Search Console performance', dataGaps, () =>
     executeTool({
@@ -147,7 +162,10 @@ export async function runMarketingAnalysis(input: AnalyticsRunInput): Promise<An
       input: { dimensions: ['query'], from: range.from, to: range.to },
     }),
   )
-  if (gscPerformance) dataBlocks.push(`Search Console performance:\n${JSON.stringify(gscPerformance, null, 2)}`)
+  if (gscPerformance) {
+    dataBlocks.push(`Search Console performance:\n${JSON.stringify(gscPerformance, null, 2)}`)
+    metrics.push(...aggregateGscRows(gscPerformance as SeoQueryRow[]))
+  }
 
   // Never spend an AI call analyzing nothing - and never let Claude "analyze"
   // an input with no real data, which invites exactly the fabrication BRD
@@ -158,6 +176,7 @@ export async function runMarketingAnalysis(input: AnalyticsRunInput): Promise<An
       recommendations: [],
       aiRunId: null,
       dataGaps,
+      metrics: [],
     }
   }
 
@@ -183,5 +202,5 @@ export async function runMarketingAnalysis(input: AnalyticsRunInput): Promise<An
     schema: AnalysisResultSchema,
   })
 
-  return { ...result.data, aiRunId: result.aiRunId, dataGaps }
+  return { ...result.data, aiRunId: result.aiRunId, dataGaps, metrics }
 }

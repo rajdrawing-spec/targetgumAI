@@ -973,6 +973,89 @@ all.
 
 ---
 
+## 2026-09-10 — Phase 2 "more advanced reporting": period-over-period trends via the previously-unused AnalyticsSnapshot model
+
+**Decision:** Wired up `AnalyticsSnapshot` (present in the schema since Day
+1 per BRD Section 69's "every metric should have source/retrieved_at/
+period/value/unit", but never actually written to by any code) to add real
+period-over-period metric trends to reports - the "Results" piece of BRD
+Section 41's client report structure, and the literal "Database/API
+metrics → Validated calculations → Claude interpretation → Report"
+pipeline Section 68 describes, which the reporting module had never fully
+implemented (only "→ Report" existed; there was no separate validated-
+calculations step distinct from what Claude said).
+
+- `src/lib/analytics/metrics.ts`: turns each agent's already-gathered raw
+  provider data into canonical `{metricName, value, unit, source,
+  retrievedAt, period}` rows, source-prefixed (`ga4.sessions`,
+  `ads.spend`, `gsc.clicks`, `metricool.reach`) so the same name from two
+  providers can never collide. Three deliberate aggregation rules, not
+  "sum everything": event/count metrics are summed; rate metrics (CTR,
+  CPC, CPA, ROAS, GSC average position) are *recomputed* from the summed
+  base metrics rather than averaging pre-computed per-row rates (a classic
+  Simpson's-paradox mistake when row sizes differ); `followers` is a
+  gauge, so it takes the max observed value, never a sum.
+- `src/lib/analytics/snapshots.ts`: `persistAndCompareMetrics` looks up
+  the most recent prior snapshot for each client+metric *before* writing
+  the new one (order matters - a metric must never be compared against
+  the value it's about to become), computes `changePercent`, then
+  persists. `null` (not a fabricated number) when there's no prior period
+  or the prior value was exactly zero.
+- Both `runMarketingAnalysis` and `runSeoAnalysis` now return a `metrics`
+  array alongside their existing `AnalysisResult` fields (SEO aggregates
+  only from the query-dimension GSC call, not also the page-dimension one
+  - both cover the same period's total traffic just grouped differently,
+  so summing both would double-count clicks/impressions).
+  `generateReport` persists and compares them, attaching the result as
+  `ReportContent.trends` - present on both INTERNAL and CLIENT reports
+  (Section 41 explicitly wants "Results" in the client-facing report, and
+  this is concrete numbers, not AI reasoning, so none of the CLIENT-
+  redaction logic needed to change). `generateClientReportFromInternal`
+  carries `trends` through unchanged when deriving a CLIENT report.
+- New `src/components/ui/trend-list.tsx` renders each trend as a small
+  stat card (value + up/down/flat + "% vs prior period"). Deliberately
+  never colors a change green/red as if direction alone meant "good" -
+  rising CPA or rising average search position are bad, rising clicks or
+  sessions are good, and guessing a polarity per metric name isn't worth
+  getting subtly wrong; shows the plain number and lets the reader (who
+  knows what the metric means) judge it.
+
+A real bug caught by the unit tests, not just the aggregation logic
+itself: the first `sum()` implementation defaulted every missing value to
+0 before summing, so a metric absent from every row silently came back as
+a *reported* zero instead of being omitted - exactly the kind of
+fabrication BRD Section 56 forbids. Fixed by having `sum` return
+`undefined` (then filtered out entirely) when nothing was actually
+reported, split into `sumOptional` (provider fields that can be legitimately
+absent) and `sumRequired` (fields the source type guarantees are always
+present, e.g. GSC's clicks/impressions) so the "missing" case only has to
+be handled where it can actually occur.
+
+**Rationale:** This is the most direct reading of "advanced reporting"
+this codebase's own schema and BRD already pointed at - `AnalyticsSnapshot`
+existed for exactly this and nothing else, and Section 68's pipeline
+diagram is explicit that a report's numbers should come from validated
+calculations, not Claude re-describing them. Reusing the metrics an agent
+already gathered (rather than a new provider round-trip purely to compute
+trends) keeps this free of new tool calls, new audit noise, or new
+permission surface.
+
+**Trade-off accepted:** trend comparison is "most recent prior snapshot
+for this metric", not "the same-length prior period" - a 30-day report
+compared against a 7-day one would still produce a number, just not an
+apples-to-apples one. Acceptable for a first pass since every current
+caller (`analyze-client-workflow.ts`, `seo-analysis-workflow.ts`) always
+uses the same `DEFAULT_RANGE_DAYS`-driven window; would need to become
+explicit ("same period length only") if ad hoc custom-range reporting is
+ever added.
+
+**Revisit if:** ad hoc/custom-length report ranges are added (tighten the
+prior-snapshot lookup to require a comparable period length), or if a
+metric needing "good/bad" color-coding becomes valuable enough to justify
+a per-metric polarity map in `trend-list.tsx`.
+
+---
+
 ## Template for future entries
 
 ```text

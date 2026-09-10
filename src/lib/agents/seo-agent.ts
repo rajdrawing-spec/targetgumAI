@@ -1,5 +1,7 @@
 import { assembleClientContext, renderContextAsText } from '@/lib/clients/context-router'
 import { runStructuredAiTask } from '@/lib/ai/gateway'
+import { aggregateGscRows } from '@/lib/analytics/metrics'
+import type { SeoQueryRow } from '@/lib/integrations/providers'
 import { executeTool } from '@/lib/tools/execute'
 import type { AuthContext } from '@/lib/rbac/types'
 import { registerAgent } from './registry'
@@ -72,6 +74,10 @@ export async function runSeoAnalysis(input: SeoRunInput): Promise<AnalysisResult
       input: { dimensions: ['query'], from: range.from, to: range.to, rowLimit: 50 },
     }),
   )
+  // Metrics are aggregated only from the query-dimension call, not also the
+  // page one below - both cover the same period's total traffic just
+  // grouped differently, so summing both would double-count clicks/impressions.
+  const metrics = queryPerformance ? aggregateGscRows(queryPerformance as SeoQueryRow[]) : []
   if (queryPerformance) dataBlocks.push(`Search Console - top queries:\n${JSON.stringify(queryPerformance, null, 2)}`)
 
   const pagePerformance = await tryGatherData('Search Console page performance', dataGaps, () =>
@@ -92,6 +98,7 @@ export async function runSeoAnalysis(input: SeoRunInput): Promise<AnalysisResult
       recommendations: [],
       aiRunId: null,
       dataGaps,
+      metrics: [],
     }
   }
 
@@ -117,5 +124,5 @@ export async function runSeoAnalysis(input: SeoRunInput): Promise<AnalysisResult
     schema: AnalysisResultSchema,
   })
 
-  return { ...result.data, aiRunId: result.aiRunId, dataGaps }
+  return { ...result.data, aiRunId: result.aiRunId, dataGaps, metrics }
 }

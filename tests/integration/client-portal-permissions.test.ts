@@ -43,6 +43,7 @@ const SAMPLE_ANALYSIS: AnalysisResult = {
   ],
   aiRunId: 'fake-ai-run-id',
   dataGaps: ['GA4 report: connection not configured'],
+  metrics: [],
 }
 
 function fakeUsage() {

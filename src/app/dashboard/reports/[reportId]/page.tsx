@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { ChevronLeft, FileText, Lightbulb, AlertTriangle, Copy } from 'lucide-react'
+import { ChevronLeft, FileText, Lightbulb, AlertTriangle, Copy, TrendingUp } from 'lucide-react'
 import { getCurrentAuthContext } from '@/lib/auth/current-context'
 import { getReport } from '@/lib/reports/generate'
 import type { ReportContent } from '@/lib/reports/generate'
@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge, StatusBadge, toSentenceCase } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
+import { TrendList } from '@/components/ui/trend-list'
 
 export default async function ReportDetailPage({ params }: { params: Promise<{ reportId: string }> }) {
   const { reportId } = await params
@@ -52,6 +53,19 @@ export default async function ReportDetailPage({ params }: { params: Promise<{ r
           <p className="text-sm leading-relaxed text-foreground">{content.summary}</p>
         </CardContent>
       </Card>
+
+      {content.trends && content.trends.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <TrendingUp className="h-4 w-4 text-muted-foreground" /> Results
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <TrendList trends={content.trends} />
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>

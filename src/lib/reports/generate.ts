@@ -5,6 +5,7 @@ import { assertClientAccess, assertPermission } from '@/lib/rbac/guards'
 import { ForbiddenError } from '@/lib/rbac/errors'
 import type { AuthContext } from '@/lib/rbac/types'
 import type { AnalysisResult } from '@/lib/agents/analytics-agent'
+import { persistAndCompareMetrics, type MetricTrend } from '@/lib/analytics/snapshots'
 
 /**
  * Reporting (BRD-PRD Section 41, 68). Reports are built directly from
@@ -40,6 +41,15 @@ export interface ReportContent {
   recommendations: ReportRecommendation[]
   /** Internal reports only - which data sources were unavailable for this run. */
   dataGaps?: string[]
+  /**
+   * Period-over-period metric trends (BRD Section 41's "Results", Section
+   * 68/69's "validated calculations" - `src/lib/analytics/snapshots.ts`).
+   * On both CLIENT and INTERNAL reports: this is exactly the kind of
+   * concrete, non-reasoning "what happened" data Section 41 wants a client
+   * to see, computed from stored numbers, never something Claude said.
+   * Absent (not just empty) when the source analysis gathered no metrics.
+   */
+  trends?: MetricTrend[]
 }
 
 function buildContent(
@@ -93,6 +103,9 @@ export async function generateReport(
   await getAuthorizedClient(ctx, clientId)
 
   const content = buildContent(analysis, range, type)
+  if (analysis.metrics.length > 0) {
+    content.trends = await persistAndCompareMetrics(ctx.organizationId, clientId, analysis.metrics, new Date(range.to))
+  }
 
   return db.report.create({
     data: {
@@ -189,6 +202,7 @@ export async function generateClientReportFromInternal(ctx: AuthContext, interna
     summary: sourceContent.summary,
     recommendations: sourceContent.recommendations,
     findings: sourceContent.findings.map((f) => ({ area: f.area, finding: f.finding, priority: f.priority })),
+    trends: sourceContent.trends,
   }
 
   return db.report.create({
