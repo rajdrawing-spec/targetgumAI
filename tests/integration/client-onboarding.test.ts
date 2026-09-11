@@ -92,7 +92,10 @@ describe('Client onboarding (Day 15) - createClient + connectClientToMetricoolBr
 
     it('rejects an empty/whitespace-only name', async () => {
       const ctx = await resolveAuthContext(testDb, superAdminId, orgId)
-      await expect(createClient(ctx!, { name: '   ' })).rejects.toThrow(/name is required/)
+      // clientProfileSchema trims before the min-length check, so a
+      // whitespace-only name fails validation (not the "required" check,
+      // which only guards a name that's missing outright).
+      await expect(createClient(ctx!, { name: '   ' })).rejects.toThrow(/at least 2 characters/)
     })
   })
 

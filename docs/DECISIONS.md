@@ -1956,6 +1956,78 @@ second surface needs different `ActionResult` semantics.
 
 ---
 
+## 2026-09-11 — UX/performance upgrade, Phase 3+4: Client entity extended, Client Workspace built
+
+**Decision:** Extended `Client` with the profile fields the list/workspace
+need directly (legalName, website, industry, country, city, timezone,
+description, accountManagerId, monthlyBudget, tags, archivedAt), added
+`ClientContact` (normalized, not columns - a client can have several),
+and wired `accountManagerId` to `OrganizationUser` (a designated manager,
+distinct from `ClientAssignment`'s "who may access this client"). One
+migration (`client_profile_and_contacts`), generated via Prisma, not
+hand-edited. Everything narrative (business/audience/brand/marketing)
+stays in the existing `ClientBrain` JSON sections - unchanged, now
+surfaced and editable in the UI for the first time.
+
+New lib modules, each permission/tenant-checked like every other client
+operation (`docs/SECURITY.md` invariant 1-2): `clients/profile.ts`
+(update/archive/unarchive/delete - update and contacts need
+`clients.edit`, archive/unarchive/delete need `clients.manage`, matching
+BRD 4.1 vs 4.2), `clients/contacts.ts`, `clients/summary.ts` (the
+Clients list's one-query data source: search/filter/sort computed in
+SQL, filtered relation `_count`s for attention numbers rather than
+fetching the rows to count them client-side). `createClient` now accepts
+the full sectioned onboarding payload and writes it in one transaction -
+profile, contacts, Brain sections, competitors, policy, an internal note
+- so a partially-created client can never exist.
+
+The Client Workspace (`clients/[clientId]/layout.tsx` + tab pages) splits
+the old 550-line single page into Overview / Business / Brand / Audience
+/ Marketing / Integrations / Settings, sharing one header. Business,
+Brand, Audience and Marketing edit their Client Brain section directly -
+this is the same data the AI Gateway reads on every analysis
+(`clients/context-router.ts`), not a separate document that merely looks
+similar (BRD "users need to understand what the AI knows about the
+client"). `getAuthorizedClient` gained a React-`cache()`d variant
+(`getAuthorizedClientCached`) for the layout + every tab page to share
+one lookup per request, the same pattern already applied to auth context
+in Phase 2; mutation call sites keep the uncached function.
+
+Delete is a hard delete (cascades via the existing `onDelete: Cascade`
+relations) requiring the user to type the client's exact name, both in
+the UI (`ConfirmDialog`'s `requireText`) and re-enforced server-side
+(`deleteClient` re-checks it - the UI guard is not the security
+boundary). Archive is the soft-delete default the BRD asks to prefer:
+sets `status: ARCHIVED` + `archivedAt`, keeps every row, hidden from the
+list by the default `NOT_ARCHIVED` status filter. `createClient` also now
+refuses a duplicate name per organization (case-insensitive) - upstream
+of Phase 2's slug auto-suffix, which was the actual source of the
+repeated "LHO" cards in the original screenshots; `prisma/seed.ts`'s two
+sample clients gained real industry/website/location fields for the same
+reason (BRD's "clean up seed data").
+
+**Rationale:** BRD Section 9/10/12/13/17 in full - a rich Clients list,
+a real onboarding flow, and a Client Workspace where Business/Brand/
+Audience/Marketing *are* the Client Brain, editable per authorized role.
+
+**Alternative(s) considered:** A JS stepper/wizard for onboarding -
+rejected for a single form with collapsible `<details>`-style sections
+(`components/clients/section.tsx`): every field stays mounted (so
+switching sections never loses input), no extra client state to keep in
+sync with the server action, and it degrades gracefully without
+JavaScript. Putting Recommendations/Tasks/Approvals/Reports/AI Runs/
+Creatives/Content Calendar on their own Workspace tabs was considered and
+rejected: each already has a fully-featured org-wide page (Phase 2), so
+Overview shows each trimmed to this client with a "View all" link,
+avoiding duplicate filter/action implementations.
+
+**Revisit if:** GA4/Search Console need a real connect flow (currently an
+honest "coming soon" - no OAuth callback route exists yet); or Business/
+Brand/Audience/Marketing sections outgrow free text enough to warrant
+their own normalized tables instead of validated JSON.
+
+---
+
 ## Template for future entries
 
 ```text

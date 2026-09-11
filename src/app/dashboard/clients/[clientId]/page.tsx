@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { notFound, redirect } from 'next/navigation'
+import { redirect } from 'next/navigation'
 import {
   Sparkles,
   Search,
@@ -10,310 +10,140 @@ import {
   ShieldCheck,
   FileText,
   Bot,
-  SlidersHorizontal,
-  ChevronLeft,
   CalendarDays,
-  Image as ImageIcon,
+  ArrowUpRight,
 } from 'lucide-react'
 import { getCurrentAuthContext } from '@/lib/auth/current-context'
-import { getAuthorizedClient } from '@/lib/db/tenant'
-import { listAiRuns } from '@/lib/ai/runs'
-import { getClientPolicy, listClientCompetitors } from '@/lib/clients/brain'
+import { getAuthorizedClientCached } from '@/lib/db/tenant'
+import { listClientCompetitors } from '@/lib/clients/brain'
 import { listContentCalendarItems } from '@/lib/content-calendar/persist'
-import { listCreativeAssets } from '@/lib/creative/persist'
 import { listIntegrationConnectionsForOrg } from '@/lib/integrations/health'
 import { listRecommendations } from '@/lib/recommendations/persist'
 import { listTasks } from '@/lib/recommendations/tasks'
 import { listApprovals } from '@/lib/approvals/approvals'
 import { listReports } from '@/lib/reports/generate'
-import { ForbiddenError } from '@/lib/rbac/errors'
+import { listAiRuns } from '@/lib/ai/runs'
 import {
   addCompetitorAction,
-  connectCanvaAccountAction,
-  connectGoogleAdsAccountAction,
-  connectMetaAdsAccountAction,
-  connectMetricoolBrandAction,
-  createContentItemAction,
   triggerAnalyzeClientAction,
   triggerCompetitorAnalysisAction,
-  triggerCreativeWorkflowAction,
   triggerSeoAnalysisAction,
-  updateWeeklyAutomationAction,
 } from '../../actions'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge, StatusBadge, toSentenceCase } from '@/components/ui/badge'
+import { StatusBadge } from '@/components/ui/badge'
 import { ActionForm, FieldError, SubmitButton } from '@/components/ui/action-form'
-import { Input, Label } from '@/components/ui/input'
+import { Input } from '@/components/ui/input'
 import { EmptyState } from '@/components/ui/empty-state'
+import { HEALTH_DOT, HEALTH_LABEL, PROVIDER_LABEL } from '@/components/clients/labels'
+import { formatDate, formatDateTime, formatRelative } from '@/lib/format'
+import { cn } from '@/lib/utils'
 
 /**
- * Client detail: the "Analyze Client A" trigger (BRD Section 46/43 - "the
- * user should be able to type 'Analyze Client A's marketing performance'"
- * -  a button is the MVP's non-natural-language stand-in, BRD Section 44's
- * command layer is Phase 2) plus that client's recommendations, tasks,
- * approvals, reports, and integration status.
+ * Client Overview (docs/UX-ASSESSMENT.md §11): the operational command
+ * center for one client - what's connected, what needs attention, what
+ * just happened, what's coming up. Business/Brand/Audience/Marketing/
+ * Integrations/Settings each own their own tab; Recommendations, Tasks,
+ * Approvals, Reports, AI Runs and Content are shown here trimmed to what
+ * concerns *this* client, each linking to its full org-wide page (which
+ * now has working filters/actions of its own).
  */
-export default async function ClientDetailPage({ params }: { params: Promise<{ clientId: string }> }) {
-  const { clientId } = await params
-  const ctx = await getCurrentAuthContext()
+export default async function ClientOverviewPage({ params }: { params: Promise<{ clientId: string }> }) {
+  const [{ clientId }, ctx] = await Promise.all([params, getCurrentAuthContext()])
   if (!ctx) redirect('/sign-in')
+  const client = await getAuthorizedClientCached(ctx, clientId)
 
-  let client
-  try {
-    client = await getAuthorizedClient(ctx, clientId)
-  } catch (error) {
-    if (error instanceof ForbiddenError) notFound()
-    throw error
-  }
-
-  const [policy, recommendations, tasks, approvals, reports, connections, aiRuns, contentItems, creativeAssets, competitors] =
-    await Promise.all([
-      getClientPolicy(ctx, clientId),
-      listRecommendations(ctx, clientId),
-      listTasks(ctx, clientId),
-      listApprovals(ctx, { clientId }),
-      listReports(ctx, clientId),
-      listIntegrationConnectionsForOrg(ctx, { clientId }),
-      listAiRuns(ctx, { clientId, limit: 10 }),
-      listContentCalendarItems(ctx, clientId),
-      listCreativeAssets(ctx, clientId),
-      listClientCompetitors(ctx, clientId),
-    ])
-  const canManageIntegrations = ctx.permissions.has('integrations.manage')
+  const [recommendations, tasks, approvals, reports, connections, aiRuns, contentItems, competitors] = await Promise.all([
+    listRecommendations(ctx, clientId, { status: 'RECOMMENDED', limit: 5 }),
+    listTasks(ctx, clientId, { status: 'OPEN' }),
+    listApprovals(ctx, { clientId, status: 'PENDING' }),
+    listReports(ctx, clientId, { limit: 5 }),
+    listIntegrationConnectionsForOrg(ctx, { clientId }),
+    listAiRuns(ctx, { clientId, limit: 5 }),
+    listContentCalendarItems(ctx, clientId, { status: undefined, limit: 5 }),
+    listClientCompetitors(ctx, clientId),
+  ])
   const canTriggerAnalysis = ctx.permissions.has('analysis.trigger')
-  const canManageContent = ctx.permissions.has('content.manage')
-  const canManageCreative = ctx.permissions.has('creative.manage')
   const canEditClient = ctx.permissions.has('clients.edit')
-  const approvedCreativeAssets = creativeAssets.filter((a) => a.status === 'APPROVED')
+  const upcomingContent = contentItems.filter((c) => c.publishDate >= new Date(Date.now() - 86_400_000)).slice(0, 5)
+  const integrationIssues = connections.filter((c) => c.status !== 'CONNECTED')
+  const attentionCount = approvals.length + recommendations.length + integrationIssues.length
 
   return (
     <div className="space-y-6">
-      <Link href="/dashboard/clients" className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground">
-        <ChevronLeft className="h-3.5 w-3.5" /> Clients
-      </Link>
-
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-accent text-base font-medium text-accent-foreground">
-            {client.name.slice(0, 2).toUpperCase()}
-          </div>
-          <div>
-            <h1 className="text-2xl font-medium tracking-tight text-foreground">{client.name}</h1>
-            <div className="mt-1 flex items-center gap-1.5">
-              <Badge variant={client.status === 'ACTIVE' ? 'success' : 'neutral'}>{toSentenceCase(client.status)}</Badge>
-              <Badge variant="neutral">Automation: {toSentenceCase(client.automationLevel)}</Badge>
-            </div>
-          </div>
+      {canTriggerAnalysis && (
+        <div className="flex flex-wrap gap-2">
+          <ActionForm action={triggerCompetitorAnalysisAction.bind(null, clientId)}>
+            <SubmitButton variant="outline" pendingLabel="Analyzing competitors…">
+              <Users2 className="h-4 w-4" /> Run competitor analysis
+            </SubmitButton>
+          </ActionForm>
+          <ActionForm action={triggerSeoAnalysisAction.bind(null, clientId)}>
+            <SubmitButton variant="outline" pendingLabel="Running SEO analysis…">
+              <Search className="h-4 w-4" /> Run SEO analysis
+            </SubmitButton>
+          </ActionForm>
+          <ActionForm action={triggerAnalyzeClientAction.bind(null, clientId)}>
+            <SubmitButton pendingLabel="Analyzing… this takes up to a minute">
+              <Sparkles className="h-4 w-4" /> Analyze this client
+            </SubmitButton>
+          </ActionForm>
         </div>
-        {canTriggerAnalysis && (
-          <div className="flex flex-wrap gap-2">
-            <ActionForm action={triggerCompetitorAnalysisAction.bind(null, clientId)}>
-              <SubmitButton variant="outline" size="lg" pendingLabel="Analyzing competitors…">
-                <Users2 className="h-4 w-4" /> Run competitor analysis
-              </SubmitButton>
-            </ActionForm>
-            <ActionForm action={triggerSeoAnalysisAction.bind(null, clientId)}>
-              <SubmitButton variant="outline" size="lg" pendingLabel="Running SEO analysis…">
-                <Search className="h-4 w-4" /> Run SEO analysis
-              </SubmitButton>
-            </ActionForm>
-            <ActionForm action={triggerAnalyzeClientAction.bind(null, clientId)}>
-              <SubmitButton size="lg" pendingLabel="Analyzing… this takes up to a minute">
-                <Sparkles className="h-4 w-4" /> Analyze this client
-              </SubmitButton>
-            </ActionForm>
-          </div>
-        )}
-      </div>
-
-      {policy && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <SlidersHorizontal className="h-4 w-4 text-muted-foreground" /> Policy
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <dl className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-              <div>
-                <dt className="text-xs text-caption">Max daily ad budget</dt>
-                <dd className="mt-0.5 text-sm font-medium text-foreground">{policy.maxDailyAdBudget?.toString() ?? '—'}</dd>
-              </div>
-              <div>
-                <dt className="text-xs text-caption">Auto-publish social</dt>
-                <dd className="mt-0.5 text-sm font-medium text-foreground">{policy.autoPublishSocial ? 'Yes' : 'No'}</dd>
-              </div>
-              <div>
-                <dt className="text-xs text-caption">Auto-change ads</dt>
-                <dd className="mt-0.5 text-sm font-medium text-foreground">{policy.autoChangeAds ? 'Yes' : 'No'}</dd>
-              </div>
-              <div>
-                <dt className="text-xs text-caption">Approval for launches</dt>
-                <dd className="mt-0.5 text-sm font-medium text-foreground">{policy.requireApprovalForCampaignLaunch ? 'Required' : 'Not required'}</dd>
-              </div>
-              <div>
-                <dt className="text-xs text-caption">Weekly automated intelligence</dt>
-                <dd className="mt-0.5 text-sm font-medium text-foreground">{policy.weeklyAutomationEnabled ? 'Enabled' : 'Disabled'}</dd>
-              </div>
-            </dl>
-            {canEditClient && (
-              <ActionForm action={updateWeeklyAutomationAction.bind(null, clientId)} className="mt-4 flex items-center gap-2 rounded-md border border-dashed border-border p-3">
-                <input
-                  id="weeklyAutomationEnabled"
-                  name="weeklyAutomationEnabled"
-                  type="checkbox"
-                  defaultChecked={policy.weeklyAutomationEnabled}
-                  className="h-4 w-4 rounded border-input"
-                />
-                <Label htmlFor="weeklyAutomationEnabled" className="mb-0 text-sm text-foreground">
-                  Run weekly automated intelligence for this client
-                </Label>
-                <SubmitButton variant="outline" size="sm" className="ml-auto">
-                  Save
-                </SubmitButton>
-              </ActionForm>
-            )}
-          </CardContent>
-        </Card>
       )}
 
-      <Card id="integrations">
+      {/* Attention */}
+      <Card className={attentionCount > 0 ? 'border-warning/30' : undefined}>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Plug className="h-4 w-4 text-muted-foreground" /> Integrations
-          </CardTitle>
+          <CardTitle className="text-base">{attentionCount > 0 ? `${attentionCount} item${attentionCount === 1 ? '' : 's'} need attention` : 'Nothing needs attention'}</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          {connections.length === 0 ? (
-            <EmptyState icon={Plug} title="No integrations connected" />
-          ) : (
-            <ul className="space-y-2">
-              {connections.map((c) => (
-                <li key={c.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border px-3 py-2 text-sm">
-                  <span className="font-medium">{c.integrationAccount.integration.provider}</span>
-                  <div className="flex items-center gap-2">
-                    {c.lastErrorMessage && <span className="text-xs text-destructive">{c.lastErrorMessage}</span>}
-                    <StatusBadge status={c.status} />
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-          {canManageIntegrations && (
-            <ActionForm action={connectMetricoolBrandAction.bind(null, clientId)} className="flex flex-wrap items-end gap-3 rounded-md border border-dashed border-border p-3">
-              <div>
-                <Label htmlFor="brandId">Metricool brand id</Label>
-                <Input id="brandId" name="brandId" type="text" required placeholder="e.g. 6818704" className="w-44" />
-                <FieldError name="externalAccountId" />
-              </div>
-              <div>
-                <Label htmlFor="label">Label (optional)</Label>
-                <Input id="label" name="label" type="text" className="w-44" />
-              </div>
-              <SubmitButton variant="outline">
-                Connect Metricool brand
-              </SubmitButton>
-            </ActionForm>
-          )}
-          {canManageIntegrations && (
-            <ActionForm action={connectGoogleAdsAccountAction.bind(null, clientId)} className="flex flex-wrap items-end gap-3 rounded-md border border-dashed border-border p-3">
-              <div>
-                <Label htmlFor="googleAdsAccountId">Google Ads customer id</Label>
-                <Input id="googleAdsAccountId" name="externalAccountId" type="text" required placeholder="e.g. 123-456-7890" className="w-44" />
-                <FieldError name="externalAccountId" />
-              </div>
-              <div>
-                <Label htmlFor="googleAdsLabel">Label (optional)</Label>
-                <Input id="googleAdsLabel" name="label" type="text" className="w-44" />
-              </div>
-              <SubmitButton variant="outline">
-                Connect Google Ads account
-              </SubmitButton>
-            </ActionForm>
-          )}
-          {canManageIntegrations && (
-            <ActionForm action={connectMetaAdsAccountAction.bind(null, clientId)} className="flex flex-wrap items-end gap-3 rounded-md border border-dashed border-border p-3">
-              <div>
-                <Label htmlFor="metaAdsAccountId">Meta Ads account id</Label>
-                <Input id="metaAdsAccountId" name="externalAccountId" type="text" required placeholder="e.g. act_123456789" className="w-44" />
-                <FieldError name="externalAccountId" />
-              </div>
-              <div>
-                <Label htmlFor="metaAdsLabel">Label (optional)</Label>
-                <Input id="metaAdsLabel" name="label" type="text" className="w-44" />
-              </div>
-              <SubmitButton variant="outline">
-                Connect Meta Ads account
-              </SubmitButton>
-            </ActionForm>
-          )}
-          {canManageIntegrations && (
-            <ActionForm action={connectCanvaAccountAction.bind(null, clientId)} className="flex flex-wrap items-end gap-3 rounded-md border border-dashed border-border p-3">
-              <div>
-                <Label htmlFor="canvaAccountId">Canva brand id</Label>
-                <Input id="canvaAccountId" name="externalAccountId" type="text" required placeholder="e.g. BAmockbrand" className="w-44" />
-                <FieldError name="externalAccountId" />
-              </div>
-              <div>
-                <Label htmlFor="canvaLabel">Label (optional)</Label>
-                <Input id="canvaLabel" name="label" type="text" className="w-44" />
-              </div>
-              <SubmitButton variant="outline">
-                Connect Canva brand
-              </SubmitButton>
-            </ActionForm>
-          )}
-        </CardContent>
+        {attentionCount > 0 && (
+          <CardContent className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+            {approvals.length > 0 && (
+              <Link href="/dashboard/approvals" className="flex items-center justify-between rounded-md border border-border p-3 text-sm hover:bg-muted">
+                <span className="text-foreground">{approvals.length} approval{approvals.length === 1 ? '' : 's'} pending</span>
+                <ArrowUpRight className="h-3.5 w-3.5 text-muted-foreground" />
+              </Link>
+            )}
+            {recommendations.length > 0 && (
+              <Link href="/dashboard/recommendations" className="flex items-center justify-between rounded-md border border-border p-3 text-sm hover:bg-muted">
+                <span className="text-foreground">{recommendations.length} recommendation{recommendations.length === 1 ? '' : 's'} to review</span>
+                <ArrowUpRight className="h-3.5 w-3.5 text-muted-foreground" />
+              </Link>
+            )}
+            {integrationIssues.length > 0 && (
+              <Link href={`/dashboard/clients/${clientId}/integrations`} className="flex items-center justify-between rounded-md border border-border p-3 text-sm hover:bg-muted">
+                <span className="text-foreground">{integrationIssues.length} integration{integrationIssues.length === 1 ? '' : 's'} need attention</span>
+                <ArrowUpRight className="h-3.5 w-3.5 text-muted-foreground" />
+              </Link>
+            )}
+          </CardContent>
+        )}
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Lightbulb className="h-4 w-4 text-muted-foreground" /> Recommendations
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {recommendations.length === 0 ? (
-            <EmptyState icon={Lightbulb} title="None yet" description="Run an analysis above to generate recommendations." />
-          ) : (
-            <ul className="space-y-3">
-              {recommendations.map((rec) => (
-                <li key={rec.id} className="rounded-md border border-border p-3">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <StatusBadge status={rec.priority} />
-                      <span className="text-sm font-medium text-foreground">{rec.area}</span>
-                    </div>
-                    <StatusBadge status={rec.status} />
-                  </div>
-                  <p className="mt-2 text-sm text-foreground">{rec.finding}</p>
-                  <p className="mt-1 text-sm text-muted-foreground">→ {rec.recommendation}</p>
-                </li>
-              ))}
-            </ul>
-          )}
-        </CardContent>
-      </Card>
-
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        {/* Integration health */}
         <Card>
-          <CardHeader>
+          <CardHeader className="flex-row items-center justify-between space-y-0">
             <CardTitle className="flex items-center gap-2 text-base">
-              <CheckSquare className="h-4 w-4 text-muted-foreground" /> Tasks
+              <Plug className="h-4 w-4 text-muted-foreground" /> Integration health
             </CardTitle>
+            <Link href={`/dashboard/clients/${clientId}/integrations`} className="text-xs font-medium text-primary hover:underline">
+              Manage
+            </Link>
           </CardHeader>
           <CardContent>
-            {tasks.length === 0 ? (
-              <EmptyState icon={CheckSquare} title="No tasks" />
+            {connections.length === 0 ? (
+              <EmptyState icon={Plug} title="Nothing connected" description="Connect Metricool, Google Ads, Meta Ads or Canva from the Integrations tab." />
             ) : (
-              <ul className="divide-y divide-border">
-                {tasks.map((task) => (
-                  <li key={task.id} className="flex items-center justify-between gap-2 py-2.5 first:pt-0 last:pb-0">
-                    <span className="text-sm text-foreground">{task.title}</span>
-                    <div className="flex shrink-0 items-center gap-1.5">
-                      <StatusBadge status={task.priority} />
-                      <StatusBadge status={task.status} />
-                    </div>
+              <ul className="space-y-1.5">
+                {connections.map((c) => (
+                  <li key={c.id} className="flex items-center justify-between gap-2 text-sm">
+                    <span className="flex items-center gap-2 text-foreground">
+                      <span className={cn('h-2 w-2 rounded-full', HEALTH_DOT[c.status])} />
+                      {PROVIDER_LABEL[c.integrationAccount.integration.provider]}
+                    </span>
+                    <span className="text-xs text-caption">
+                      {c.status === 'CONNECTED' ? `Synced ${formatRelative(c.lastSuccessfulSyncAt)}` : HEALTH_LABEL[c.status]}
+                    </span>
                   </li>
                 ))}
               </ul>
@@ -321,74 +151,27 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ c
           </CardContent>
         </Card>
 
+        {/* Recent activity */}
         <Card>
-          <CardHeader>
+          <CardHeader className="flex-row items-center justify-between space-y-0">
             <CardTitle className="flex items-center gap-2 text-base">
-              <ShieldCheck className="h-4 w-4 text-muted-foreground" /> Approvals
+              <Bot className="h-4 w-4 text-muted-foreground" /> Recent activity
             </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {approvals.length === 0 ? (
-              <EmptyState icon={ShieldCheck} title="No approval requests" />
-            ) : (
-              <ul className="divide-y divide-border">
-                {approvals.map((approval) => (
-                  <li key={approval.id} className="flex items-center justify-between gap-2 py-2.5 first:pt-0 last:pb-0">
-                    <span className="text-sm text-foreground">{approval.actionSummary}</span>
-                    <div className="flex shrink-0 items-center gap-1.5">
-                      <StatusBadge status={approval.riskLevel} />
-                      <StatusBadge status={approval.status} />
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <FileText className="h-4 w-4 text-muted-foreground" /> Reports
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {reports.length === 0 ? (
-              <EmptyState icon={FileText} title="No reports generated yet" />
-            ) : (
-              <ul className="divide-y divide-border">
-                {reports.map((report) => (
-                  <li key={report.id} className="flex items-center justify-between gap-2 py-2.5 first:pt-0 last:pb-0">
-                    <Link href={`/dashboard/reports/${report.id}`} className="truncate text-sm text-foreground hover:text-primary">
-                      {report.title}
-                    </Link>
-                    <Badge variant="neutral" className="shrink-0">
-                      {toSentenceCase(report.type)}
-                    </Badge>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Bot className="h-4 w-4 text-muted-foreground" /> AI runs
-            </CardTitle>
+            <Link href="/dashboard/ai-runs" className="text-xs font-medium text-primary hover:underline">
+              View all
+            </Link>
           </CardHeader>
           <CardContent>
             {aiRuns.length === 0 ? (
-              <EmptyState icon={Bot} title="No AI runs yet" />
+              <EmptyState icon={Bot} title="No AI runs yet" description="Choose Analyze this client above to generate one." />
             ) : (
               <ul className="divide-y divide-border">
                 {aiRuns.map((run) => (
-                  <li key={run.id} className="flex items-center justify-between gap-2 py-2.5 first:pt-0 last:pb-0">
-                    <span className="text-sm text-foreground">{run.model}</span>
-                    <div className="flex shrink-0 items-center gap-1.5">
+                  <li key={run.id} className="flex items-center justify-between gap-2 py-2 text-sm first:pt-0 last:pb-0">
+                    <span className="text-foreground">{run.model}</span>
+                    <div className="flex items-center gap-2">
                       <StatusBadge status={run.status} />
-                      <span className="text-xs tabular-nums text-caption">{run.createdAt.toISOString().slice(0, 16).replace('T', ' ')}</span>
+                      <span className="text-xs tabular-nums text-caption">{formatRelative(run.createdAt)}</span>
                     </div>
                   </li>
                 ))}
@@ -398,122 +181,135 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ c
         </Card>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <ImageIcon className="h-4 w-4 text-muted-foreground" /> Creatives
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {creativeAssets.length === 0 ? (
-            <EmptyState icon={ImageIcon} title="No creative concepts yet" />
-          ) : (
-            <ul className="divide-y divide-border">
-              {creativeAssets.map((asset) => (
-                <li key={asset.id} className="flex items-center justify-between gap-2 py-2.5 first:pt-0 last:pb-0">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm text-foreground">{asset.copy?.split('\n')[0] || asset.platform || 'Untitled'}</p>
-                    <p className="text-xs text-caption">{asset.platform}</p>
-                  </div>
-                  <StatusBadge status={asset.status} className="shrink-0" />
-                </li>
-              ))}
-            </ul>
-          )}
-          {canManageCreative && (
-            <ActionForm action={triggerCreativeWorkflowAction.bind(null, clientId)} className="flex flex-wrap items-end gap-3 rounded-md border border-dashed border-border p-3">
-              <div>
-                <Label htmlFor="creativePlatform">Platform</Label>
-                <Input id="creativePlatform" name="platform" type="text" required defaultValue="instagram" className="w-32" />
-                <FieldError name="platform" />
-              </div>
-              <div>
-                <Label htmlFor="creativeCount">Count</Label>
-                <Input id="creativeCount" name="count" type="number" min={1} max={10} required defaultValue={3} className="w-20" />
-                <FieldError name="count" />
-              </div>
-              <div className="min-w-[14rem] flex-1">
-                <Label htmlFor="campaignBrief">Campaign brief</Label>
-                <Input id="campaignBrief" name="campaignBrief" type="text" required placeholder="e.g. the recommended spring promotion" />
-                <FieldError name="campaignBrief" />
-              </div>
-              <SubmitButton variant="outline" pendingLabel="Generating concepts…">
-                <Sparkles className="h-3.5 w-3.5" /> Generate concepts
-              </SubmitButton>
-            </ActionForm>
-          )}
-          <p className="text-xs text-caption">
-            Review, generate designs, and approve from the <Link href="/dashboard/creatives" className="text-primary hover:underline">creatives</Link> page.
-          </p>
-        </CardContent>
-      </Card>
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <Card>
+          <CardHeader className="flex-row items-center justify-between space-y-0">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Lightbulb className="h-4 w-4 text-muted-foreground" /> Recommendations to review
+            </CardTitle>
+            <Link href="/dashboard/recommendations" className="text-xs font-medium text-primary hover:underline">
+              View all
+            </Link>
+          </CardHeader>
+          <CardContent>
+            {recommendations.length === 0 ? (
+              <EmptyState icon={Lightbulb} title="Nothing to review" />
+            ) : (
+              <ul className="space-y-2">
+                {recommendations.map((rec) => (
+                  <li key={rec.id} className="rounded-md border border-border p-2.5 text-sm">
+                    <div className="flex items-center gap-2">
+                      <StatusBadge status={rec.priority} />
+                      <span className="font-medium text-foreground">{rec.area}</span>
+                    </div>
+                    <p className="mt-1 text-muted-foreground">{rec.finding}</p>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex-row items-center justify-between space-y-0">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <CheckSquare className="h-4 w-4 text-muted-foreground" /> Open tasks
+            </CardTitle>
+            <Link href="/dashboard/tasks" className="text-xs font-medium text-primary hover:underline">
+              View all
+            </Link>
+          </CardHeader>
+          <CardContent>
+            {tasks.length === 0 ? (
+              <EmptyState icon={CheckSquare} title="No open tasks" />
+            ) : (
+              <ul className="divide-y divide-border">
+                {tasks.map((task) => (
+                  <li key={task.id} className="flex items-center justify-between gap-2 py-2 text-sm first:pt-0 last:pb-0">
+                    <span className="text-foreground">{task.title}</span>
+                    <StatusBadge status={task.priority} />
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex-row items-center justify-between space-y-0">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <ShieldCheck className="h-4 w-4 text-muted-foreground" /> Pending approvals
+            </CardTitle>
+            <Link href="/dashboard/approvals" className="text-xs font-medium text-primary hover:underline">
+              View all
+            </Link>
+          </CardHeader>
+          <CardContent>
+            {approvals.length === 0 ? (
+              <EmptyState icon={ShieldCheck} title="No pending approvals" />
+            ) : (
+              <ul className="divide-y divide-border">
+                {approvals.map((approval) => (
+                  <li key={approval.id} className="flex items-center justify-between gap-2 py-2 text-sm first:pt-0 last:pb-0">
+                    <span className="truncate text-foreground">{approval.actionSummary}</span>
+                    <StatusBadge status={approval.riskLevel} />
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex-row items-center justify-between space-y-0">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <CalendarDays className="h-4 w-4 text-muted-foreground" /> Upcoming content
+            </CardTitle>
+            <Link href="/dashboard/content-calendar" className="text-xs font-medium text-primary hover:underline">
+              View all
+            </Link>
+          </CardHeader>
+          <CardContent>
+            {upcomingContent.length === 0 ? (
+              <EmptyState icon={CalendarDays} title="Nothing scheduled" />
+            ) : (
+              <ul className="divide-y divide-border">
+                {upcomingContent.map((item) => (
+                  <li key={item.id} className="flex items-center justify-between gap-2 py-2 text-sm first:pt-0 last:pb-0">
+                    <span className="truncate text-foreground">{item.caption || item.platform}</span>
+                    <span className="text-xs tabular-nums text-caption">{formatDate(item.publishDate)}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+      </div>
 
       <Card>
-        <CardHeader>
+        <CardHeader className="flex-row items-center justify-between space-y-0">
           <CardTitle className="flex items-center gap-2 text-base">
-            <CalendarDays className="h-4 w-4 text-muted-foreground" /> Content calendar
+            <FileText className="h-4 w-4 text-muted-foreground" /> Reports
           </CardTitle>
+          <Link href="/dashboard/reports" className="text-xs font-medium text-primary hover:underline">
+            View all
+          </Link>
         </CardHeader>
-        <CardContent className="space-y-4">
-          {contentItems.length === 0 ? (
-            <EmptyState icon={CalendarDays} title="Nothing planned yet" />
+        <CardContent>
+          {reports.length === 0 ? (
+            <EmptyState icon={FileText} title="No reports yet" />
           ) : (
             <ul className="divide-y divide-border">
-              {contentItems.map((item) => (
-                <li key={item.id} className="flex items-center justify-between gap-2 py-2.5 first:pt-0 last:pb-0">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm text-foreground">{item.caption || item.platform}</p>
-                    <p className="text-xs tabular-nums text-caption">
-                      {item.platform} · {item.publishDate.toISOString().slice(0, 10)}
-                    </p>
-                  </div>
-                  <StatusBadge status={item.status} className="shrink-0" />
+              {reports.map((report) => (
+                <li key={report.id} className="flex items-center justify-between gap-2 py-2 text-sm first:pt-0 last:pb-0">
+                  <Link href={`/dashboard/reports/${report.id}`} className="truncate text-foreground hover:text-primary">
+                    {report.title}
+                  </Link>
+                  <span className="text-xs tabular-nums text-caption">{formatDateTime(report.createdAt)}</span>
                 </li>
               ))}
             </ul>
           )}
-          {canManageContent && (
-            <ActionForm action={createContentItemAction.bind(null, clientId)} className="flex flex-wrap items-end gap-3 rounded-md border border-dashed border-border p-3">
-              <div>
-                <Label htmlFor="platform">Platform</Label>
-                <Input id="platform" name="platform" type="text" required placeholder="e.g. instagram" className="w-36" />
-                <FieldError name="platform" />
-              </div>
-              <div>
-                <Label htmlFor="publishDate">Publish date</Label>
-                <Input id="publishDate" name="publishDate" type="date" required className="w-40" />
-                <FieldError name="publishDate" />
-              </div>
-              <div className="min-w-[14rem] flex-1">
-                <Label htmlFor="caption">Caption</Label>
-                <Input id="caption" name="caption" type="text" placeholder="Post copy…" />
-                <FieldError name="caption" />
-              </div>
-              {approvedCreativeAssets.length > 0 && (
-                <div>
-                  <Label htmlFor="creativeAssetId">Creative (optional)</Label>
-                  <select
-                    id="creativeAssetId"
-                    name="creativeAssetId"
-                    className="h-9 rounded-md border border-input bg-background px-3 text-sm"
-                  >
-                    <option value="">None</option>
-                    {approvedCreativeAssets.map((asset) => (
-                      <option key={asset.id} value={asset.id}>
-                        {asset.copy?.split('\n')[0]?.slice(0, 40) || asset.id}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-              <SubmitButton variant="outline">
-                Add to calendar
-              </SubmitButton>
-            </ActionForm>
-          )}
-          <p className="text-xs text-caption">
-            Review, approve, and schedule from the <Link href="/dashboard/content-calendar" className="text-primary hover:underline">content calendar</Link> page.
-          </p>
         </CardContent>
       </Card>
 
@@ -545,28 +341,28 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ c
             </ul>
           )}
           {canEditClient && (
-            <ActionForm action={addCompetitorAction.bind(null, clientId)} className="space-y-3 rounded-md border border-dashed border-border p-3">
+            <ActionForm action={addCompetitorAction.bind(null, clientId)} className="space-y-3 rounded-md border border-dashed border-border p-3" resetOnSuccess>
               <div className="flex flex-wrap items-end gap-3">
                 <div>
-                  <Label htmlFor="competitorName">Name</Label>
+                  <label htmlFor="competitorName" className="mb-1.5 block text-xs font-medium text-caption">Name</label>
                   <Input id="competitorName" name="name" type="text" required placeholder="e.g. Acme Rivals" className="w-44" />
-                <FieldError name="name" />
+                  <FieldError name="name" />
                 </div>
                 <div>
-                  <Label htmlFor="competitorUrl">URL</Label>
+                  <label htmlFor="competitorUrl" className="mb-1.5 block text-xs font-medium text-caption">URL</label>
                   <Input id="competitorUrl" name="url" type="url" placeholder="https://…" className="w-56" />
-                <FieldError name="url" />
+                  <FieldError name="url" />
                 </div>
                 <div className="min-w-[14rem] flex-1">
-                  <Label htmlFor="competitorPositioning">Positioning</Label>
+                  <label htmlFor="competitorPositioning" className="mb-1.5 block text-xs font-medium text-caption">Positioning</label>
                   <Input id="competitorPositioning" name="positioning" type="text" placeholder="e.g. Premium, enterprise-focused" />
                 </div>
               </div>
               <div>
-                <Label htmlFor="competitorObservations">Observations</Label>
+                <label htmlFor="competitorObservations" className="mb-1.5 block text-xs font-medium text-caption">Observations</label>
                 <Input id="competitorObservations" name="observations" type="text" placeholder="Anything worth noting…" />
               </div>
-              <SubmitButton variant="outline">
+              <SubmitButton variant="outline" pendingLabel="Adding…">
                 Add competitor
               </SubmitButton>
             </ActionForm>

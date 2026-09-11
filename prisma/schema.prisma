@@ -183,6 +183,7 @@ model OrganizationUser {
   role         Role         @relation(fields: [roleId], references: [id])
 
   assignedClients ClientAssignment[]
+  managedClients  Client[]           @relation("ClientAccountManager")
 
   @@unique([organizationId, userId])
   @@map("organization_users")
@@ -199,18 +200,37 @@ enum MembershipStatus {
 // ============================================================================
 
 model Client {
-  id              String          @id @default(cuid())
-  organizationId  String
-  name            String
-  slug            String
-  status          ClientStatus    @default(ACTIVE)
-  automationLevel AutomationLevel @default(MANUAL)
-  createdBy       String
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
+  id               String          @id @default(cuid())
+  organizationId   String
+  name             String
+  slug             String
+  status           ClientStatus    @default(ACTIVE)
+  automationLevel  AutomationLevel @default(MANUAL)
+  /// Profile (docs/UX-ASSESSMENT.md §7): what the Clients list and the
+  /// workspace header show at a glance. Narrative business/brand/
+  /// audience/marketing knowledge lives in ClientBrain, not here.
+  legalName        String?
+  website          String?
+  industry         String?
+  country          String?
+  city             String?
+  timezone         String?
+  description      String?
+  /// Designated account manager - one of this organization's members.
+  /// Distinct from ClientAssignment (who may access the client).
+  accountManagerId String?
+  monthlyBudget    Decimal?        @db.Decimal(12, 2)
+  tags             String[]        @default([])
+  /// Set when status becomes ARCHIVED (soft delete); cleared on unarchive.
+  archivedAt       DateTime?
+  createdBy        String
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization   Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  accountManager OrganizationUser? @relation("ClientAccountManager", fields: [accountManagerId], references: [id], onDelete: SetNull)
 
+  contacts               ClientContact[]
   clientUsers            ClientUser[]
   assignedManagers       ClientAssignment[]
   brain                  ClientBrain?
@@ -235,7 +255,30 @@ model Client {
   creativeAssets         CreativeAsset[]
 
   @@unique([organizationId, slug])
+  @@index([organizationId, status])
   @@map("clients")
+}
+
+/// A person at the client (BRD Section 6's account-manager context; the
+/// "Primary contact" every client row shows). Normalized rather than
+/// columns on Client so a client can have several.
+model ClientContact {
+  id          String   @id @default(cuid())
+  clientId    String
+  name        String
+  email       String?
+  phone       String?
+  designation String?
+  isPrimary   Boolean  @default(false)
+  notes       String?
+  createdBy   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([clientId])
+  @@map("client_contacts")
 }
 
 enum ClientStatus {

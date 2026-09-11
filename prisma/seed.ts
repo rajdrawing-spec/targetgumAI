@@ -65,6 +65,12 @@ async function main() {
       organizationId: org.id,
       name: 'Client A (pilot)',
       slug: 'client-a',
+      industry: 'E-commerce',
+      website: 'https://client-a-pilot.example.com',
+      country: 'India',
+      city: 'Chennai',
+      timezone: 'Asia/Kolkata',
+      description: 'Pilot client used to exercise every workflow end-to-end - see docs/PILOT-RUNBOOK.md.',
       createdBy: 'seed-script',
     },
   })
@@ -84,6 +90,10 @@ async function main() {
       organizationId: org.id,
       name: 'Client B (not assigned to seeded staff)',
       slug: 'client-b',
+      industry: 'Education',
+      website: 'https://client-b.example.com',
+      country: 'India',
+      city: 'Bengaluru',
       createdBy: 'seed-script',
     },
   })

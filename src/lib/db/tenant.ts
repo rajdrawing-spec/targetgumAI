@@ -1,3 +1,4 @@
+import { cache } from 'react'
 import { ForbiddenError } from '@/lib/rbac/errors'
 import { assertClientAccess } from '@/lib/rbac/guards'
 import type { AuthContext } from '@/lib/rbac/types'
@@ -22,6 +23,18 @@ export async function getAuthorizedClient(ctx: AuthContext, clientId: string) {
   assertClientAccess(ctx, client)
   return client
 }
+
+/**
+ * `getAuthorizedClient`, deduped per request with React `cache()` - the
+ * Client Workspace's layout and every one of its tab pages (Overview,
+ * Business, Brand, Audience, Marketing, Integrations, Settings) need the
+ * same authorized client row for the same request; without this each tab
+ * navigation repeated the lookup. Read-only call sites should prefer this;
+ * mutation call sites keep using the uncached `getAuthorizedClient`
+ * directly so a Server Action always reads the current row, never a value
+ * cached from earlier in the same request.
+ */
+export const getAuthorizedClientCached = cache(getAuthorizedClient)
 
 /**
  * Prisma `where` fragment for listing client-owned rows within the caller's

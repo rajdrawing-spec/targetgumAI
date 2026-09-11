@@ -1,74 +1,151 @@
-import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { Users, ArrowRight, Plus } from 'lucide-react'
+import Link from 'next/link'
+import { Users, Plus } from 'lucide-react'
+import type { AutomationLevel, ClientStatus } from '@prisma/client'
 import { getCurrentAuthContext } from '@/lib/auth/current-context'
-import { listAccessibleClients } from '@/lib/clients/list'
-import { createClientAction } from '../actions'
+import { listClientsWithSummary, type ClientListFilter, type ClientSort, type HealthFilter, type StatusFilter } from '@/lib/clients/summary'
+import { listAccountManagerCandidates } from '@/lib/clients/profile'
 import { PageHeader } from '@/components/ui/page-header'
-import { Card, CardContent } from '@/components/ui/card'
-import { Badge, toSentenceCase } from '@/components/ui/badge'
-import { Input } from '@/components/ui/input'
-import { ActionForm, FieldError, SubmitButton } from '@/components/ui/action-form'
+import { Badge, StatusBadge, toSentenceCase } from '@/components/ui/badge'
+import { buttonVariants } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
+import { ClientsToolbar } from '@/components/clients/clients-toolbar'
+import { ClientRowActions } from '@/components/clients/client-row-actions'
+import { HEALTH_DOT, PROVIDER_LABEL, AUTOMATION_LABEL } from '@/components/clients/labels'
+import { formatRelative, initials, displayHost } from '@/lib/format'
+import { cn } from '@/lib/utils'
 
-export default async function ClientsPage() {
-  const ctx = await getCurrentAuthContext()
+type SearchParams = { q?: string; status?: string; automation?: string; manager?: string; health?: string; sort?: string }
+
+const STATUS_VALUES: ClientStatus[] = ['ACTIVE', 'PAUSED', 'ARCHIVED']
+const AUTOMATION_VALUES: AutomationLevel[] = ['MANUAL', 'ASSISTED', 'APPROVAL_BASED', 'HIGH_AUTOMATION']
+const HEALTH_VALUES: HealthFilter[] = ['attention', 'connected', 'none']
+const SORT_VALUES: ClientSort[] = ['name', 'attention', 'activity']
+
+export default async function ClientsPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
+  const [sp, ctx] = await Promise.all([searchParams, getCurrentAuthContext()])
   if (!ctx) redirect('/sign-in')
 
-  const clients = await listAccessibleClients(ctx)
-  // Client creation is Super Admin territory (BRD Section 4.1 "Manage
-  // clients"); Account Manager's "manage assigned clients" (4.2) is about
-  // clients they're already assigned to, not creating new ones.
+  const filter: ClientListFilter = {
+    q: sp.q,
+    status: (STATUS_VALUES as string[]).includes(sp.status ?? '') || sp.status === 'ALL' ? (sp.status as StatusFilter) : undefined,
+    automation: (AUTOMATION_VALUES as string[]).includes(sp.automation ?? '') ? (sp.automation as AutomationLevel) : undefined,
+    accountManagerId: sp.manager || undefined,
+    health: HEALTH_VALUES.includes(sp.health as HealthFilter) ? (sp.health as HealthFilter) : undefined,
+    sort: SORT_VALUES.includes(sp.sort as ClientSort) ? (sp.sort as ClientSort) : undefined,
+  }
+
+  const [clients, managers] = await Promise.all([listClientsWithSummary(ctx, filter), listAccountManagerCandidates(ctx)])
   const canCreate = ctx.permissions.has('clients.manage')
+  const canEdit = ctx.permissions.has('clients.edit')
+  const hasActiveFilters = Boolean(sp.q || sp.status || sp.automation || sp.manager || sp.health || sp.sort)
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Clients" description={`${clients.length} client${clients.length === 1 ? '' : 's'} you can access`} />
+      <PageHeader
+        title="Clients"
+        description="Manage clients, marketing context, integrations and automation settings."
+        action={
+          canCreate ? (
+            <Link href="/dashboard/clients/new" className={buttonVariants({ size: 'default' })}>
+              <Plus className="h-4 w-4" /> Add client
+            </Link>
+          ) : undefined
+        }
+      />
 
-      {canCreate && (
-        <Card>
-          <CardContent className="p-4">
-            <ActionForm action={createClientAction} className="flex flex-wrap items-end gap-3">
-              <div className="min-w-[16rem] flex-1">
-                <label htmlFor="name" className="mb-1.5 block text-xs font-medium text-caption">
-                  New client name
-                </label>
-                <Input id="name" name="name" type="text" required minLength={2} placeholder="e.g. Acme Retail" />
-                <FieldError name="name" />
-              </div>
-              <SubmitButton pendingLabel="Creating…">
-                <Plus className="h-4 w-4" /> Create client
-              </SubmitButton>
-            </ActionForm>
-          </CardContent>
-        </Card>
-      )}
+      <ClientsToolbar managers={managers} />
 
       {clients.length === 0 ? (
-        <EmptyState icon={Users} title="No clients yet" description={canCreate ? 'Create your first client above to get started.' : 'Ask a Super Admin to create a client and assign you to it.'} />
+        <EmptyState
+          icon={Users}
+          title={hasActiveFilters ? 'No clients match these filters' : 'No clients yet'}
+          description={
+            hasActiveFilters
+              ? 'Try a different search or clear the filters above.'
+              : canCreate
+                ? 'Add your first client to start building their marketing context.'
+                : 'Ask a Super Admin to create a client and assign you to it.'
+          }
+        />
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {clients.map((client) => (
-            <Link key={client.id} href={`/dashboard/clients/${client.id}`}>
-              <Card className="group h-full transition-shadow hover:shadow-popover">
-                <CardContent className="flex flex-col gap-3 p-5">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-accent text-sm font-medium text-accent-foreground">
-                      {client.name.slice(0, 2).toUpperCase()}
-                    </div>
-                    <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
-                  </div>
-                  <div>
-                    <p className="truncate text-sm font-medium text-foreground">{client.name}</p>
-                    <div className="mt-1.5 flex items-center gap-1.5">
-                      <Badge variant={client.status === 'ACTIVE' ? 'success' : 'neutral'}>{toSentenceCase(client.status)}</Badge>
-                      <Badge variant="neutral">{toSentenceCase(client.automationLevel)}</Badge>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </Link>
-          ))}
+        <div className="overflow-x-auto rounded-lg border border-border bg-card shadow-card">
+          <table className="w-full min-w-[960px] text-left text-sm">
+            <thead className="text-xs text-caption">
+              <tr className="border-b border-border">
+                <th className="px-4 py-3 font-medium">Client</th>
+                <th className="px-4 py-3 font-medium">Account manager</th>
+                <th className="px-4 py-3 font-medium">Status</th>
+                <th className="px-4 py-3 font-medium">Automation</th>
+                <th className="px-4 py-3 font-medium">Integrations</th>
+                <th className="px-4 py-3 font-medium">Attention</th>
+                <th className="px-4 py-3 font-medium">Last activity</th>
+                <th className="px-4 py-3 font-medium"></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {clients.map((client) => {
+                const attentionTotal =
+                  client.attention.pendingApprovals + client.attention.highPriorityRecommendations + client.attention.integrationIssues
+                const host = displayHost(client.website)
+                return (
+                  <tr key={client.id} className="group">
+                    <td className="px-4 py-3">
+                      <Link href={`/dashboard/clients/${client.id}`} className="flex items-center gap-3">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent text-xs font-medium text-accent-foreground">
+                          {initials(client.name)}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium text-foreground group-hover:text-primary">{client.name}</p>
+                          <p className="truncate text-xs text-caption">
+                            {[client.industry, host].filter(Boolean).join(' · ') || (client.city ?? '—')}
+                          </p>
+                        </div>
+                      </Link>
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground">{client.accountManager?.label ?? <span className="text-caption">Unassigned</span>}</td>
+                    <td className="px-4 py-3">
+                      <StatusBadge status={client.status} />
+                    </td>
+                    <td className="px-4 py-3">
+                      <Badge variant="neutral">{AUTOMATION_LABEL[client.automationLevel]}</Badge>
+                    </td>
+                    <td className="px-4 py-3">
+                      {client.integrations.length === 0 ? (
+                        <span className="text-xs text-caption">None connected</span>
+                      ) : (
+                        <div className="flex -space-x-0.5" title={client.integrations.map((i) => `${PROVIDER_LABEL[i.provider]}: ${i.status}`).join(', ')}>
+                          {client.integrations.slice(0, 6).map((i, idx) => (
+                            <span
+                              key={idx}
+                              className={cn('h-2.5 w-2.5 rounded-full ring-2 ring-card', HEALTH_DOT[i.status])}
+                              aria-label={`${PROVIDER_LABEL[i.provider]}: ${toSentenceCase(i.status)}`}
+                            />
+                          ))}
+                          {client.integrations.length > 6 && <span className="pl-1.5 text-xs text-caption">+{client.integrations.length - 6}</span>}
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      {attentionTotal === 0 ? (
+                        <span className="text-xs text-caption">—</span>
+                      ) : (
+                        <div className="flex flex-wrap gap-1">
+                          {client.attention.pendingApprovals > 0 && <Badge variant="warning">{client.attention.pendingApprovals} approval{client.attention.pendingApprovals === 1 ? '' : 's'}</Badge>}
+                          {client.attention.highPriorityRecommendations > 0 && <Badge variant="info">{client.attention.highPriorityRecommendations} rec{client.attention.highPriorityRecommendations === 1 ? '' : 's'}</Badge>}
+                          {client.attention.integrationIssues > 0 && <Badge variant="destructive">{client.attention.integrationIssues} issue{client.attention.integrationIssues === 1 ? '' : 's'}</Badge>}
+                        </div>
+                      )}
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-3 text-xs tabular-nums text-caption">{formatRelative(client.lastActivityAt)}</td>
+                    <td className="px-4 py-3 text-right">
+                      <ClientRowActions client={client} canEdit={canEdit} canManage={canCreate} />
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
         </div>
       )}
     </div>
