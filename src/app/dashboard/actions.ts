@@ -3,20 +3,23 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { getCurrentAuthContext } from '@/lib/auth/current-context'
-import { approveApproval, rejectApproval } from '@/lib/approvals/approvals'
+import { rejectApproval } from '@/lib/approvals/approvals'
 import { addClientCompetitor } from '@/lib/clients/brain'
 import { createClient } from '@/lib/clients/create'
 import {
   approveContentCalendarItem,
   cancelContentCalendarItem,
   createContentCalendarItem,
+  publishContentCalendarItem,
   scheduleContentCalendarItem,
   submitContentForReview,
+  syncContentCalendarItemFromApproval,
 } from '@/lib/content-calendar/persist'
 import { connectClientToMetricoolBrand } from '@/lib/integrations/metricool/connect'
 import { acceptRecommendation, rejectRecommendation } from '@/lib/recommendations/persist'
 import { updateTaskStatus } from '@/lib/recommendations/tasks'
 import { generateClientReportFromInternal } from '@/lib/reports/generate'
+import { approveAndExecuteApproval } from '@/lib/tools/execute'
 import { runAnalyzeClientWorkflow } from '@/lib/workflows/analyze-client-workflow'
 import { runCompetitorAnalysisWorkflow } from '@/lib/workflows/competitor-analysis-workflow'
 import { runSeoAnalysisWorkflow } from '@/lib/workflows/seo-analysis-workflow'
@@ -131,15 +134,19 @@ export async function updateTaskStatusAction(taskId: string, clientId: string, s
 
 export async function approveApprovalAction(approvalId: string, clientId: string): Promise<void> {
   const ctx = await requireCtx()
-  await approveApproval(ctx, approvalId)
+  await approveAndExecuteApproval(ctx, approvalId)
+  await syncContentCalendarItemFromApproval(approvalId)
   revalidatePath('/dashboard/approvals')
+  revalidatePath('/dashboard/content-calendar')
   revalidatePath(`/dashboard/clients/${clientId}`)
 }
 
 export async function rejectApprovalAction(approvalId: string, clientId: string, reason: string): Promise<void> {
   const ctx = await requireCtx()
   await rejectApproval(ctx, approvalId, reason || 'No reason given.')
+  await syncContentCalendarItemFromApproval(approvalId)
   revalidatePath('/dashboard/approvals')
+  revalidatePath('/dashboard/content-calendar')
   revalidatePath(`/dashboard/clients/${clientId}`)
 }
 
@@ -201,6 +208,14 @@ export async function scheduleContentItemAction(itemId: string, clientId: string
     .filter(Boolean)
   await scheduleContentCalendarItem(ctx, itemId, { networks })
   revalidatePath('/dashboard/content-calendar')
+  revalidatePath(`/dashboard/clients/${clientId}`)
+}
+
+export async function publishContentItemAction(itemId: string, clientId: string): Promise<void> {
+  const ctx = await requireCtx()
+  await publishContentCalendarItem(ctx, itemId)
+  revalidatePath('/dashboard/content-calendar')
+  revalidatePath('/dashboard/approvals')
   revalidatePath(`/dashboard/clients/${clientId}`)
 }
 

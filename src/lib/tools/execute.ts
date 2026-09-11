@@ -1,5 +1,5 @@
 import type { Prisma, Tool } from '@prisma/client'
-import { createApproval, markApprovalExecuted, markApprovalFailed } from '@/lib/approvals/approvals'
+import { approveApproval, createApproval, markApprovalExecuted, markApprovalFailed } from '@/lib/approvals/approvals'
 import { recordAuditEvent } from '@/lib/audit/record'
 import { db } from '@/lib/db/client'
 import { assertClientAccess, assertPermission } from '@/lib/rbac/guards'
@@ -351,4 +351,32 @@ export async function executeApprovedTool(ctx: AuthContext, approvalId: string):
     await markApprovalFailed(approvalId)
     throw error
   }
+}
+
+/**
+ * What "click Approve" on `/dashboard/approvals` actually calls (Phase 2 -
+ * BRD Section 85's "automated social scheduling" is what surfaced this was
+ * missing). Before this, `approveApproval` (src/lib/approvals/approvals.ts)
+ * only ever flipped an Approval's status to APPROVED - nothing in the app
+ * ever called `executeApprovedTool` afterward, so a HIGH/CRITICAL tool
+ * call an approver "approved" never actually ran. Not caught earlier
+ * because no HIGH-risk tool existed with a real, live-verifiable
+ * execution path to notice the gap through - `metricool.publish_post` is
+ * the first one.
+ *
+ * Approves, then executes only if the approval was actually created for a
+ * tool call (`proposedChanges.toolKey` present, same shape
+ * `executeApprovedTool` already expects) - an approval routed from
+ * something else (e.g. a recommendation, which has no toolKey) is left as
+ * approved-only, exactly as before. Returns the final approval row so the
+ * caller sees APPROVED, EXECUTED, or FAILED, not a stale APPROVED that's
+ * about to change underneath it.
+ */
+export async function approveAndExecuteApproval(ctx: AuthContext, approvalId: string) {
+  const approved = await approveApproval(ctx, approvalId)
+  const proposedChanges = approved.proposedChanges as unknown as ApprovedToolCallParams | null
+  if (!proposedChanges?.toolKey) return approved
+
+  await executeApprovedTool(ctx, approvalId) // marks EXECUTED or FAILED itself; a FAILED execution still throws, same as executeApprovedTool always has
+  return db.approval.findUniqueOrThrow({ where: { id: approvalId } })
 }

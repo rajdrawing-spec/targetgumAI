@@ -1136,6 +1136,120 @@ not an extension of this agent.
 
 ---
 
+## 2026-09-11 — Phase 2: automated social scheduling (`metricool.publish_post`), and a real Approval Engine execution gap found along the way
+
+**Decision:** Closed the "Automated social scheduling" Phase 2 item
+(BRD Section 85) by adding the real publish step that the content-calendar
+work (2026-09-10 above) deliberately left out: `metricool.publish_post`
+(`src/lib/integrations/metricool/tools.ts`), a HIGH-risk Tool Registry
+entry per BRD Section 21's "Publish content" row, gated on `content.manage`.
+Its real adapter stays `UnsupportedOperationError` for the same reason
+every not-yet-live-verified Metricool write does in this codebase
+(`METRICOOL_MCP_URL` is unset in every environment this has run in) - the
+mock provider (`mock-provider.ts`) fully implements it, and the whole
+feature is built and verified against the mock, same as everything else
+in this integration so far.
+
+`publishContentCalendarItem` (`src/lib/content-calendar/persist.ts`,
+`SCHEDULED -> SCHEDULED-with-a-pending-approval`) calls it through
+`executeTool` and catches `ApprovalRequiredError` specifically - a HIGH-
+risk tool never executes on a fresh call, so this always throws, and
+catching only that error (not swallowing anything else) records the new
+`approvalId` on the item while leaving its status untouched. The item
+itself never gets a new "publish requested" status - it's still exactly
+what it was, `SCHEDULED`, just now also waiting on a human. A second
+publish request while one is already pending is refused outright
+(`"A publish request is already pending approval for this item."`), not
+silently creating a second approval for the same item.
+
+**A real, previously-undiscovered gap found and fixed while wiring the
+"Approve" button to actually publish:** nothing in the running app ever
+called `executeApprovedTool` after an approval was approved.
+`approveApproval` (`src/lib/approvals/approvals.ts`) only ever flipped an
+`Approval` row's `status` to `APPROVED` in the database - the HIGH/
+CRITICAL-risk tool call it was gating never actually ran, for *any*
+approval in this codebase, not just this new one. Every approval anyone
+had ever clicked "Approve" on up to this point was, from the tool's point
+of view, still un-executed. Found the same way the Tool Registry bootstrap
+gap was found on 2026-09-10: grepping for callers of a function
+(`executeApprovedTool`) and finding none outside test files. Fixed
+generically with `approveAndExecuteApproval` (`src/lib/tools/execute.ts`,
+not `approvals.ts` - `execute.ts` already imports from `approvals.ts`, so
+adding it there avoids a circular import): approves, then - only if the
+approval's `proposedChanges` actually carries a `toolKey` (a routed
+recommendation's approval doesn't) - executes it via the existing
+`executeApprovedTool` path, marking the approval `EXECUTED` or `FAILED`.
+`approveApprovalAction` (`src/app/dashboard/actions.ts`) now calls this
+instead of bare `approveApproval`. This benefits every present and future
+HIGH/CRITICAL tool gated by the Approval Engine, not just this one.
+
+Because there's still no generic "approval resolved -> notify the thing
+that requested it" mechanism in this codebase (a routed `Recommendation`'s
+`status` doesn't sync from its own approval's outcome either - checked
+before building this), the content-calendar item's own PUBLISHED
+transition needed a small, explicit, content-calendar-specific
+reconciliation step rather than a new general pattern:
+`syncContentCalendarItemFromApproval` (`persist.ts`), called from the
+Server Action layer right after `approveAndExecuteApproval`/
+`rejectApproval`. It's a no-op for any approval not linked to a content
+item (looked up by the item's own `approvalId`, a field the schema already
+had and nothing previously used). `EXECUTED` -> item `PUBLISHED`;
+`FAILED`/`REJECTED` -> `approvalId` cleared so a retry isn't blocked by the
+"already pending" guard, item stays `SCHEDULED` rather than a new `FAILED`
+status (an integration failure or a reviewer's rejection isn't a
+disqualification of the content itself - see the same reasoning already
+applied to `scheduleContentCalendarItem` on 2026-09-10).
+
+Surfaced in the UI as a "Publish" button on `SCHEDULED` items on the
+Content calendar page, swapped for a "waiting on approval" message (linking
+to `/dashboard/approvals`) once a request is pending - no new page.
+
+7 new tests (222 total, up from 215) in `tests/integration/
+social-publish-workflow.test.ts`: the HIGH-risk gate always throwing
+`ApprovalRequiredError` on a fresh call, `publishContentCalendarItem`'s
+approval-recording and double-request guard, the full loop (approve ->
+actually executes the tool, proven against the mock provider's own post
+status via a follow-up `metricool.get_posts` call, not just the `Approval`
+row -> syncs the item to `PUBLISHED`), reject-then-retry clearing
+`approvalId`, a non-tool-call approval staying `APPROVED`-only exactly as
+before this change, and the two permission-denial cases
+(`marketing_employee` can request but not approve; `client_user` can't
+even request). Live-verified end-to-end in the browser: connected a client
+to Metricool, created/submitted/approved/scheduled a content item as
+`super-admin`, clicked "Publish" (item stayed `SCHEDULED` with the
+pending-approval message), saw the PENDING HIGH-risk approval on
+`/dashboard/approvals`, clicked "Approve" (flipped to `EXECUTED`), and
+confirmed the content item then showed `PUBLISHED`. All 222 tests pass;
+`npm run build` still produces 19 routes (no new page added).
+
+**Rationale:** The publish tool follows the exact shape every other
+HIGH-risk write in this codebase already uses - no new risk-classification
+mechanism, no new authorization path. The Approval Engine fix was in-scope
+rather than deferred, same call made for the Tool Registry bootstrap gap:
+shipping a "Publish" button that creates approvals nothing ever executes
+would be strictly worse than not shipping it, and the fix is generic, so
+it isn't scoped narrowly to this one feature. The sync step deliberately
+stays small and content-calendar-specific rather than growing into a new
+"generic approval callback" concept invented under time pressure for one
+caller - `Recommendation` living with the same limitation today is the
+precedent for not over-building this.
+
+**Trade-off accepted:** no automatic retry or scheduled re-attempt if a
+publish approval is rejected or fails - a human has to click "Publish"
+again from the content calendar. Acceptable since the BRD's automated-
+scheduling requirement is about the schedule-then-publish pipeline
+existing with the right approval gate, not about self-healing retries.
+
+**Revisit if:** a second caller needs "approval resolved -> notify
+origin" (at which point generalizing `syncContentCalendarItemFromApproval`
+into a real mechanism - and finally wiring `Recommendation.status` the
+same way - becomes worth it instead of a second one-off), or when
+`METRICOOL_MCP_URL` is actually configured somewhere and the real
+adapter's `publishPost` can be implemented and live-verified against
+Metricool itself instead of staying `UnsupportedOperationError`.
+
+---
+
 ## Template for future entries
 
 ```text

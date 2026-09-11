@@ -4,6 +4,7 @@ import { getAuthorizedClient, scopedClientWhere } from '@/lib/db/tenant'
 import { assertClientAccess, assertPermission } from '@/lib/rbac/guards'
 import { ForbiddenError } from '@/lib/rbac/errors'
 import type { AuthContext } from '@/lib/rbac/types'
+import { ApprovalRequiredError } from '@/lib/tools/errors'
 import { executeTool } from '@/lib/tools/execute'
 
 /**
@@ -14,18 +15,28 @@ import { executeTool } from '@/lib/tools/execute'
  *                                                      \-> FAILED
  *   (any non-terminal state) -> CANCELLED
  *
- * `scheduleContentItem` is where this actually talks to a provider: it
- * calls the already-registered `metricool.schedule_post` tool (MEDIUM
- * risk per Section 21's "prepare scheduled content" - executes on a
- * `content.manage` permission check alone, no Approval Engine gate, exactly
- * like every other MEDIUM-risk tool in this codebase) through
- * `executeTool`, never the Metricool provider directly - same
- * authorization/audit chain as every other tool call. The Metricool
- * adapter's own safety rule (`src/lib/integrations/metricool/provider.ts`)
- * means this only ever creates a Metricool *draft*, never a real publish -
- * `PUBLISHED` is not reachable from this module; closing that gap is the
- * separate "Automated social scheduling" Phase 2 item (BRD Section 85),
- * its own HIGH-risk, Approval-Engine-gated tool.
+ * `scheduleContentCalendarItem` (APPROVED -> SCHEDULED) calls the
+ * already-registered `metricool.schedule_post` tool (MEDIUM risk per
+ * Section 21's "prepare scheduled content" - executes on a
+ * `content.manage` permission check alone, no Approval Engine gate) -
+ * this only ever creates a Metricool *draft*.
+ *
+ * `publishContentCalendarItem` (SCHEDULED -> PUBLISHED, Phase 2's
+ * "automated social scheduling") is what actually closes that gap: it
+ * calls `metricool.publish_post`, which is HIGH risk (Section 21:
+ * "Publish content"), so it never executes on this call - `executeTool`
+ * creates a PENDING Approval and throws `ApprovalRequiredError` instead,
+ * which this catches to record the approval id on the item (leaving it
+ * SCHEDULED, not a new status - the item is still exactly what it was,
+ * just now also waiting on a human). Once an approver actually approves
+ * it (`approveAndExecuteApproval`, `src/lib/tools/execute.ts`),
+ * `syncContentCalendarItemFromApproval` (called right after, from the
+ * dashboard Server Action) is what flips the item to PUBLISHED - there is
+ * no generic "approval executed -> notify the thing it was for" mechanism
+ * in this codebase (recommendations routed to an approval don't get
+ * synced back either, see docs/DECISIONS.md), so this is a small,
+ * deliberate, content-calendar-specific reconciliation step, not a new
+ * general pattern.
  */
 
 export interface ContentCalendarItemInput {
@@ -187,4 +198,64 @@ export async function scheduleContentCalendarItem(
     where: { id: itemId },
     data: { status: 'SCHEDULED', providerPostId: result.providerPostId },
   })
+}
+
+/**
+ * SCHEDULED -> (still SCHEDULED, now with an approval pending) - requests
+ * the real publish. Always throws (the HIGH-risk gate guarantees this on
+ * a fresh call); catches specifically `ApprovalRequiredError` to record
+ * `approvalId` on the item, letting a genuinely unexpected error (a bug in
+ * the risk gate itself, an integration failure before the gate is even
+ * reached) propagate instead of being silently swallowed.
+ */
+export async function publishContentCalendarItem(ctx: AuthContext, itemId: string) {
+  assertPermission(ctx, 'content.manage')
+  const item = await getOwnedContentItem(ctx, itemId)
+  if (item.status !== 'SCHEDULED') {
+    throw new Error(`Cannot publish a content item in status ${item.status} - it must be SCHEDULED first.`)
+  }
+  if (!item.providerPostId) {
+    throw new Error('This content item has no scheduled provider post to publish.')
+  }
+  if (item.approvalId) {
+    throw new Error('A publish request is already pending approval for this item.')
+  }
+
+  try {
+    await executeTool({
+      ctx,
+      toolKey: 'metricool.publish_post',
+      clientId: item.clientId,
+      input: { providerPostId: item.providerPostId },
+    })
+    // A HIGH-risk tool call never reaches this line on a fresh (non-approved) call - reaching it means the risk gate didn't fire.
+    throw new Error('metricool.publish_post executed without an approval - the HIGH-risk gate should have blocked this.')
+  } catch (error) {
+    if (error instanceof ApprovalRequiredError) {
+      return db.contentCalendarItem.update({ where: { id: itemId }, data: { approvalId: error.approvalId } })
+    }
+    throw error
+  }
+}
+
+/**
+ * Called right after an approver approves+executes a publish approval
+ * (`approveAndExecuteApproval`, src/lib/tools/execute.ts) - not itself
+ * permission-gated, since it only runs as a side effect of an action that
+ * was already authorized. A no-op for any approval that isn't linked to a
+ * content item, or whose item already moved on.
+ */
+export async function syncContentCalendarItemFromApproval(approvalId: string): Promise<void> {
+  const item = await db.contentCalendarItem.findFirst({ where: { approvalId } })
+  if (!item || item.status !== 'SCHEDULED') return
+
+  const approval = await db.approval.findUnique({ where: { id: approvalId } })
+  if (!approval) return
+
+  if (approval.status === 'EXECUTED') {
+    await db.contentCalendarItem.update({ where: { id: item.id }, data: { status: 'PUBLISHED' } })
+  } else if (approval.status === 'FAILED' || approval.status === 'REJECTED') {
+    // Leave the item SCHEDULED but clear the approvalId so a retry (a fresh publishContentCalendarItem call) isn't blocked by "already pending".
+    await db.contentCalendarItem.update({ where: { id: item.id }, data: { approvalId: null } })
+  }
 }

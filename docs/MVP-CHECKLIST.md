@@ -964,7 +964,70 @@ Fixture data and scratch scripts removed afterward.
 
 typecheck, lint, full test suite (215/215), and production build all pass.
 
+### Automated social scheduling ✅ DONE
+
+Closes the loop the social content calendar (above) deliberately left
+open: scheduling only ever produced a Metricool *draft*, never a real
+publish (BRD Section 21 classifies "Publish content" HIGH risk, separate
+from "prepare scheduled content"'s MEDIUM). Added `metricool.publish_post`
+(`src/lib/integrations/metricool/tools.ts`), a HIGH-risk Tool Registry
+entry gated on `content.manage`; its real adapter stays
+`UnsupportedOperationError` (no live Metricool connectivity in this
+environment, same as every other not-yet-live-verified write in this
+integration) while the mock provider fully implements it, so the whole
+feature is built and verified against the mock. `publishContentCalendarItem`
+(`src/lib/content-calendar/persist.ts`, `SCHEDULED -> SCHEDULED`-with-a-
+pending-approval) calls it through `executeTool`, catches the
+`ApprovalRequiredError` a HIGH-risk call always throws on a fresh
+invocation, and records the resulting `approvalId` on the item without
+changing its status - it's still `SCHEDULED`, just now also waiting on a
+human.
+
+Also fixed a real, previously-undiscovered gap found while wiring the
+"Approve" button to actually publish: nothing in the running app ever
+called `executeApprovedTool` after an approval was approved -
+`approveApproval` alone only ever flipped the `Approval` row's status in
+the database, for *every* approval in this codebase, not just this new
+one. Fixed generically with `approveAndExecuteApproval`
+(`src/lib/tools/execute.ts`), now called from `approveApprovalAction`
+instead of bare `approveApproval` - benefits every HIGH/CRITICAL tool
+gated by the Approval Engine, not only this feature.
+`syncContentCalendarItemFromApproval` (`persist.ts`), called right after
+from the Server Action layer, is a small, deliberately content-calendar-
+specific reconciliation step (no generic "approval resolved -> notify
+origin" mechanism exists in this codebase - a routed `Recommendation`'s
+status doesn't sync from its approval either) that flips the item to
+`PUBLISHED` on `EXECUTED`, or clears `approvalId` on `FAILED`/`REJECTED`
+so a retry isn't blocked, leaving the item `SCHEDULED` rather than a new
+`FAILED` status. docs/DECISIONS.md has the full account of both gaps.
+
+Surfaced in the UI as a "Publish" button on `SCHEDULED` items on the
+Content calendar page, replaced by a "waiting on approval" message (linking
+to `/dashboard/approvals`) once a request is pending - no new page.
+
+7 new tests (222 total, up from 215) in `tests/integration/
+social-publish-workflow.test.ts`: the HIGH-risk gate always requiring
+approval on a fresh call, the approval-recording + already-pending guard,
+the full approve-and-execute-and-sync loop (verified against the mock
+provider's actual post status via `metricool.get_posts`, not just the
+`Approval` row), reject-then-retry, a non-tool-call approval staying
+approved-only exactly as before this change, and the two permission-denial
+cases (`marketing_employee` can request but not approve; `client_user` can't
+even request). All 215 pre-existing tests pass unchanged.
+
+End-to-end smoke-verified live with Playwright: connected Client A to
+Metricool (mock provider), created/submitted/approved/scheduled a content
+item as `super-admin`, clicked "Publish" and confirmed the item stayed
+`SCHEDULED` with the pending-approval message, saw the pending HIGH-risk
+"Publish a scheduled social post" approval on `/dashboard/approvals`,
+clicked "Approve" and confirmed it flipped to `EXECUTED`, then confirmed
+the content item showed `PUBLISHED` back on the content calendar - each
+step also cross-checked directly against the database, not just the
+screenshot. Fixture data and scratch scripts removed afterward.
+
+typecheck, lint, full test suite (222/222), and production build all pass.
+
 Not yet started from the Phase 2 list (BRD Section 85): Canva creative
-workflow, automated social scheduling, a Meta/Google Ads direct
-integration, weekly automated intelligence (needs the BullMQ/Redis job
-infrastructure `docs/ARCHITECTURE.md` proposes but nothing built yet).
+workflow, a Meta/Google Ads direct integration, weekly automated
+intelligence (needs the BullMQ/Redis job infrastructure
+`docs/ARCHITECTURE.md` proposes but nothing built yet).

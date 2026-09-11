@@ -1,11 +1,12 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { CalendarDays, Check, Send, X } from 'lucide-react'
+import { CalendarDays, Check, Send, Upload, X } from 'lucide-react'
 import { getCurrentAuthContext } from '@/lib/auth/current-context'
 import { listContentCalendarItemsForOrg } from '@/lib/content-calendar/persist'
 import {
   approveContentItemAction,
   cancelContentItemAction,
+  publishContentItemAction,
   scheduleContentItemAction,
   submitContentForReviewAction,
 } from '../actions'
@@ -97,6 +98,21 @@ export default async function ContentCalendarPage() {
                       <CalendarDays className="h-3.5 w-3.5" /> Schedule
                     </Button>
                   </form>
+                )}
+
+                {canManage && item.status === 'SCHEDULED' && (
+                  item.approvalId ? (
+                    <p className="mt-3 text-xs text-caption">
+                      Publish requested - waiting on approval. Check the{' '}
+                      <Link href="/dashboard/approvals" className="text-primary hover:underline">Approvals</Link> page.
+                    </p>
+                  ) : (
+                    <form action={publishContentItemAction.bind(null, item.id, item.clientId)} className="mt-3">
+                      <Button type="submit" size="sm">
+                        <Upload className="h-3.5 w-3.5" /> Publish
+                      </Button>
+                    </form>
+                  )
                 )}
               </CardContent>
             </Card>

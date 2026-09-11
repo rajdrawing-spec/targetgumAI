@@ -14,6 +14,16 @@ import { getMetricoolProvider } from './index'
  * working implementation would violate "do not assume unsupported
  * operations" (BRD Section 15/116).
  *
+ * `metricool.publish_post` (Phase 2, BRD Section 85 "automated social
+ * scheduling") is HIGH risk (BRD Section 21: "Publish content"), unlike
+ * every other tool here - it never executes on the first call, only after
+ * a human approves it through the Approval Engine
+ * (src/lib/tools/execute.ts's risk gate). The real Metricool adapter's own
+ * `publishPost` still throws `UnsupportedOperationError` (no verified MCP
+ * tool for it - docs/EXTERNAL-APPROVALS.md); this tool is real and fully
+ * exercised end-to-end against `MetricoolMockProvider`, consistent with
+ * every other not-yet-live-verified piece of this integration.
+ *
  * Every tool resolves its target client's Metricool brand via
  * withIntegrationHealthTracking(ctx.clientId, ...) - never accepts a
  * brandId directly from the caller, so a tool call can't be pointed at a
@@ -146,6 +156,24 @@ export async function registerMetricoolTools(): Promise<void> {
           brandId: connection.integrationAccount.externalAccountId,
           ...input,
         }),
+      )
+    },
+  })
+
+  await registerTool({
+    key: 'metricool.publish_post',
+    name: 'Publish a scheduled social post',
+    provider: 'metricool',
+    description:
+      'Converts an existing Metricool draft into a real, published post (BRD Section 21: "Publish content" is HIGH risk, approval required by default) - see docs/DECISIONS.md.',
+    riskLevel: 'HIGH',
+    requiredPermissions: ['content.manage'],
+    inputSchema: z.object({ providerPostId: z.string() }),
+    outputSchema: SocialPostRecordSchema,
+    execute: async (input, ctx) => {
+      const clientId = requireClientId(ctx)
+      return withIntegrationHealthTracking(clientId, 'METRICOOL', () =>
+        getMetricoolProvider().publishPost(input.providerPostId),
       )
     },
   })
