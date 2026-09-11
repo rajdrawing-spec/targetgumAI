@@ -11,53 +11,50 @@
  *
  * Palette: a warm off-white surface, a warm-neutral three-tier text scale
  * (primary/secondary/muted), a single terracotta primary reserved for CTAs
- * / active nav / key metrics, and five status hues (sage/dusty-blue/
- * lavender/mustard/rose) each used for exactly one semantic role - see the
- * "usage" comment on each. No dark theme: the app has no theme toggle and
- * no `dark:` classes exist anywhere, so a second palette would only be
- * dead weight to maintain.
+ * / active nav / key metrics, and four status hues (sage/dusty-blue/
+ * mustard/blush) each used for exactly one semantic role - see the "usage"
+ * comment on each. No dark theme: the app has no theme toggle and no
+ * `dark:` classes exist anywhere, so a second palette would only be dead
+ * weight to maintain.
  */
 @layer base {
   :root {
     /* ---- Palette ---- */
-    --bg-page: 45 29% 97%; /* #FAF9F6 */
+    --bg-page: 60 17% 98%; /* #FAFAF8 */
     --bg-surface: 0 0% 100%; /* #FFFFFF */
-    --border: 40 21% 89%; /* #E8E4DC */
+    --border: 40 11% 89%; /* #E6E4E0 */
 
-    --text-primary: 30 5% 16%; /* #2C2A28 - headings, emphasized values */
-    --text-secondary: 39 6% 45%; /* #7A756C - body copy */
-    --text-muted: 40 9% 62%; /* #A8A296 - labels, timestamps, captions */
+    --text-primary: 30 3% 12%; /* #201F1E - headings, emphasized values */
+    --text-secondary: 30 3% 42%; /* #6E6B68 - body copy */
+    --text-muted: 34 4% 63%; /* #A3A09C - labels, timestamps, captions (2.6:1 on white - decorative/large text only, never body copy) */
 
-    --primary: 14 49% 59%; /* #C97B63 - CTAs, active nav, key metrics ONLY */
-    --primary-hover: 14 41% 51%; /* #B56850 */
-    --primary-tint: 19 52% 92%; /* #F5E6DF - primary's light surface (active nav bg, avatar chips) */
+    --primary: 5 48% 53%; /* #C1584F - CTAs, active nav, key metrics ONLY */
+    --primary-hover: 4 47% 45%; /* #A8453D */
+    --primary-tint: 8 53% 92%; /* #F5E1DE - primary's light surface (active nav bg, avatar chips) */
 
-    --sage: 97 15% 58%; /* #8FA383 - success / healthy status */
+    --sage: 101 15% 60%; /* #93A889 - success / healthy status */
     --dusty-blue: 209 20% 57%; /* #7C93A8 - info / neutral status */
-    --lavender: 262 17% 63%; /* #9B8FB0 - AI-generated content badges only */
     --mustard: 41 61% 57%; /* #D4A94E - warnings */
-    --rose: 342 42% 64%; /* #C97B93 - errors / alerts */
+    --blush: 0 43% 74%; /* #D9A0A0 - errors / alerts */
 
     /* ---- Derived (not in the source spec, needed to make the palette
        above actually usable for UI chrome) ----
        - a soft tint of each status hue, for badge/callout backgrounds
        - a darker "-text" reading of each status hue: the raw hues above
          are ~2-3:1 contrast on white, too low for small badge text, so
-         text uses this darker stop of the same hue (~4.5-6.5:1) while
+         text uses this darker stop of the same hue (~4.5-7:1) while
          the raw hue above stays the canonical swatch for dots/backgrounds
        - one neutral hover wash between --border and --bg-page, for
          row/link hover states that need to read against a white card */
-    --sage-tint: 97 25% 94%;
-    --sage-text: 97 28% 32%;
+    --sage-tint: 101 25% 94%;
+    --sage-text: 101 28% 32%;
     --dusty-blue-tint: 209 30% 95%;
     --dusty-blue-text: 209 30% 36%;
-    --lavender-tint: 262 25% 95%;
-    --lavender-text: 262 22% 40%;
     --mustard-tint: 41 65% 93%;
     --mustard-text: 41 60% 36%;
-    --rose-tint: 342 45% 95%;
-    --rose-text: 342 38% 42%;
-    --surface-hover: 40 21% 94%;
+    --blush-tint: 0 45% 95%;
+    --blush-text: 0 38% 40%;
+    --surface-hover: 40 11% 94%;
 
     --radius: 0.625rem;
   }

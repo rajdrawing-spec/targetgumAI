@@ -1855,6 +1855,45 @@ shape for any pooled Postgres provider.
 
 ---
 
+## 2026-09-11 — Palette token values replaced with the approved brand palette; `rose`→`blush`, reserved `lavender`/`ai` token removed
+
+**Decision:** Swapped every value in `globals.css`'s `:root` token block for
+the approved palette (`#FAFAF8` page / `#FFFFFF` surface / `#E6E4E0`
+border; `#201F1E`/`#6E6B68`/`#A3A09C` text scale; `#C1584F` primary,
+`#A8453D` hover, `#F5E1DE` tint; `#93A889` sage, `#7C93A8` dusty-blue,
+`#D4A94E` mustard, `#D9A0A0` blush). The token *names* and the whole
+semantic layer (`success`/`warning`/`destructive`/`info`, `primary-*`,
+`card`, `muted`, `caption`) are unchanged, so this is a value-only change
+in two files (`globals.css`, `tailwind.config.ts`) with zero component
+edits - the 2026-09-10 palette entry below already confirmed no hardcoded
+colors exist outside the token system. Two structural changes alongside:
+the error hue is renamed `rose`→`blush` to match the palette's own name
+(`destructive` now resolves to `--blush-text`/`--blush-tint`), and the
+`--lavender`/`ai` token reserved in the previous entry is removed - the
+approved palette has no lavender, and a grep confirmed nothing in `src/`
+ever consumed the `ai`/`bg-ai` classes.
+
+**Rationale:** The palette was handed over as exact hex values, so the
+correct scope is token-for-token substitution, not reinterpretation. The
+derived darker "-text" stops were re-derived per hue rather than carried
+over: blush's raw `#D9A0A0` is 1.9:1 on white, so `--blush-text` is a
+40%-lightness reading of the same hue (7.2:1 on white, 6.3:1 on
+`--blush-tint`); sage shifted hue 97→101 and its tint/text stops follow.
+`--text-muted` (`#A3A09C`) is 2.6:1 on white - kept literal per the spec
+because its only role is captions/timestamps/labels (as before), never
+body copy; the comment on the token now says so explicitly.
+
+**Alternative(s) considered:** Keeping lavender as a single off-palette
+hue "for later" - rejected; an unused token that contradicts the approved
+palette is exactly the kind of drift the 2026-09-10 entry was cleaning up.
+
+**Revisit if:** an AI-generated-content marker is added to the product
+(supersedes the previous entry's "Revisit if"): use `info`
+(`--dusty-blue-*`) for it - the palette's neutral/informational hue - rather
+than introducing a color outside the approved set.
+
+---
+
 ## Template for future entries
 
 ```text

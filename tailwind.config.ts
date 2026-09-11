@@ -49,23 +49,19 @@ const config: Config = {
           bg: 'hsl(var(--mustard-tint) / <alpha-value>)',
         },
         destructive: {
-          DEFAULT: 'hsl(var(--rose-text) / <alpha-value>)',
-          bg: 'hsl(var(--rose-tint) / <alpha-value>)',
+          DEFAULT: 'hsl(var(--blush-text) / <alpha-value>)',
+          bg: 'hsl(var(--blush-tint) / <alpha-value>)',
         },
         info: {
           DEFAULT: 'hsl(var(--dusty-blue-text) / <alpha-value>)',
           bg: 'hsl(var(--dusty-blue-tint) / <alpha-value>)',
         },
         // Raw swatches (not text-safe on their own - use for dots/icons/
-        // borders, not small text) plus the AI-content-only badge color.
+        // borders, not small text).
         sage: 'hsl(var(--sage) / <alpha-value>)',
         dustyBlue: 'hsl(var(--dusty-blue) / <alpha-value>)',
         mustard: 'hsl(var(--mustard) / <alpha-value>)',
-        rose: 'hsl(var(--rose) / <alpha-value>)',
-        ai: {
-          DEFAULT: 'hsl(var(--lavender-text) / <alpha-value>)',
-          bg: 'hsl(var(--lavender-tint) / <alpha-value>)',
-        },
+        blush: 'hsl(var(--blush) / <alpha-value>)',
       },
       borderRadius: {
         lg: 'var(--radius)',
