@@ -90,6 +90,15 @@ export const authConfig: NextAuthConfig = {
   adapter: PrismaAdapter(db),
   session: { strategy: 'jwt' },
   pages: { signIn: '/sign-in' },
+  // Auth.js v5 only auto-trusts the incoming request's Host header on
+  // Vercel (it detects the VERCEL env var). On any other Node host -
+  // Hostinger, Railway, a bare VPS - every auth request (including the
+  // unauthenticated GET /api/auth/providers the sign-in page calls before
+  // any credentials are submitted) throws `UntrustedHost` synchronously,
+  // which surfaces to the browser as a 500 with no further detail. Trust
+  // the host explicitly so self-hosted deployments work; this app has no
+  // other logic that makes a security decision from the Host header.
+  trustHost: true,
   providers: [
     Credentials({
       credentials: {

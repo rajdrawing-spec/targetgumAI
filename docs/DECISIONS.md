@@ -1796,6 +1796,37 @@ not a specific Railway/Render/Fly.io account).
 
 ---
 
+## 2026-09-11 — `trustHost: true` in Auth.js config, for non-Vercel deployment
+
+**Decision:** `src/lib/auth/config.ts`'s `authConfig` sets `trustHost: true`
+explicitly.
+
+**Rationale:** Auth.js v5 only auto-trusts the incoming request's `Host`
+header when it detects the `VERCEL` env var. On any other Node host - a
+Hostinger Node.js app, Railway, a bare VPS - every single auth request
+(including the unauthenticated `GET /api/auth/providers` the sign-in page
+calls before any credentials are submitted) throws `UntrustedHost`
+synchronously. That surfaces to the browser as a bare `500 Internal Server
+Error` on `/api/auth/providers`, with sign-in appearing to silently "do
+nothing" - found live while verifying a Hostinger deployment. This app has
+no other logic that makes a security/authorization decision from the
+`Host` header (tenant/client scoping is always resolved server-side from
+the authenticated session per `docs/SECURITY.md` invariant 1, never from
+request metadata), so trusting it here is safe.
+
+**Alternative(s) considered:** Reading an `AUTH_TRUST_HOST` env var and
+only trusting conditionally - rejected as needless indirection; the app
+is already meant to be deployable outside Vercel for pilots
+(`docs/PILOT-RUNBOOK.md`), so there's no deployment target where this
+should be `false`.
+
+**Revisit if:** A future deployment target needs strict host allowlisting
+(e.g. multiple environments sharing one Auth.js secret where a spoofed
+`Host` header could matter) - switch to Auth.js's array-of-trusted-hosts
+form instead of the boolean.
+
+---
+
 ## Template for future entries
 
 ```text
