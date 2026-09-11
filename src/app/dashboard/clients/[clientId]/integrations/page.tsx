@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { Plug } from 'lucide-react'
+import { Plug, ExternalLink } from 'lucide-react'
 import { getCurrentAuthContext } from '@/lib/auth/current-context'
 import { listIntegrationConnectionsForOrg } from '@/lib/integrations/health'
 import { isGoogleIntegrationConfigured } from '@/lib/integrations/google/oauth'
@@ -65,9 +65,20 @@ export default async function ClientIntegrationsPage({ params }: { params: Promi
           <CardContent className="space-y-3">
             <ActionForm action={connectMetricoolBrandAction.bind(null, clientId)} className="flex flex-wrap items-end gap-3 rounded-md border border-dashed border-border p-3">
               <div>
-                <Label htmlFor="brandId">Metricool brand id</Label>
+                <div className="mb-1.5 flex items-center gap-2">
+                  <Label htmlFor="brandId" className="mb-0">Metricool brand id</Label>
+                  <a
+                    href="https://app.metricool.com/brands"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                  >
+                    Open Metricool <ExternalLink className="h-3 w-3" />
+                  </a>
+                </div>
                 <Input id="brandId" name="brandId" type="text" required placeholder="e.g. 6818704" className="w-44" />
                 <FieldError name="externalAccountId" />
+                <p className="mt-1 text-xs text-caption">Find it in Metricool under the brand&apos;s Settings, or in the dashboard URL.</p>
               </div>
               <div>
                 <Label htmlFor="label-metricool">Label (optional)</Label>
