@@ -59,13 +59,14 @@ export async function persistRecommendations(
 export async function listRecommendations(
   ctx: AuthContext,
   clientId: string,
-  filter: { status?: RecommendationStatus } = {},
+  filter: { status?: RecommendationStatus; limit?: number } = {},
 ) {
   assertPermission(ctx, 'clients.read')
   await getAuthorizedClient(ctx, clientId)
   return db.recommendation.findMany({
     where: { clientId, ...(filter.status && { status: filter.status }) },
     orderBy: { createdAt: 'desc' },
+    take: filter.limit ?? 100,
   })
 }
 

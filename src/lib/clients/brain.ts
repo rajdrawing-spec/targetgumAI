@@ -128,10 +128,19 @@ export async function updateClientPolicy(
 
 // --- Feedback ---
 
-export async function listClientFeedback(ctx: AuthContext, clientId: string, limit = 20) {
+export async function listClientFeedback(
+  ctx: AuthContext,
+  clientId: string,
+  limit = 20,
+  filter: { source?: ClientFeedbackSource } = {},
+) {
   assertPermission(ctx, 'clients.read')
   await getAuthorizedClient(ctx, clientId)
-  return db.clientFeedback.findMany({ where: { clientId }, orderBy: { createdAt: 'desc' }, take: limit })
+  return db.clientFeedback.findMany({
+    where: { clientId, ...(filter.source && { source: filter.source }) },
+    orderBy: { createdAt: 'desc' },
+    take: limit,
+  })
 }
 
 export async function addClientFeedback(

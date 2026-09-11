@@ -83,6 +83,54 @@ export async function resolveAuthContext(
 }
 
 /**
+ * `resolveDefaultOrganizationId` + `resolveAuthContext` in one pass, for
+ * the common "no explicit organization" request. Semantics are identical
+ * to calling the two in sequence - same null cases (disabled user, no
+ * active membership, disabled membership → client-portal fallback), same
+ * resulting AuthContext - but the default-org lookup and the membership
+ * fetch are the same `organization_users` row, so it is read once, with
+ * the user/role/permission/assignment relations loaded alongside it,
+ * instead of two sequential round trips (docs/UX-ASSESSMENT.md §5).
+ */
+export async function resolveDefaultAuthContext(db: PrismaClient, userId: string): Promise<AuthContext | null> {
+  const membership = await db.organizationUser.findFirst({
+    where: { userId, status: 'ACTIVE' },
+    orderBy: { createdAt: 'asc' },
+    include: {
+      user: { select: { status: true } },
+      role: { include: { rolePermissions: { include: { permission: true } } } },
+      assignedClients: { select: { clientId: true } },
+    },
+  })
+
+  if (membership) {
+    // Same rule as resolveAuthContext: a disabled user is denied even with
+    // an active, fully-permissioned membership.
+    if (membership.user.status !== 'ACTIVE') return null
+    const roleKey = membership.role.key as SystemRoleKey
+    const permissions = new Set(membership.role.rolePermissions.map((rp) => rp.permission.key as Permission))
+    const clientAccess = SCOPED_CLIENT_ACCESS_ROLES.includes(roleKey)
+      ? { kind: 'SET' as const, clientIds: new Set(membership.assignedClients.map((a) => a.clientId)) }
+      : { kind: 'ALL' as const }
+    return {
+      userId,
+      organizationId: membership.organizationId,
+      organizationUserId: membership.id,
+      roleKey,
+      permissions,
+      clientAccess,
+      isClientUser: false,
+    }
+  }
+
+  // No active staff membership anywhere - fall back to client-portal
+  // access in the first organization that has a ClientUser row for them.
+  const organizationId = await resolveDefaultOrganizationId(db, userId)
+  if (!organizationId) return null
+  return resolveAuthContext(db, userId, organizationId)
+}
+
+/**
  * Picks the organization a session defaults into when none is explicitly
  * selected. MVP simplification: the first organization the user has any
  * access to, staff membership before client-portal access. Multi-org

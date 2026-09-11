@@ -42,7 +42,7 @@ import {
 } from '../../actions'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge, StatusBadge, toSentenceCase } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
+import { ActionForm, FieldError, SubmitButton } from '@/components/ui/action-form'
 import { Input, Label } from '@/components/ui/input'
 import { EmptyState } from '@/components/ui/empty-state'
 
@@ -66,20 +66,19 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ c
     throw error
   }
 
-  const [policy, recommendations, tasks, approvals, reports, allConnections, aiRuns, contentItems, creativeAssets, competitors] =
+  const [policy, recommendations, tasks, approvals, reports, connections, aiRuns, contentItems, creativeAssets, competitors] =
     await Promise.all([
       getClientPolicy(ctx, clientId),
       listRecommendations(ctx, clientId),
       listTasks(ctx, clientId),
       listApprovals(ctx, { clientId }),
       listReports(ctx, clientId),
-      listIntegrationConnectionsForOrg(ctx),
+      listIntegrationConnectionsForOrg(ctx, { clientId }),
       listAiRuns(ctx, { clientId, limit: 10 }),
       listContentCalendarItems(ctx, clientId),
       listCreativeAssets(ctx, clientId),
       listClientCompetitors(ctx, clientId),
     ])
-  const connections = allConnections.filter((c) => c.clientId === clientId)
   const canManageIntegrations = ctx.permissions.has('integrations.manage')
   const canTriggerAnalysis = ctx.permissions.has('analysis.trigger')
   const canManageContent = ctx.permissions.has('content.manage')
@@ -108,21 +107,21 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ c
         </div>
         {canTriggerAnalysis && (
           <div className="flex flex-wrap gap-2">
-            <form action={triggerCompetitorAnalysisAction.bind(null, clientId)}>
-              <Button type="submit" variant="outline" size="lg">
+            <ActionForm action={triggerCompetitorAnalysisAction.bind(null, clientId)}>
+              <SubmitButton variant="outline" size="lg" pendingLabel="Analyzing competitors…">
                 <Users2 className="h-4 w-4" /> Run competitor analysis
-              </Button>
-            </form>
-            <form action={triggerSeoAnalysisAction.bind(null, clientId)}>
-              <Button type="submit" variant="outline" size="lg">
+              </SubmitButton>
+            </ActionForm>
+            <ActionForm action={triggerSeoAnalysisAction.bind(null, clientId)}>
+              <SubmitButton variant="outline" size="lg" pendingLabel="Running SEO analysis…">
                 <Search className="h-4 w-4" /> Run SEO analysis
-              </Button>
-            </form>
-            <form action={triggerAnalyzeClientAction.bind(null, clientId)}>
-              <Button type="submit" size="lg">
+              </SubmitButton>
+            </ActionForm>
+            <ActionForm action={triggerAnalyzeClientAction.bind(null, clientId)}>
+              <SubmitButton size="lg" pendingLabel="Analyzing… this takes up to a minute">
                 <Sparkles className="h-4 w-4" /> Analyze this client
-              </Button>
-            </form>
+              </SubmitButton>
+            </ActionForm>
           </div>
         )}
       </div>
@@ -158,7 +157,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ c
               </div>
             </dl>
             {canEditClient && (
-              <form action={updateWeeklyAutomationAction.bind(null, clientId)} className="mt-4 flex items-center gap-2 rounded-md border border-dashed border-border p-3">
+              <ActionForm action={updateWeeklyAutomationAction.bind(null, clientId)} className="mt-4 flex items-center gap-2 rounded-md border border-dashed border-border p-3">
                 <input
                   id="weeklyAutomationEnabled"
                   name="weeklyAutomationEnabled"
@@ -169,16 +168,16 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ c
                 <Label htmlFor="weeklyAutomationEnabled" className="mb-0 text-sm text-foreground">
                   Run weekly automated intelligence for this client
                 </Label>
-                <Button type="submit" variant="outline" size="sm" className="ml-auto">
+                <SubmitButton variant="outline" size="sm" className="ml-auto">
                   Save
-                </Button>
-              </form>
+                </SubmitButton>
+              </ActionForm>
             )}
           </CardContent>
         </Card>
       )}
 
-      <Card>
+      <Card id="integrations">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
             <Plug className="h-4 w-4 text-muted-foreground" /> Integrations
@@ -201,64 +200,68 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ c
             </ul>
           )}
           {canManageIntegrations && (
-            <form action={connectMetricoolBrandAction.bind(null, clientId)} className="flex flex-wrap items-end gap-3 rounded-md border border-dashed border-border p-3">
+            <ActionForm action={connectMetricoolBrandAction.bind(null, clientId)} className="flex flex-wrap items-end gap-3 rounded-md border border-dashed border-border p-3">
               <div>
                 <Label htmlFor="brandId">Metricool brand id</Label>
                 <Input id="brandId" name="brandId" type="text" required placeholder="e.g. 6818704" className="w-44" />
+                <FieldError name="externalAccountId" />
               </div>
               <div>
                 <Label htmlFor="label">Label (optional)</Label>
                 <Input id="label" name="label" type="text" className="w-44" />
               </div>
-              <Button type="submit" variant="outline">
+              <SubmitButton variant="outline">
                 Connect Metricool brand
-              </Button>
-            </form>
+              </SubmitButton>
+            </ActionForm>
           )}
           {canManageIntegrations && (
-            <form action={connectGoogleAdsAccountAction.bind(null, clientId)} className="flex flex-wrap items-end gap-3 rounded-md border border-dashed border-border p-3">
+            <ActionForm action={connectGoogleAdsAccountAction.bind(null, clientId)} className="flex flex-wrap items-end gap-3 rounded-md border border-dashed border-border p-3">
               <div>
                 <Label htmlFor="googleAdsAccountId">Google Ads customer id</Label>
                 <Input id="googleAdsAccountId" name="externalAccountId" type="text" required placeholder="e.g. 123-456-7890" className="w-44" />
+                <FieldError name="externalAccountId" />
               </div>
               <div>
                 <Label htmlFor="googleAdsLabel">Label (optional)</Label>
                 <Input id="googleAdsLabel" name="label" type="text" className="w-44" />
               </div>
-              <Button type="submit" variant="outline">
+              <SubmitButton variant="outline">
                 Connect Google Ads account
-              </Button>
-            </form>
+              </SubmitButton>
+            </ActionForm>
           )}
           {canManageIntegrations && (
-            <form action={connectMetaAdsAccountAction.bind(null, clientId)} className="flex flex-wrap items-end gap-3 rounded-md border border-dashed border-border p-3">
+            <ActionForm action={connectMetaAdsAccountAction.bind(null, clientId)} className="flex flex-wrap items-end gap-3 rounded-md border border-dashed border-border p-3">
               <div>
                 <Label htmlFor="metaAdsAccountId">Meta Ads account id</Label>
                 <Input id="metaAdsAccountId" name="externalAccountId" type="text" required placeholder="e.g. act_123456789" className="w-44" />
+                <FieldError name="externalAccountId" />
               </div>
               <div>
                 <Label htmlFor="metaAdsLabel">Label (optional)</Label>
                 <Input id="metaAdsLabel" name="label" type="text" className="w-44" />
               </div>
-              <Button type="submit" variant="outline">
+              <SubmitButton variant="outline">
                 Connect Meta Ads account
-              </Button>
-            </form>
+              </SubmitButton>
+            </ActionForm>
           )}
           {canManageIntegrations && (
-            <form action={connectCanvaAccountAction.bind(null, clientId)} className="flex flex-wrap items-end gap-3 rounded-md border border-dashed border-border p-3">
+            <ActionForm action={connectCanvaAccountAction.bind(null, clientId)} className="flex flex-wrap items-end gap-3 rounded-md border border-dashed border-border p-3">
               <div>
                 <Label htmlFor="canvaAccountId">Canva brand id</Label>
                 <Input id="canvaAccountId" name="externalAccountId" type="text" required placeholder="e.g. BAmockbrand" className="w-44" />
+                <FieldError name="externalAccountId" />
               </div>
               <div>
                 <Label htmlFor="canvaLabel">Label (optional)</Label>
                 <Input id="canvaLabel" name="label" type="text" className="w-44" />
               </div>
-              <Button type="submit" variant="outline">
+              <SubmitButton variant="outline">
                 Connect Canva brand
-              </Button>
-            </form>
+              </SubmitButton>
+            </ActionForm>
           )}
         </CardContent>
       </Card>
@@ -418,23 +421,26 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ c
             </ul>
           )}
           {canManageCreative && (
-            <form action={triggerCreativeWorkflowAction.bind(null, clientId)} className="flex flex-wrap items-end gap-3 rounded-md border border-dashed border-border p-3">
+            <ActionForm action={triggerCreativeWorkflowAction.bind(null, clientId)} className="flex flex-wrap items-end gap-3 rounded-md border border-dashed border-border p-3">
               <div>
                 <Label htmlFor="creativePlatform">Platform</Label>
                 <Input id="creativePlatform" name="platform" type="text" required defaultValue="instagram" className="w-32" />
+                <FieldError name="platform" />
               </div>
               <div>
                 <Label htmlFor="creativeCount">Count</Label>
                 <Input id="creativeCount" name="count" type="number" min={1} max={10} required defaultValue={3} className="w-20" />
+                <FieldError name="count" />
               </div>
               <div className="min-w-[14rem] flex-1">
                 <Label htmlFor="campaignBrief">Campaign brief</Label>
                 <Input id="campaignBrief" name="campaignBrief" type="text" required placeholder="e.g. the recommended spring promotion" />
+                <FieldError name="campaignBrief" />
               </div>
-              <Button type="submit" variant="outline">
+              <SubmitButton variant="outline" pendingLabel="Generating concepts…">
                 <Sparkles className="h-3.5 w-3.5" /> Generate concepts
-              </Button>
-            </form>
+              </SubmitButton>
+            </ActionForm>
           )}
           <p className="text-xs text-caption">
             Review, generate designs, and approve from the <Link href="/dashboard/creatives" className="text-primary hover:underline">creatives</Link> page.
@@ -467,18 +473,21 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ c
             </ul>
           )}
           {canManageContent && (
-            <form action={createContentItemAction.bind(null, clientId)} className="flex flex-wrap items-end gap-3 rounded-md border border-dashed border-border p-3">
+            <ActionForm action={createContentItemAction.bind(null, clientId)} className="flex flex-wrap items-end gap-3 rounded-md border border-dashed border-border p-3">
               <div>
                 <Label htmlFor="platform">Platform</Label>
                 <Input id="platform" name="platform" type="text" required placeholder="e.g. instagram" className="w-36" />
+                <FieldError name="platform" />
               </div>
               <div>
                 <Label htmlFor="publishDate">Publish date</Label>
                 <Input id="publishDate" name="publishDate" type="date" required className="w-40" />
+                <FieldError name="publishDate" />
               </div>
               <div className="min-w-[14rem] flex-1">
                 <Label htmlFor="caption">Caption</Label>
                 <Input id="caption" name="caption" type="text" placeholder="Post copy…" />
+                <FieldError name="caption" />
               </div>
               {approvedCreativeAssets.length > 0 && (
                 <div>
@@ -497,10 +506,10 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ c
                   </select>
                 </div>
               )}
-              <Button type="submit" variant="outline">
+              <SubmitButton variant="outline">
                 Add to calendar
-              </Button>
-            </form>
+              </SubmitButton>
+            </ActionForm>
           )}
           <p className="text-xs text-caption">
             Review, approve, and schedule from the <Link href="/dashboard/content-calendar" className="text-primary hover:underline">content calendar</Link> page.
@@ -536,15 +545,17 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ c
             </ul>
           )}
           {canEditClient && (
-            <form action={addCompetitorAction.bind(null, clientId)} className="space-y-3 rounded-md border border-dashed border-border p-3">
+            <ActionForm action={addCompetitorAction.bind(null, clientId)} className="space-y-3 rounded-md border border-dashed border-border p-3">
               <div className="flex flex-wrap items-end gap-3">
                 <div>
                   <Label htmlFor="competitorName">Name</Label>
                   <Input id="competitorName" name="name" type="text" required placeholder="e.g. Acme Rivals" className="w-44" />
+                <FieldError name="name" />
                 </div>
                 <div>
                   <Label htmlFor="competitorUrl">URL</Label>
                   <Input id="competitorUrl" name="url" type="url" placeholder="https://…" className="w-56" />
+                <FieldError name="url" />
                 </div>
                 <div className="min-w-[14rem] flex-1">
                   <Label htmlFor="competitorPositioning">Positioning</Label>
@@ -555,10 +566,10 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ c
                 <Label htmlFor="competitorObservations">Observations</Label>
                 <Input id="competitorObservations" name="observations" type="text" placeholder="Anything worth noting…" />
               </div>
-              <Button type="submit" variant="outline">
+              <SubmitButton variant="outline">
                 Add competitor
-              </Button>
-            </form>
+              </SubmitButton>
+            </ActionForm>
           )}
         </CardContent>
       </Card>

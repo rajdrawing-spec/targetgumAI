@@ -53,9 +53,10 @@ export async function createApproval(input: CreateApprovalInput) {
 
 export async function listApprovals(
   ctx: AuthContext,
-  filter: { clientId?: string; status?: ApprovalStatus } = {},
+  filter: { clientId?: string; status?: ApprovalStatus; limit?: number } = {},
 ) {
   assertPermission(ctx, 'approvals.request')
+  const take = filter.limit ?? 100
 
   if (filter.clientId) {
     const client = await db.client.findUnique({ where: { id: filter.clientId } })
@@ -63,7 +64,9 @@ export async function listApprovals(
     assertClientAccess(ctx, client)
     return db.approval.findMany({
       where: { organizationId: ctx.organizationId, clientId: client.id, ...(filter.status && { status: filter.status }) },
+      include: { client: { select: { id: true, name: true } } },
       orderBy: { createdAt: 'desc' },
+      take,
     })
   }
 
@@ -73,7 +76,9 @@ export async function listApprovals(
       : { organizationId: ctx.organizationId, clientId: { in: Array.from(ctx.clientAccess.clientIds) } }
   return db.approval.findMany({
     where: { ...where, ...(filter.status && { status: filter.status }) },
+    include: { client: { select: { id: true, name: true } } },
     orderBy: { createdAt: 'desc' },
+    take,
   })
 }
 

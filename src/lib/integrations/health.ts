@@ -182,10 +182,21 @@ export function loadProviderCredentials<T = Record<string, unknown>>(connection:
  * Never selects `encryptedCredentials` - this is a status view, not a
  * credential-reading path (see docs/SECURITY.md).
  */
-export async function listIntegrationConnectionsForOrg(ctx: AuthContext) {
+export async function listIntegrationConnectionsForOrg(
+  ctx: AuthContext,
+  filter: { clientId?: string; limit?: number; status?: IntegrationHealth[] } = {},
+) {
   assertPermission(ctx, 'clients.read')
   return db.integrationConnection.findMany({
-    where: scopedClientWhere(ctx),
+    // scopedClientWhere already limits to the caller's authorized clients;
+    // a clientId filter narrows within that set, never widens it.
+    where: {
+      ...scopedClientWhere(ctx),
+      ...(filter.clientId && { clientId: filter.clientId }),
+      ...(filter.status && filter.status.length > 0 && { status: { in: filter.status } }),
+    },
+    // Explicit select: `encryptedCredentials` must never leave this module
+    // (docs/SECURITY.md invariant 4), even to a server component.
     select: {
       id: true,
       clientId: true,
@@ -193,11 +204,13 @@ export async function listIntegrationConnectionsForOrg(ctx: AuthContext) {
       lastSuccessfulSyncAt: true,
       lastErrorAt: true,
       lastErrorMessage: true,
+      updatedAt: true,
       client: { select: { id: true, name: true } },
       integrationAccount: {
-        select: { externalAccountId: true, label: true, integration: { select: { provider: true } } },
+        select: { externalAccountId: true, label: true, integration: { select: { provider: true, displayName: true } } },
       },
     },
     orderBy: { updatedAt: 'desc' },
+    take: filter.limit ?? 200,
   })
 }

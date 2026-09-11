@@ -4,6 +4,7 @@ import { Sparkles, LogOut } from 'lucide-react'
 import { getCurrentAuthContext } from '@/lib/auth/current-context'
 import { signOut } from '@/lib/auth'
 import { DashboardNav } from '@/components/dashboard-nav'
+import { ToastProvider } from '@/components/ui/toast'
 
 /**
  * The Day 13/14 dashboard shell (BRD-PRD Section 42). Nav mirrors the
@@ -35,6 +36,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   if (ctx.isClientUser) redirect('/portal')
 
   return (
+    <ToastProvider>
     <div className="flex min-h-screen">
       <aside className="flex w-64 shrink-0 flex-col border-r border-border bg-card">
         <div className="flex items-center gap-2.5 px-5 py-5">
@@ -74,10 +76,11 @@ export default async function DashboardLayout({ children }: { children: React.Re
             TargetGum Agency Workspace
           </Link>
         </header>
-        <main className="flex-1 overflow-y-auto px-8 py-8">
-          <div className="mx-auto max-w-6xl">{children}</div>
+        <main className="flex-1 overflow-y-auto px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+          <div className="mx-auto max-w-7xl">{children}</div>
         </main>
       </div>
     </div>
+    </ToastProvider>
   )
 }

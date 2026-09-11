@@ -12,17 +12,14 @@ import {
 import { PageHeader } from '@/components/ui/page-header'
 import { Card, CardContent } from '@/components/ui/card'
 import { StatusBadge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
+import { ActionForm, SubmitButton } from '@/components/ui/action-form'
 
 /**
  * Creative asset review (BRD Section 67/85 Phase 2 - the Canva creative
  * workflow). Shows every `CreativeAsset` across every client the caller
- * can see, with the status-transition actions available at each stage -
- * same aggregate-page-owns-actions split as Content calendar/
- * Recommendations/Tasks: creation (triggering concept generation) happens
- * from a client's detail page, this page owns the review/approve/reject/
- * generate-design actions.
+ * can see, with the status-transition actions available at each stage.
+ * Concept generation is triggered from a client's workspace.
  */
 export default async function CreativesPage() {
   const ctx = await getCurrentAuthContext()
@@ -39,13 +36,17 @@ export default async function CreativesPage() {
         <EmptyState
           icon={ImageIcon}
           title="No creative concepts yet"
-          description="Generate creative concepts from a client's page to get started."
+          description="Open a client's workspace and use &quot;Generate concepts&quot; with a short campaign brief."
         />
       ) : (
-        <div className="space-y-3">
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
           {assets.map((asset) => (
-            <Card key={asset.id}>
-              <CardContent className="p-4">
+            <Card key={asset.id} className="flex flex-col">
+              {asset.exportUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element -- provider-hosted asset, dimensions unknown
+                <img src={asset.exportUrl} alt={asset.concept ?? 'Exported creative'} className="max-h-64 w-full rounded-t-lg object-cover" />
+              ) : null}
+              <CardContent className="flex flex-1 flex-col p-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
                     <Link href={`/dashboard/clients/${asset.clientId}`} className="text-sm font-medium text-foreground hover:text-primary">
@@ -60,48 +61,48 @@ export default async function CreativesPage() {
                 {asset.designUrl && (
                   <p className="mt-1 text-xs">
                     <a href={asset.designUrl} target="_blank" rel="noreferrer" className="text-primary hover:underline">
-                      Continue editing in Canva →
+                      Open in Canva →
                     </a>
                   </p>
                 )}
+                {!asset.designUrl && !asset.exportUrl && (
+                  <p className="mt-1 text-xs text-caption">No design yet - this is a concept only.</p>
+                )}
 
-                <div className="mt-3 flex flex-wrap gap-2">
+                <div className="mt-auto flex flex-wrap gap-2 pt-3">
                   {canManage && !asset.designUrl && (asset.status === 'DRAFT' || asset.status === 'IN_REVIEW') && (
-                    <form action={generateCreativeDesignAction.bind(null, asset.id, asset.clientId)}>
-                      <Button type="submit" variant="outline" size="sm">
+                    <ActionForm action={generateCreativeDesignAction.bind(null, asset.id, asset.clientId)}>
+                      <SubmitButton variant="outline" size="sm" pendingLabel="Generating design…">
                         <Sparkles className="h-3.5 w-3.5" /> Generate Canva design
-                      </Button>
-                    </form>
+                      </SubmitButton>
+                    </ActionForm>
                   )}
-
                   {canManage && asset.status === 'DRAFT' && (
-                    <form action={submitCreativeForReviewAction.bind(null, asset.id, asset.clientId)}>
-                      <Button type="submit" variant="outline" size="sm">
+                    <ActionForm action={submitCreativeForReviewAction.bind(null, asset.id, asset.clientId)}>
+                      <SubmitButton variant="outline" size="sm" pendingLabel="Submitting…">
                         <Send className="h-3.5 w-3.5" /> Submit for review
-                      </Button>
-                    </form>
+                      </SubmitButton>
+                    </ActionForm>
                   )}
-
                   {canManage && asset.status === 'IN_REVIEW' && (
                     <>
-                      <form action={approveCreativeAction.bind(null, asset.id, asset.clientId)}>
-                        <Button type="submit" size="sm">
+                      <ActionForm action={approveCreativeAction.bind(null, asset.id, asset.clientId)}>
+                        <SubmitButton size="sm" pendingLabel="Approving…">
                           <Check className="h-3.5 w-3.5" /> Approve
-                        </Button>
-                      </form>
-                      <form action={rejectCreativeAction.bind(null, asset.id, asset.clientId)}>
-                        <Button type="submit" variant="ghost" size="sm">
+                        </SubmitButton>
+                      </ActionForm>
+                      <ActionForm action={rejectCreativeAction.bind(null, asset.id, asset.clientId)}>
+                        <SubmitButton variant="ghost" size="sm" pendingLabel="Rejecting…">
                           <X className="h-3.5 w-3.5" /> Reject
-                        </Button>
-                      </form>
+                        </SubmitButton>
+                      </ActionForm>
                     </>
                   )}
-
                   {asset.status === 'APPROVED' && (
                     <p className="text-xs text-caption">
-                      Approved - attach it to a post from a client&apos;s{' '}
+                      Approved - attach it to a post from{' '}
                       <Link href={`/dashboard/clients/${asset.clientId}`} className="text-primary hover:underline">
-                        content calendar form
+                        the client&apos;s workspace
                       </Link>
                       .
                     </p>

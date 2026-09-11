@@ -73,13 +73,20 @@ describe('Client onboarding (Day 15) - createClient + connectClientToMetricoolBr
       expect(policy).not.toBeNull()
     })
 
-    it('auto-suffixes the slug on a collision within the same org, rather than failing', async () => {
+    it('refuses a duplicate name within the same org (case-insensitive) instead of silently creating a look-alike', async () => {
       const ctx = await resolveAuthContext(testDb, superAdminId, orgId)
-      const first = await createClient(ctx!, { name: 'Collision Co' })
-      const second = await createClient(ctx!, { name: 'Collision Co' })
+      await createClient(ctx!, { name: 'Collision Co' })
+      await expect(createClient(ctx!, { name: 'Collision Co' })).rejects.toThrow(/already exists/)
+      await expect(createClient(ctx!, { name: 'collision co' })).rejects.toThrow(/already exists/)
+    })
 
-      expect(first.slug).toBe('collision-co')
-      expect(second.slug).toBe('collision-co-2')
+    it('still auto-suffixes the slug when two different names collide on their slug', async () => {
+      const ctx = await resolveAuthContext(testDb, superAdminId, orgId)
+      const first = await createClient(ctx!, { name: 'Slug Twins' })
+      const second = await createClient(ctx!, { name: 'Slug-Twins' })
+
+      expect(first.slug).toBe('slug-twins')
+      expect(second.slug).toBe('slug-twins-2')
       expect(second.id).not.toBe(first.id)
     })
 

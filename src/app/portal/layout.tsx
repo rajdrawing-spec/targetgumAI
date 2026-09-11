@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { Sparkles, LogOut } from 'lucide-react'
 import { getCurrentAuthContext } from '@/lib/auth/current-context'
 import { signOut } from '@/lib/auth'
+import { ToastProvider } from '@/components/ui/toast'
 
 /**
  * The Client Portal (BRD-PRD Section 4.4, Phase 2's "Client approval
@@ -24,6 +25,7 @@ export default async function PortalLayout({ children }: { children: React.React
   if (!ctx.isClientUser) redirect('/dashboard')
 
   return (
+    <ToastProvider>
     <div className="min-h-screen bg-background">
       <header className="border-b border-border bg-card">
         <div className="mx-auto flex max-w-3xl items-center justify-between px-6 py-4">
@@ -47,5 +49,6 @@ export default async function PortalLayout({ children }: { children: React.React
       </header>
       <main className="mx-auto max-w-3xl px-6 py-8">{children}</main>
     </div>
+    </ToastProvider>
   )
 }

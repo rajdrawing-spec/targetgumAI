@@ -8,7 +8,7 @@ import { PageHeader } from '@/components/ui/page-header'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge, toSentenceCase } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
+import { ActionForm, FieldError, SubmitButton } from '@/components/ui/action-form'
 import { EmptyState } from '@/components/ui/empty-state'
 
 export default async function ClientsPage() {
@@ -28,17 +28,18 @@ export default async function ClientsPage() {
       {canCreate && (
         <Card>
           <CardContent className="p-4">
-            <form action={createClientAction} className="flex flex-wrap items-end gap-3">
+            <ActionForm action={createClientAction} className="flex flex-wrap items-end gap-3">
               <div className="min-w-[16rem] flex-1">
                 <label htmlFor="name" className="mb-1.5 block text-xs font-medium text-caption">
                   New client name
                 </label>
-                <Input id="name" name="name" type="text" required placeholder="e.g. Acme Retail" />
+                <Input id="name" name="name" type="text" required minLength={2} placeholder="e.g. Acme Retail" />
+                <FieldError name="name" />
               </div>
-              <Button type="submit">
+              <SubmitButton pendingLabel="Creating…">
                 <Plus className="h-4 w-4" /> Create client
-              </Button>
-            </form>
+              </SubmitButton>
+            </ActionForm>
           </CardContent>
         </Card>
       )}

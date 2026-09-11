@@ -1894,6 +1894,68 @@ than introducing a color outside the approved set.
 
 ---
 
+## 2026-09-11 — UX/performance upgrade, Phase 2: per-request auth caching, ActionResult actions, loading states
+
+**Decision:** Four conventions, applied to every existing page and action
+(see `docs/UX-ASSESSMENT.md` for the audit that motivated them):
+
+1. `getCurrentAuthContext` is wrapped in React `cache()` and resolves the
+   default organization and the membership in one query
+   (`resolveDefaultAuthContext`). Measured on the production build: the
+   authorization chain went from 14 sequential statements per navigation
+   (7-query chain × layout + page) to 6, once per request. `cache()` is
+   per-request only - never shared across requests - so a user disabled
+   mid-session is still denied on their next request (pinned by
+   `tests/security/default-auth-context.test.ts`).
+2. Every Server Action returns an `ActionResult` (`src/lib/actions/result.ts`)
+   and never throws to the client; inputs are validated with Zod first.
+   `ActionForm` / `SubmitButton` / `FieldError` (`src/components/ui/
+   action-form.tsx`) drive `useActionState` + `useFormStatus`, so every
+   mutation has a real pending state on the control that started it, an
+   inline error, and a success toast - no `setTimeout`, no full-page reload.
+   Known user-facing errors (Forbidden, IntegrationUnavailable, AiGateway,
+   Zod, "already exists"-style lib validation) pass through with their own
+   message; anything else is logged server-side and reduced to a generic
+   message so internals never reach the browser.
+3. `loading.tsx` skeletons for `/dashboard`, `/dashboard/clients`,
+   `/dashboard/clients/[clientId]` and `/portal`, plus
+   `experimental.staleTimes.dynamic = 30` so recently visited pages are
+   instant on revisit (a Server Action's `revalidatePath` still invalidates
+   them immediately).
+4. List pages read `searchParams` for URL-backed filter tabs
+   (`FilterTabs`), rejections collect a required reason (`RejectWithReason`)
+   instead of writing a hardcoded string, and previously unbounded lists
+   (`listApprovals`, `listIntegrationConnectionsForOrg`, per-client
+   recommendation/report/calendar lists) take a `limit`. The content
+   calendar defaults to an "upcoming" window (it used to return the oldest
+   100 rows). `createClient` refuses a duplicate name within the
+   organization (case-insensitive) - the three "LHO" cards were the
+   previous silent `lho`/`lho-2`/`lho-3` slug suffixing.
+
+Also: `vercel.json` pins functions to `hnd1` (Tokyo) to sit next to the
+Supabase project's `ap-northeast-1` database - the measured per-query
+round trip, not CPU, is what made navigation feel slow.
+
+**Rationale:** The assessment measured the app as round-trip-bound
+(local TTFB 20-66 ms, but 14 sequential auth queries per navigation on a
+cross-region deployment). Fixing the count of sequential round trips and
+painting a skeleton immediately are the two levers that change perceived
+speed; nothing here adds artificial delay or client-side data fetching.
+
+**Alternative(s) considered:** Prisma's `relationJoins` preview feature
+would collapse the remaining 6 auth statements into one SQL join, but it
+flips the default load strategy for *every* query in the app - deferred
+until measured on the deployed topology after the region change; the
+per-query `relationLoadStrategy: 'join'` is the next lever if needed.
+Caching role permissions in memory across requests was rejected: it would
+delay permission revocation and break the deleted-user guarantee.
+
+**Revisit if:** the deployed p95 navigation is still above ~500 ms after
+the region change (then enable `relationJoins` for the auth query), or a
+second surface needs different `ActionResult` semantics.
+
+---
+
 ## Template for future entries
 
 ```text

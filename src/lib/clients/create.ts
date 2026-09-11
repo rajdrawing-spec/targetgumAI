@@ -27,6 +27,15 @@ export async function createClient(ctx: AuthContext, input: { name: string; slug
   const name = input.name.trim()
   if (!name) throw new Error('Client name is required.')
 
+  // Names are unique per organization (case-insensitive). Before this
+  // check, submitting the same name twice quietly produced "lho",
+  // "lho-2", "lho-3" - three indistinguishable cards (docs/UX-ASSESSMENT.md).
+  const existing = await db.client.findFirst({
+    where: { organizationId: ctx.organizationId, name: { equals: name, mode: 'insensitive' } },
+    select: { id: true, name: true },
+  })
+  if (existing) throw new Error(`A client named "${existing.name}" already exists.`)
+
   const baseSlug = slugify(input.slug?.trim() || name)
   let slug = baseSlug
   let suffix = 1

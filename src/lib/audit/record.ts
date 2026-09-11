@@ -47,12 +47,14 @@ export async function listAuditEvents(
   assertPermission(ctx, 'audit.read')
 
   const limit = filter.limit ?? 100
+  const include = { client: { select: { id: true, name: true } } }
 
   if (filter.clientId) {
     // Reuses the same tenant check as any other client-scoped read.
     const client = await getAuthorizedClient(ctx, filter.clientId)
     return db.auditEvent.findMany({
       where: { organizationId: ctx.organizationId, clientId: client.id },
+      include,
       orderBy: { timestamp: 'desc' },
       take: limit,
     })
@@ -66,5 +68,21 @@ export async function listAuditEvents(
           OR: [{ clientId: { in: Array.from(ctx.clientAccess.clientIds) } }, { clientId: null }],
         }
 
-  return db.auditEvent.findMany({ where, orderBy: { timestamp: 'desc' }, take: limit })
+  return db.auditEvent.findMany({ where, include, orderBy: { timestamp: 'desc' }, take: limit })
+}
+
+/**
+ * Display labels (name or email) for the users referenced by a batch of
+ * audit events, restricted to members of the caller's organization - a
+ * userId from another organization resolves to nothing, never to a name.
+ */
+export async function resolveActorLabels(ctx: AuthContext, userIds: Array<string | null | undefined>): Promise<Map<string, string>> {
+  assertPermission(ctx, 'audit.read')
+  const ids = Array.from(new Set(userIds.filter((id): id is string => Boolean(id))))
+  if (ids.length === 0) return new Map()
+  const members = await db.organizationUser.findMany({
+    where: { organizationId: ctx.organizationId, userId: { in: ids } },
+    select: { userId: true, user: { select: { name: true, email: true } } },
+  })
+  return new Map(members.map((m) => [m.userId, m.user.name || m.user.email]))
 }

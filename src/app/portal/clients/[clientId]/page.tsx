@@ -1,7 +1,9 @@
 import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
-import { Lightbulb, FileText, MessageSquare, Check, X, CalendarDays } from 'lucide-react'
+import { Lightbulb, FileText, MessageSquare, Check, CalendarDays } from 'lucide-react'
+import type { ContentStatus } from '@prisma/client'
 import { getCurrentAuthContext } from '@/lib/auth/current-context'
+import { listClientFeedback } from '@/lib/clients/brain'
 import { listContentCalendarItems } from '@/lib/content-calendar/persist'
 import { getAuthorizedClient } from '@/lib/db/tenant'
 import { listRecommendations } from '@/lib/recommendations/persist'
@@ -13,24 +15,39 @@ import {
   submitFeedbackAction,
 } from '../../actions'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { StatusBadge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
+import { Badge, StatusBadge } from '@/components/ui/badge'
 import { Textarea } from '@/components/ui/input'
 import { EmptyState } from '@/components/ui/empty-state'
+import { ActionForm, FieldError, SubmitButton } from '@/components/ui/action-form'
+import { RejectWithReason } from '@/components/ui/reject-with-reason'
 
 /**
  * The Client Portal's main view for one client (BRD Section 4.4): review
- * and accept/reject recommendations, see CLIENT-facing reports
- * (`listReports` already redacts to CLIENT-type only for a client_user -
- * `src/lib/reports/generate.ts`), view content/creative (read-only -
- * `listContentCalendarItems` gates on `clients.read`, which client_user
- * already holds, same as reports; no `content.manage` needed to view), and
- * leave feedback. No tasks, no Approval-Engine approvals, no AI runs, no
- * integration detail - none of that is a client capability per Section 4.4.
+ * and accept/decline recommendations, see CLIENT-facing reports
+ * (`listReports` already redacts to CLIENT-type only for a client_user),
+ * view planned content (read-only), and leave feedback. No tasks, no
+ * Approval-Engine approvals, no AI runs, no integration detail - none of
+ * that is a client capability per Section 4.4.
  */
+
+/**
+ * Internal workflow states (IDEA/DRAFT/IN_REVIEW) are staff vocabulary and
+ * must not leak to the client; they see whether a post is being prepared,
+ * scheduled, or live.
+ */
+const CLIENT_CONTENT_STATUS: Record<ContentStatus, { label: string; variant: 'neutral' | 'info' | 'success' | 'warning' }> = {
+  IDEA: { label: 'In preparation', variant: 'neutral' },
+  DRAFT: { label: 'In preparation', variant: 'neutral' },
+  IN_REVIEW: { label: 'In preparation', variant: 'neutral' },
+  APPROVED: { label: 'Approved', variant: 'info' },
+  SCHEDULED: { label: 'Scheduled', variant: 'info' },
+  PUBLISHED: { label: 'Published', variant: 'success' },
+  FAILED: { label: 'Needs attention', variant: 'warning' },
+  CANCELLED: { label: 'Cancelled', variant: 'neutral' },
+}
+
 export default async function PortalClientPage({ params }: { params: Promise<{ clientId: string }> }) {
-  const { clientId } = await params
-  const ctx = await getCurrentAuthContext()
+  const [{ clientId }, ctx] = await Promise.all([params, getCurrentAuthContext()])
   if (!ctx) redirect('/sign-in')
 
   let client
@@ -41,15 +58,24 @@ export default async function PortalClientPage({ params }: { params: Promise<{ c
     throw error
   }
 
-  const [recommendations, reports, contentItems] = await Promise.all([
-    listRecommendations(ctx, clientId),
-    listReports(ctx, clientId),
-    listContentCalendarItems(ctx, clientId),
+  const [recommendations, reports, contentItems, ownFeedback] = await Promise.all([
+    listRecommendations(ctx, clientId, { limit: 50 }),
+    listReports(ctx, clientId, { limit: 50 }),
+    listContentCalendarItems(ctx, clientId, { limit: 50 }),
+    // Only what this client submitted - account-manager notes are internal.
+    listClientFeedback(ctx, clientId, 5, { source: 'CLIENT' }),
   ])
+  const toReview = recommendations.filter((r) => r.status === 'RECOMMENDED')
+  const decided = recommendations.filter((r) => r.status !== 'RECOMMENDED')
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-medium tracking-tight text-foreground">{client.name}</h1>
+      <div>
+        <h1 className="text-2xl font-medium tracking-tight text-foreground">{client.name}</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {toReview.length > 0 ? `${toReview.length} recommendation${toReview.length === 1 ? '' : 's'} waiting for your review.` : 'Nothing is waiting for your review right now.'}
+        </p>
+      </div>
 
       <Card>
         <CardHeader>
@@ -59,10 +85,10 @@ export default async function PortalClientPage({ params }: { params: Promise<{ c
         </CardHeader>
         <CardContent>
           {recommendations.length === 0 ? (
-            <EmptyState icon={Lightbulb} title="Nothing to review right now" />
+            <EmptyState icon={Lightbulb} title="Nothing to review right now" description="Your team will share recommendations here as they come up." />
           ) : (
             <ul className="space-y-3">
-              {recommendations.map((rec) => (
+              {[...toReview, ...decided].map((rec) => (
                 <li key={rec.id} className="rounded-md border border-border p-4">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
@@ -75,17 +101,19 @@ export default async function PortalClientPage({ params }: { params: Promise<{ c
                   <p className="mt-1 text-sm text-muted-foreground">→ {rec.recommendation}</p>
 
                   {rec.status === 'RECOMMENDED' && (
-                    <div className="mt-3 flex gap-2">
-                      <form action={portalAcceptRecommendationAction.bind(null, rec.id, clientId)}>
-                        <Button type="submit" size="sm">
+                    <div className="mt-3 flex flex-wrap items-start gap-2">
+                      <ActionForm action={portalAcceptRecommendationAction.bind(null, rec.id, clientId)}>
+                        <SubmitButton size="sm" pendingLabel="Approving…">
                           <Check className="h-3.5 w-3.5" /> Approve
-                        </Button>
-                      </form>
-                      <form action={portalRejectRecommendationAction.bind(null, rec.id, clientId, 'Rejected from client portal.')}>
-                        <Button type="submit" variant="outline" size="sm">
-                          <X className="h-3.5 w-3.5" /> Decline
-                        </Button>
-                      </form>
+                        </SubmitButton>
+                      </ActionForm>
+                      <RejectWithReason
+                        action={portalRejectRecommendationAction.bind(null, rec.id, clientId)}
+                        label="Decline"
+                        confirmLabel="Send and decline"
+                        placeholder="Let your team know why - e.g. budget, timing, brand fit."
+                        variant="outline"
+                      />
                     </div>
                   )}
                 </li>
@@ -103,14 +131,17 @@ export default async function PortalClientPage({ params }: { params: Promise<{ c
         </CardHeader>
         <CardContent>
           {reports.length === 0 ? (
-            <EmptyState icon={FileText} title="No reports yet" />
+            <EmptyState icon={FileText} title="No reports yet" description="Reports are shared here once your team publishes them." />
           ) : (
             <ul className="divide-y divide-border">
               {reports.map((report) => (
-                <li key={report.id} className="py-2.5 first:pt-0 last:pb-0">
+                <li key={report.id} className="flex items-center justify-between gap-3 py-2.5 first:pt-0 last:pb-0">
                   <Link href={`/portal/reports/${report.id}`} className="text-sm font-medium text-foreground hover:text-primary">
                     {report.title}
                   </Link>
+                  <span className="shrink-0 text-xs tabular-nums text-caption">
+                    {report.periodStart.toISOString().slice(0, 10)} – {report.periodEnd.toISOString().slice(0, 10)}
+                  </span>
                 </li>
               ))}
             </ul>
@@ -126,20 +157,25 @@ export default async function PortalClientPage({ params }: { params: Promise<{ c
         </CardHeader>
         <CardContent>
           {contentItems.length === 0 ? (
-            <EmptyState icon={CalendarDays} title="Nothing planned yet" />
+            <EmptyState icon={CalendarDays} title="Nothing planned yet" description="Upcoming posts your team is preparing will appear here." />
           ) : (
             <ul className="divide-y divide-border">
-              {contentItems.map((item) => (
-                <li key={item.id} className="flex items-center justify-between gap-2 py-2.5 first:pt-0 last:pb-0">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm text-foreground">{item.caption || item.platform}</p>
-                    <p className="text-xs tabular-nums text-caption">
-                      {item.platform} · {item.publishDate.toISOString().slice(0, 10)}
-                    </p>
-                  </div>
-                  <StatusBadge status={item.status} className="shrink-0" />
-                </li>
-              ))}
+              {contentItems.map((item) => {
+                const view = CLIENT_CONTENT_STATUS[item.status]
+                return (
+                  <li key={item.id} className="flex items-center justify-between gap-2 py-2.5 first:pt-0 last:pb-0">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm text-foreground">{item.caption || item.platform}</p>
+                      <p className="text-xs tabular-nums text-caption">
+                        {item.platform} · {item.publishDate.toISOString().slice(0, 10)}
+                      </p>
+                    </div>
+                    <Badge variant={view.variant} className="shrink-0">
+                      {view.label}
+                    </Badge>
+                  </li>
+                )
+              })}
             </ul>
           )}
         </CardContent>
@@ -151,13 +187,29 @@ export default async function PortalClientPage({ params }: { params: Promise<{ c
             <MessageSquare className="h-4 w-4 text-muted-foreground" /> Feedback
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          <form action={submitFeedbackAction.bind(null, clientId)} className="space-y-3">
-            <Textarea name="content" required rows={3} placeholder="Anything you'd like your team to know…" />
-            <Button type="submit" variant="outline">
+        <CardContent className="space-y-4">
+          <ActionForm action={submitFeedbackAction.bind(null, clientId)} className="space-y-3" resetOnSuccess>
+            <div>
+              <Textarea name="content" required minLength={3} rows={3} placeholder="Anything you'd like your team to know…" />
+              <FieldError name="content" />
+            </div>
+            <SubmitButton variant="outline" pendingLabel="Sending…">
               Send feedback
-            </Button>
-          </form>
+            </SubmitButton>
+          </ActionForm>
+          {ownFeedback.length > 0 && (
+            <div>
+              <p className="mb-1.5 text-xs font-medium text-caption">Recently sent</p>
+              <ul className="divide-y divide-border">
+                {ownFeedback.map((f) => (
+                  <li key={f.id} className="py-2 text-sm text-muted-foreground first:pt-0 last:pb-0">
+                    <span className="mr-2 text-xs tabular-nums text-caption">{f.createdAt.toISOString().slice(0, 10)}</span>
+                    {f.content}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

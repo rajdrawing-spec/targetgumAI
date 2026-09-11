@@ -132,13 +132,14 @@ function effectiveReportTypeFilter(ctx: AuthContext, requested?: ReportType): Re
   return requested
 }
 
-export async function listReports(ctx: AuthContext, clientId: string, filter: { type?: ReportType } = {}) {
+export async function listReports(ctx: AuthContext, clientId: string, filter: { type?: ReportType; limit?: number } = {}) {
   assertPermission(ctx, 'reports.read')
   await getAuthorizedClient(ctx, clientId)
   const type = effectiveReportTypeFilter(ctx, filter.type)
   return db.report.findMany({
     where: { clientId, ...(type && { type }) },
     orderBy: { createdAt: 'desc' },
+    take: filter.limit ?? 100,
   })
 }
 
@@ -171,7 +172,9 @@ async function getOwnedReport(ctx: AuthContext, reportId: string) {
   const client = await db.client.findUnique({ where: { id: report.clientId } })
   if (!client) throw new ForbiddenError('Not authorized for this report.')
   assertClientAccess(ctx, client)
-  return report
+  // The client row was already needed for the access check - hand its
+  // name back too so pages don't re-fetch it.
+  return { ...report, client: { id: client.id, name: client.name } }
 }
 
 /** Single report read, for the Day 14 report detail view. */

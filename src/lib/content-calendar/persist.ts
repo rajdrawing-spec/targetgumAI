@@ -70,26 +70,40 @@ export async function createContentCalendarItem(
 export async function listContentCalendarItems(
   ctx: AuthContext,
   clientId: string,
-  filter: { status?: ContentStatus } = {},
+  filter: { status?: ContentStatus; limit?: number } = {},
 ) {
   assertPermission(ctx, 'clients.read')
   await getAuthorizedClient(ctx, clientId)
   return db.contentCalendarItem.findMany({
     where: { clientId, ...(filter.status && { status: filter.status }) },
     orderBy: { publishDate: 'asc' },
+    take: filter.limit ?? 100,
   })
 }
 
-/** Org-wide listing, scoped to the caller's authorized clients - mirrors listRecommendationsForOrg/listTasksForOrg for a future "Content calendar" dashboard widget. */
+/**
+ * Org-wide listing, scoped to the caller's authorized clients. Defaults to
+ * the "upcoming" window (anything dated from yesterday onwards, soonest
+ * first) - a plain `publishDate asc` + `take` returned the *oldest* posts
+ * and hid upcoming ones once the cap was reached (docs/UX-ASSESSMENT.md
+ * §5). `window: 'past'` lists history, most recent first.
+ */
 export async function listContentCalendarItemsForOrg(
   ctx: AuthContext,
-  filter: { status?: ContentStatus; limit?: number } = {},
+  filter: { status?: ContentStatus; limit?: number; window?: 'upcoming' | 'past' | 'all' } = {},
 ) {
   assertPermission(ctx, 'clients.read')
+  const window = filter.window ?? 'upcoming'
+  const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000)
   return db.contentCalendarItem.findMany({
-    where: { ...scopedClientWhere(ctx), ...(filter.status && { status: filter.status }) },
+    where: {
+      ...scopedClientWhere(ctx),
+      ...(filter.status && { status: filter.status }),
+      ...(window === 'upcoming' && { publishDate: { gte: yesterday } }),
+      ...(window === 'past' && { publishDate: { lt: yesterday } }),
+    },
     include: { client: { select: { id: true, name: true } } },
-    orderBy: { publishDate: 'asc' },
+    orderBy: { publishDate: window === 'past' ? 'desc' : 'asc' },
     take: filter.limit ?? 50,
   })
 }
