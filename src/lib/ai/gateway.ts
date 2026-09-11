@@ -101,8 +101,26 @@ export async function runStructuredAiTask<Schema extends ZodType>(
   })
 
   const startedAt = Date.now()
-  const client = getAnthropicClient()
   const maxTokens = input.maxTokens ?? DEFAULT_MAX_TOKENS
+
+  let client: Anthropic
+  try {
+    client = getAnthropicClient()
+  } catch (error) {
+    // getAnthropicClient() throws synchronously (e.g. ANTHROPIC_API_KEY not
+    // configured) before the retry loop's own try/catch below ever runs -
+    // without this, the AiRun row created above is left permanently stuck
+    // at RUNNING instead of FAILED. Found live (Phase 2, Canva creative
+    // workflow verification, docs/DECISIONS.md) - the Creative Agent has
+    // no "no data source connected" short-circuit the way the analysis
+    // agents do, so it's the first caller in this codebase to actually
+    // reach this line without a real API key configured.
+    const durationMs = Date.now() - startedAt
+    const message = error instanceof Error ? error.message : 'Unknown AI Gateway client error.'
+    await db.aiRun.update({ where: { id: aiRun.id }, data: { status: 'FAILED', error: message, durationMs } })
+    if (error instanceof AiGatewayError) throw error
+    throw new AiGatewayError(message)
+  }
 
   let lastError: unknown
   for (let attempt = 1; attempt <= DEFAULT_MAX_ATTEMPTS; attempt += 1) {

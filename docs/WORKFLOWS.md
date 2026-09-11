@@ -58,9 +58,22 @@ approves — can write to a provider.
 
 ## Post-analytics workflows (built after the above is stable)
 
-- **Creative workflow** (BRD Section 47): Recommendation → Client Brain →
-  Content strategy → Claude creative concepts → Canva MCP → Brand validation
-  → Approval → Metricool scheduling.
+- **Creative workflow** (BRD Section 47) ✅ implemented (Phase 2, Day 17,
+  `src/lib/workflows/creative-workflow.ts`) — Client Brain → Claude
+  creative concepts → `CreativeAsset` rows (`DRAFT`), each independently
+  carried through `IN_REVIEW`/`APPROVED`/`REJECTED`
+  (`src/lib/creative/persist.ts`), with Canva design generation and brand
+  alignment folded in as documented below. Deliberately the first agent
+  workflow that does NOT persist `Recommendation`s or route to
+  `Task`/`Approval`/`Report` - a `CreativeAsset` is a different kind of
+  thing (BRD Section 67), not an analysis output. "Brand validation" is
+  folded into the Creative Agent's own structured output
+  (`brandAligned`/`brandNotes` per concept) rather than a separate gate.
+  "→ Approval → Metricool scheduling" happens after this workflow ends: a
+  human attaches an `APPROVED` `CreativeAsset` to a `ContentCalendarItem`
+  via its existing `creativeAssetId` field (a new dropdown on the "Add to
+  calendar" form), which then goes through the already-built Social
+  scheduling workflow below - no automatic hand-off. See docs/DECISIONS.md.
 - **Social scheduling** (BRD Section 48): Draft → Approved → Scheduled →
   Published → Failed → Cancelled, all persisted in `content_calendar`.
 

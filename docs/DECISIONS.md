@@ -1436,6 +1436,189 @@ built for any module (the natural point to wire `maxDailyAdBudget`/
 
 ---
 
+## 2026-09-11 — Phase 2: Canva creative workflow, and a real AI Gateway bug found along the way
+
+**Decision:** Built the Canva creative workflow (BRD Section 17/47/55/67/
+85/112/121 - "Create three Instagram creative concepts for Client A based
+on the recommended campaign"), the last item from BRD Section 50's
+**Phase 1** roadmap ("Canva MCP where available") that had never shipped -
+tracked here under Phase 2 because that's when it was picked up, not
+because the BRD scoped it there.
+
+Added `CreativeProvider` to `src/lib/integrations/providers.ts` (BRD
+Section 17's operation list: create/edit/search designs, search assets,
+export) and a new `src/lib/integrations/canva/` module, same shape as
+every other provider: `CanvaMockProvider` (BRD Section 92) is the full,
+real, deterministic implementation everything actually exercises;
+`createCanvaProvider()` (the real adapter) throws
+`UnsupportedOperationError` for every method - unlike GA4/GSC's real
+adapters (built against the official, already-verified-elsewhere
+`googleapis` client), no Canva MCP connection has ever been available in
+this environment to check tool names/schemas against, so nothing was
+guessed (same choice already made for `metricool.publish_post` and the
+native Ads providers' real adapters, for the same reason - see the
+2026-09-11 native-ads entry above). BRD Section 55's four Canva
+connectivity states (connected/not connected/authorization expired/
+unavailable) map directly onto the existing generic `IntegrationHealth`
+enum - no new state machine needed. Connect flow
+(`connectClientToCanvaAccount`) mirrors Metricool/Ads' single-step
+connect-and-verify, not GA4/GSC's OAuth flow, which was built but never
+wired to any route/UI either - see `google-ads/connect.ts`'s doc comment,
+reused verbatim here.
+
+Five new Tool Registry entries (`canva.search_designs`/`search_assets`
+LOW on `clients.read`; `canva.create_design`/`edit_design`/`export_design`
+MEDIUM on a new `creative.manage` permission - BRD Section 21's MEDIUM
+examples list "Generate creative" explicitly, distinct from "Publish
+content" HIGH, since a Canva design is never customer-facing by itself).
+`creative.manage` is granted to **both** `account_manager` and
+`marketing_employee` - unlike `ads.manage` (account_manager only), BRD
+4.3 explicitly lists "Generate creative briefs"/"Generate content" for
+Marketing Employee, so this follows `content.manage`'s broader grant
+shape instead.
+
+**The Creative Agent** (`src/lib/agents/creative-agent.ts`) is
+architecturally closer to the Competitor Agent than the analysis agents:
+`allowedToolKeys: []`, it never calls Canva itself - it only generates
+creative CONCEPTS (title/copy/visual description), a genuinely different
+structured shape (`CreativeBriefResultSchema`) from every other agent's
+`AnalysisResultSchema`/`RecommendationSchema`. Actually creating the Canva
+design for an already-drafted concept is a separate step
+(`generateCreativeDesign`, `src/lib/creative/persist.ts`, calling
+`canva.create_design` directly) - BRD Section 47's flow ("Claude creative
+concepts → Canva MCP → Design creation/editing") is explicitly two
+separate steps, mirroring how `scheduleContentCalendarItem` calls
+`metricool.schedule_post` directly rather than through an agent. Uses the
+`content` Context Router category (`business`/`audience`/`brand` sections)
+and the `content` prompt category (`prompts/content/v1.md`) - **both
+already existed in this codebase, unused by any agent until now**,
+clearly built in advance for exactly this feature.
+
+**"Brand validation"** (BRD Section 47's flow step) is folded into the
+structured output itself (`brandAligned`/`brandNotes` per concept) rather
+than a separate procedural gate - Claude already has the full brand
+context in front of it while generating each concept. This is advisory,
+not enforcement: a `brandAligned: false` concept still reaches
+`IN_REVIEW`/`APPROVED` like any other if a human approver accepts it -
+agents never gate approvals themselves (BRD Section 19).
+
+**`src/lib/workflows/creative-workflow.ts`** is the first agent workflow
+in this codebase that does NOT persist `Recommendation` rows, route them
+to a `Task`/`Approval`, or produce a `Report` - it persists `CreativeAsset`
+rows directly instead (`src/lib/creative/persist.ts`'s own
+`DRAFT -> IN_REVIEW -> APPROVED/REJECTED` lifecycle, simpler than
+`ContentCalendarItem`'s - no `SCHEDULED`/`PUBLISHED`/`CANCELLED`, since a
+creative asset doesn't get scheduled/published itself). Once `APPROVED`,
+the natural next step (BRD's "...→ Approval → Metricool scheduling") is
+attaching it to a `ContentCalendarItem` via that item's existing
+(previously unused) `creativeAssetId` field - a human picks the approved
+creative from a new dropdown on the "Add to calendar" form; this module
+deliberately does not auto-create a content item (same "no new automatic
+wiring" discipline as the competitor-analysis and native-ads phases).
+
+New `/dashboard/creatives` aggregate page (status-transition actions
+across every client, same split as Content calendar/Recommendations/
+Tasks) plus a "Creatives" card + Canva connect form on the client detail
+page, and a "Creatives" nav item - the dashboard layout's own comment had
+flagged this as "added when \[its\] underlying module exists" since Day
+13/14; it does now.
+
+**A real, previously-undiscovered bug found and fixed while live-verifying
+this feature:** `runStructuredAiTask`'s (`src/lib/ai/gateway.ts`)
+`getAnthropicClient()` call sat *after* the `ai_runs` row was created
+(status `RUNNING`) but *outside* the retry loop's own try/catch - if it
+throws synchronously (`ANTHROPIC_API_KEY` not configured), the row was
+left permanently stuck at `RUNNING`, never marked `FAILED`. Not caught by
+any of this session's prior live verifications because every other agent
+workflow (Analytics/SEO/Competitor) has a "no data source connected"
+short-circuit that returns *before* ever calling `runStructuredAiTask` -
+the exact no-API-key path this environment always hits. The Creative
+Agent has no such short-circuit (Client Brain context is always
+structurally present, never an external dependency that can be "down"),
+so it's the first caller in this codebase to actually reach that line
+without a real key configured - caught live in the browser (the "AI
+runs" card showed two rows stuck at `RUNNING` after the expected
+no-API-key failure) and confirmed directly against the database before
+being fixed. Fix: wrap `getAnthropicClient()` in its own try/catch that
+marks the row `FAILED` with the real error before rethrowing - same
+error-recording shape the retry-exhaustion path already used. A new test
+(`tests/integration/ai-gateway.test.ts`) exercises the real
+`getAnthropicClient()` (no injected fake client) to lock this in.
+
+8 new tests in `tests/unit/canva-providers.test.ts` (mock provider's full
+`CreativeProvider` round trip, real adapter's `UnsupportedOperationError`),
+5 in `tests/integration/canva-tools.test.ts` (Tool Registry + permission
+gating, notably `marketing_employee` *can* call the write tools here
+unlike native Ads), 10 in `tests/integration/creative-workflow.test.ts`
+(agent registration, prompt/context assembly proof, the full generate→
+persist pipeline, the failure path leaving no partial `CreativeAsset`
+rows, the full submit/approve/reject lifecycle, `generateCreativeDesign`
+attaching a design without changing status, and BRD Section 121's "fail
+gracefully, preserve the brief" - proven by asserting the `CreativeAsset`
+row is byte-for-byte unchanged after a Canva-unavailable failure), plus 1
+in `tests/integration/ai-gateway.test.ts` for the gateway fix above - 276
+total (up from 252 before this entry - the native-ads phase's own 30
+tests are already counted in that 252). All pre-existing tests pass
+unchanged.
+
+End-to-end smoke-verified live with Playwright: connected Client A to a
+mock Canva brand id (confirmed `CONNECTED`), clicked "Generate concepts"
+and confirmed it fails gracefully with the expected
+`ANTHROPIC_API_KEY is not configured` error and creates zero `CreativeAsset`
+rows (verified against the database, not assumed) - this environment has
+no `ANTHROPIC_API_KEY`, the same pre-existing constraint every other agent
+workflow has had throughout this session, so the connected/happy
+generation path is covered by the mocked test suite instead. Seeded one
+`DRAFT` creative directly (bypassing the AI call, same technique used
+whenever a live click can't reach an AI-gated path in this sandbox) and
+confirmed the rest of the pipeline for real: "Generate Canva design"
+attached a real mock `designUrl`, submit → approve reached `APPROVED`, and
+the approved creative then appeared in the content calendar's new
+"Creative" dropdown on the client page - each step cross-checked directly
+against the database or DOM, not just a screenshot, after two of the
+intermediate screenshots turned out to be the same stale-render timing
+artifact already diagnosed in the social-scheduling phase (confirmed via
+direct DB query, not assumed). Fixture data and scratch scripts removed
+afterward; the two stuck `RUNNING` `AiRun` rows from the no-API-key clicks
+were also cleaned up (not left as apparent live evidence of the very bug
+just fixed).
+
+typecheck, lint, full test suite (276/276), and production build (20
+routes - `/dashboard/creatives` is the only new one) all pass.
+
+**Rationale:** Every new module reused an established pattern exactly
+(the `resolve*Provider`/README shape, the connect-and-verify shape, the
+Tool Registry risk-classification discipline, the aggregate-page-owns-
+actions/detail-page-owns-creation split) - the two genuinely new shapes
+(the Creative Agent's non-`AnalysisResult` output, the creative workflow's
+no-Recommendation-routing pipeline) are deliberate, documented departures
+where BRD Section 67's `CreativeAsset` entity is genuinely a different
+kind of thing than a `Recommendation`, not oversights. Fixing the AI
+Gateway bug in-scope (rather than filing it away) matches this session's
+standing discipline (the Tool Registry bootstrap gap, the Approval Engine
+execution gap): a bug found while shipping a feature gets fixed as part of
+that feature, especially one this fundamental (every future agent that
+lacks a short-circuit guard would have hit it too).
+
+**Trade-off accepted:** no UI for a human to manually pick which Canva
+brand asset to reuse in a design (`canva.search_assets` exists as a tool,
+callable by a future command-layer/agent, but nothing in the dashboard
+surfaces a picker for it) - BRD Section 17's "Access brand assets" is
+satisfied at the tool layer, a browsing UI for it would be new scope
+beyond the MVP creative workflow this phase targets.
+
+**Revisit if:** a real Canva MCP connection becomes available (implement
+the real adapter behind the unchanged interface - see the file's own doc
+comment for the intended shape, reusing `@modelcontextprotocol/sdk`'s
+already-proven Metricool pattern), a second workflow needs the same
+"generate, don't route to Recommendation" shape (generalize rather than
+one-off), or a second agent is built without a Marketing-Analytics-style
+data-availability short-circuit (re-check it doesn't hit the same class
+of gap the AI Gateway fix above closes for the general case, not just this
+one caller).
+
+---
+
 ## Template for future entries
 
 ```text

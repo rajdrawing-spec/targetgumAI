@@ -1081,6 +1081,84 @@ afterward.
 typecheck, lint, full test suite (252/252), and production build (19
 routes, unchanged) all pass.
 
-Not yet started from the Phase 2 list (BRD Section 85): Canva creative
-workflow, weekly automated intelligence (needs the BullMQ/Redis job
-infrastructure `docs/ARCHITECTURE.md` proposes but nothing built yet).
+### Canva creative workflow ✅ DONE
+
+Implements BRD Section 17/47/55/67/112/121's MVP Creative Workflow - the
+last item from BRD Section 50's **Phase 1** roadmap ("Canva MCP where
+available") that had never shipped. New `CreativeProvider` interface
+(`src/lib/integrations/providers.ts`) + `src/lib/integrations/canva/`
+module: `CanvaMockProvider` (BRD Section 92) is the full, real,
+deterministic implementation everything exercises; the real adapter
+throws `UnsupportedOperationError` for every method (no Canva MCP
+connection has ever been available in this environment to verify tool
+names/schemas against, unlike GA4/GSC's real, `googleapis`-backed
+adapters). New `creative.manage` permission gates the write tools
+(`canva.create_design`/`edit_design`/`export_design`, MEDIUM risk) -
+granted to both `account_manager` and `marketing_employee` (BRD 4.3 lists
+"Generate creative briefs" for Marketing Employee), unlike the
+`ads.manage` permission's narrower grant.
+
+The Creative Agent (`src/lib/agents/creative-agent.ts`) generates creative
+CONCEPTS (title/copy/visual description, with an advisory brand-alignment
+self-check) from Client Brain context - it never calls Canva itself;
+`generateCreativeDesign` (`src/lib/creative/persist.ts`) is the separate
+step that does, matching BRD's explicit two-step flow. Uses the `content`
+Context Router category and `content` prompt template, both already built
+in a prior day, unused until now. `src/lib/workflows/creative-workflow.ts`
+is the first agent workflow that persists `CreativeAsset` rows directly
+(its own simpler `DRAFT -> IN_REVIEW -> APPROVED/REJECTED` lifecycle)
+instead of routing through `Recommendation`/`Task`/`Approval`/`Report` -
+a `CreativeAsset` is a genuinely different kind of thing (BRD Section 67).
+Once `APPROVED`, a human attaches it to a `ContentCalendarItem` via a new
+dropdown on the "Add to calendar" form (that item's `creativeAssetId`
+field existed but was unused) - no automatic wiring, same discipline as
+prior Phase 2 items.
+
+New `/dashboard/creatives` aggregate page, a "Creatives" card + Canva
+connect form on the client detail page, and a "Creatives" nav item - the
+dashboard layout's own comment had flagged this as pending since Day
+13/14.
+
+**A real, previously-undiscovered bug found and fixed while live-verifying
+this feature:** the AI Gateway (`src/lib/ai/gateway.ts`) left its
+`ai_runs` row permanently stuck at `RUNNING` (never `FAILED`) whenever
+`getAnthropicClient()` itself threw (e.g. no `ANTHROPIC_API_KEY`
+configured) - that call sat outside the retry loop's own try/catch. Every
+prior agent in this codebase short-circuits *before* reaching that line
+when no data source is connected; the Creative Agent has no such guard
+(Client Brain context is always present), so it's the first caller to
+actually hit it. Fixed generically, benefiting every current and future
+agent, not just this one. docs/DECISIONS.md has the full account.
+
+24 new tests (276 total, up from 252): 8 unit tests in `tests/unit/
+canva-providers.test.ts` (mock provider's full `CreativeProvider` round
+trip, real adapter's `UnsupportedOperationError`), 5 integration tests in
+`tests/integration/canva-tools.test.ts` (Tool Registry + permission
+gating), 10 integration tests in `tests/integration/creative-workflow.test.ts`
+(agent registration, prompt/context assembly, the full generate→persist
+pipeline, the failure path leaving no partial rows, the full lifecycle,
+design generation, and BRD Section 121's "fail gracefully, preserve the
+brief" proven by an unchanged-row assertion), and 1 integration test in
+`tests/integration/ai-gateway.test.ts` locking in the gateway fix. All 252
+pre-existing tests pass unchanged.
+
+End-to-end smoke-verified live with Playwright: connected Client A to a
+mock Canva brand (confirmed `CONNECTED`), clicked "Generate concepts" and
+confirmed it fails gracefully with zero fabricated `CreativeAsset` rows
+(no `ANTHROPIC_API_KEY` in this environment, same constraint every other
+agent workflow has had all session) - the happy generation path is
+covered by the mocked test suite instead. Seeded one `DRAFT` creative
+directly to verify the rest of the pipeline for real: "Generate Canva
+design" attached a real mock design URL, submit → approve reached
+`APPROVED`, and the approved creative appeared in the content calendar's
+new dropdown - each step cross-checked directly against the database or
+DOM. Fixture data, the two stuck `RUNNING` AiRun rows, and scratch scripts
+removed afterward.
+
+typecheck, lint, full test suite (276/276), and production build (20
+routes - `/dashboard/creatives` is the only new one) all pass.
+
+Not yet started from the Phase 2 list (BRD Section 85): weekly automated
+intelligence (needs the BullMQ/Redis job infrastructure
+`docs/ARCHITECTURE.md` proposes but nothing built yet) - the only
+remaining item.

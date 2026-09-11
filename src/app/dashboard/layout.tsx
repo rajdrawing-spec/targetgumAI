@@ -7,12 +7,13 @@ import { DashboardNav } from '@/components/dashboard-nav'
 
 /**
  * The Day 13/14 dashboard shell (BRD-PRD Section 42). Nav mirrors the
- * subset of the BRD's full nav list that's actually implemented in the
- * MVP - Overview, Clients, Recommendations, Tasks, Approvals, AI Runs,
- * Reports, Integrations, Audit. Social, Advertising, Analytics, SEO,
- * Content Calendar, Creatives, Settings are BRD Section 42's fuller nav,
- * out of MVP scope per Section 45/49 (see docs/MVP-CHECKLIST.md) - added
- * when their underlying modules exist. Audit is shown to everyone in the
+ * subset of the BRD's full nav list that's actually implemented - Overview,
+ * Clients, Recommendations, Tasks, Content calendar, Creatives, SEO,
+ * Approvals, AI Runs, Reports, Integrations, Audit. Social, Advertising,
+ * Analytics, Settings are BRD Section 42's fuller nav, out of scope per
+ * Section 45/49 (see docs/MVP-CHECKLIST.md) - added when their underlying
+ * modules exist, same as Content Calendar/Creatives/SEO were. Audit is
+ * shown to everyone in the
  * nav even though only super_admin holds `audit.read` by default
  * (Section 4.1) - visiting it as anyone else hits the Day 14 error
  * boundary's clean permission-denied message rather than a dead end.

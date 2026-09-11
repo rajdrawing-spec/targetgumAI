@@ -141,6 +141,46 @@ export interface AdsProvider {
 }
 
 // ---------------------------------------------------------------------------
+// Creative (Canva)
+// ---------------------------------------------------------------------------
+
+export interface CreativeDesignInput {
+  title: string
+  concept: string
+  copy?: string
+  platform: string
+}
+
+/** `designUrl` is the "continue editing through Canva" link BRD Section 17 requires - never build a Canva editor replacement, always hand back a real link. */
+export interface CreativeDesignRecord {
+  providerDesignId: string
+  designUrl: string
+  exportUrl?: string
+  status: string
+  thumbnailUrl?: string
+}
+
+export interface CreativeSearchResult {
+  providerAssetId: string
+  title: string
+  thumbnailUrl?: string
+}
+
+/**
+ * BRD Section 17's operation list (create/edit/search designs, search
+ * assets, export). "Access brand assets" is folded into `searchAssets`
+ * rather than a separate method - both are read-only Canva asset lookups,
+ * differing only in what's being searched for.
+ */
+export interface CreativeProvider {
+  createDesign(brandId: string, input: CreativeDesignInput): Promise<CreativeDesignRecord>
+  editDesign(providerDesignId: string, input: Partial<CreativeDesignInput>): Promise<CreativeDesignRecord>
+  searchDesigns(brandId: string, query: string): Promise<CreativeSearchResult[]>
+  searchAssets(brandId: string, query: string): Promise<CreativeSearchResult[]>
+  exportDesign(providerDesignId: string): Promise<CreativeDesignRecord>
+}
+
+// ---------------------------------------------------------------------------
 // Website analytics (GA4)
 // ---------------------------------------------------------------------------
 

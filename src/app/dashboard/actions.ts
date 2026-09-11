@@ -15,6 +15,13 @@ import {
   submitContentForReview,
   syncContentCalendarItemFromApproval,
 } from '@/lib/content-calendar/persist'
+import {
+  approveCreativeAsset,
+  generateCreativeDesign,
+  rejectCreativeAsset,
+  submitCreativeForReview,
+} from '@/lib/creative/persist'
+import { connectClientToCanvaAccount } from '@/lib/integrations/canva/connect'
 import { connectClientToGoogleAdsAccount } from '@/lib/integrations/google-ads/connect'
 import { connectClientToMetaAdsAccount } from '@/lib/integrations/meta-ads/connect'
 import { connectClientToMetricoolBrand } from '@/lib/integrations/metricool/connect'
@@ -24,6 +31,7 @@ import { generateClientReportFromInternal } from '@/lib/reports/generate'
 import { approveAndExecuteApproval } from '@/lib/tools/execute'
 import { runAnalyzeClientWorkflow } from '@/lib/workflows/analyze-client-workflow'
 import { runCompetitorAnalysisWorkflow } from '@/lib/workflows/competitor-analysis-workflow'
+import { runCreativeWorkflow } from '@/lib/workflows/creative-workflow'
 import { runSeoAnalysisWorkflow } from '@/lib/workflows/seo-analysis-workflow'
 import type { TaskStatus } from '@prisma/client'
 
@@ -97,6 +105,18 @@ export async function triggerCompetitorAnalysisAction(clientId: string): Promise
   revalidatePath('/dashboard/approvals')
   revalidatePath('/dashboard/ai-runs')
   revalidatePath('/dashboard/reports')
+}
+
+export async function triggerCreativeWorkflowAction(clientId: string, formData: FormData): Promise<void> {
+  const ctx = await requireCtx()
+  const platform = String(formData.get('platform') ?? DEFAULT_SOCIAL_NETWORK)
+  const count = Number(formData.get('count') ?? 3) || 3
+  const campaignBrief = String(formData.get('campaignBrief') ?? '')
+  await runCreativeWorkflow({ ctx, clientId, platform, count, campaignBrief })
+
+  revalidatePath(`/dashboard/clients/${clientId}`)
+  revalidatePath('/dashboard/creatives')
+  revalidatePath('/dashboard/ai-runs')
 }
 
 export async function addCompetitorAction(clientId: string, formData: FormData): Promise<void> {
@@ -191,13 +211,52 @@ export async function connectMetaAdsAccountAction(clientId: string, formData: Fo
   revalidatePath('/dashboard')
 }
 
+export async function connectCanvaAccountAction(clientId: string, formData: FormData): Promise<void> {
+  const ctx = await requireCtx()
+  const externalAccountId = String(formData.get('externalAccountId') ?? '')
+  const label = String(formData.get('label') ?? '')
+  await connectClientToCanvaAccount(ctx, clientId, externalAccountId, label)
+  revalidatePath(`/dashboard/clients/${clientId}`)
+  revalidatePath('/dashboard/integrations')
+  revalidatePath('/dashboard')
+}
+
 export async function createContentItemAction(clientId: string, formData: FormData): Promise<void> {
   const ctx = await requireCtx()
   const platform = String(formData.get('platform') ?? '')
   const publishDate = new Date(String(formData.get('publishDate') ?? ''))
   const caption = String(formData.get('caption') ?? '') || undefined
-  await createContentCalendarItem(ctx, clientId, { platform, publishDate, caption })
+  const creativeAssetId = String(formData.get('creativeAssetId') ?? '') || undefined
+  await createContentCalendarItem(ctx, clientId, { platform, publishDate, caption, creativeAssetId })
   revalidatePath('/dashboard/content-calendar')
+  revalidatePath(`/dashboard/clients/${clientId}`)
+}
+
+export async function submitCreativeForReviewAction(assetId: string, clientId: string): Promise<void> {
+  const ctx = await requireCtx()
+  await submitCreativeForReview(ctx, assetId)
+  revalidatePath('/dashboard/creatives')
+  revalidatePath(`/dashboard/clients/${clientId}`)
+}
+
+export async function approveCreativeAction(assetId: string, clientId: string): Promise<void> {
+  const ctx = await requireCtx()
+  await approveCreativeAsset(ctx, assetId)
+  revalidatePath('/dashboard/creatives')
+  revalidatePath(`/dashboard/clients/${clientId}`)
+}
+
+export async function rejectCreativeAction(assetId: string, clientId: string): Promise<void> {
+  const ctx = await requireCtx()
+  await rejectCreativeAsset(ctx, assetId)
+  revalidatePath('/dashboard/creatives')
+  revalidatePath(`/dashboard/clients/${clientId}`)
+}
+
+export async function generateCreativeDesignAction(assetId: string, clientId: string): Promise<void> {
+  const ctx = await requireCtx()
+  await generateCreativeDesign(ctx, assetId)
+  revalidatePath('/dashboard/creatives')
   revalidatePath(`/dashboard/clients/${clientId}`)
 }
 

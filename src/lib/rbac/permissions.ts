@@ -41,6 +41,7 @@ export const PERMISSIONS = [
   'analysis.trigger',
   'content.manage',
   'ads.manage',
+  'creative.manage',
 ] as const
 
 export type Permission = (typeof PERMISSIONS)[number]
@@ -82,6 +83,15 @@ export type Permission = (typeof PERMISSIONS)[number]
  * (`google_ads.get_campaigns` etc.) need no new permission at all - gated
  * on the existing `clients.read` every role already holds, same pattern as
  * Metricool's own `metricool.get_ad_campaigns`/`get_ad_performance`.
+ *
+ * `creative.manage` (Phase 2 Canva creative workflow, BRD Section
+ * 17/47/85): covers the whole `CreativeAsset` lifecycle - triggering
+ * concept generation, generating/editing/exporting the actual Canva
+ * design, submit-for-review, approve, reject. Granted to
+ * `account_manager` AND `marketing_employee` - unlike `ads.manage`, BRD
+ * 4.3 explicitly lists "Generate creative briefs"/"Generate content" for
+ * Marketing Employee, so this follows `content.manage`'s broader grant
+ * shape, not `ads.manage`'s narrower one.
  */
 export const ROLE_PERMISSIONS: Record<SystemRoleKey, readonly Permission[]> = {
   super_admin: PERMISSIONS,
@@ -97,6 +107,7 @@ export const ROLE_PERMISSIONS: Record<SystemRoleKey, readonly Permission[]> = {
     'analysis.trigger',
     'content.manage',
     'ads.manage',
+    'creative.manage',
   ],
   marketing_employee: [
     'clients.read',
@@ -106,6 +117,7 @@ export const ROLE_PERMISSIONS: Record<SystemRoleKey, readonly Permission[]> = {
     'recommendations.review',
     'analysis.trigger',
     'content.manage',
+    'creative.manage',
   ],
   // Client User (BRD Section 4.4): "View own dashboard, View reports,
   // Review recommendations, Approve allowed actions, Provide feedback,

@@ -1,10 +1,18 @@
 # Agents — TargetGum AI Marketing OS
 
-Status: **Marketing Analytics Agent implemented (Day 9)** —
+Status: **Marketing Analytics Agent implemented (Day 9); SEO, Competitor
+(Phase 2), and Creative (Phase 2, Day 17) agents also implemented.**
 `src/lib/agents/analytics-agent.ts`, the first real agent: Context Router → Tool
 Registry (Metricool/GA4/GSC) → AI Gateway structured output. Read-only by
-construction (every allowed tool is LOW risk). Orchestrator, Client Intelligence,
-Content, and Creative agents remain design-only. This document records the agent
+construction (every allowed tool is LOW risk). The Creative Agent
+(`src/lib/agents/creative-agent.ts`) is architecturally different - it
+produces creative CONCEPTS, not `Recommendation`s, and has an empty tool
+allowlist like the Competitor Agent (see docs/DECISIONS.md). Orchestrator
+and Client Intelligence agents remain design-only - there is no
+natural-language command layer yet (BRD Section 44, Phase 2) for an
+Orchestrator to sit behind, and every agent today assembles its own
+Client Brain slice directly via the Context Router rather than through a
+separate Client Intelligence Agent. This document records the agent
 contract and the MVP agent set.
 
 ## Agent Contract (BRD-PRD Section 26)
@@ -36,12 +44,22 @@ agent's allowlist on every call, independent of what the model requests.
 3. **Marketing Analytics Agent** — analyzes Metricool ads/social data, GA4,
    and GSC; produces evidence-based findings and structured recommendations.
 4. **Content Agent** — drafts content ideas, captions, calendars, copy.
-5. **Creative Agent** — produces creative briefs and drives Canva MCP when
-   available; degrades to brief-only output when it isn't.
+5. **Creative Agent** ✅ implemented (Phase 2, Day 17,
+   `src/lib/agents/creative-agent.ts`) — generates creative concepts
+   (title/copy/visual description) from Client Brain context; never
+   drives Canva itself (a separate step,
+   `generateCreativeDesign`/`src/lib/creative/persist.ts`, calls
+   `canva.create_design` directly - BRD Section 47's flow is explicitly
+   two steps). Degrades gracefully by design: BRD Section 55/112 frame
+   Canva as optional, and the design-generation step (not this agent)
+   is what actually depends on it - concept generation never fails
+   because Canva is unavailable.
 
-No other agents are built for MVP. SEO, Advertising (execution), Competitor,
-Website, Reporting, Client Communication, Sales, Operations, and Autonomous
-Optimization agents are explicitly Phase 2+ (BRD Section 25, 49).
+SEO Agent and Competitor Agent (BRD Section 25's "Later" list) are also
+implemented, brought forward as Phase 2 items - see docs/DECISIONS.md.
+Advertising (execution), Website, Reporting, Client Communication, Sales,
+Operations, and Autonomous Optimization agents are explicitly Phase 2+/3
+(BRD Section 25, 49) and remain unbuilt.
 
 ## Orchestration Flow (Context Architecture, BRD-PRD Section 7)
 

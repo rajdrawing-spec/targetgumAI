@@ -1,14 +1,16 @@
 # Integrations — TargetGum AI Marketing OS
 
 Status: **Metricool (Day 6) and GA4/GSC (Day 7) implemented; Metricool's analytics
-parsing corrected against real live data (Day 15).** Provider interfaces
-(`src/lib/integrations/providers.ts`), the connection/health model
+parsing corrected against real live data (Day 15); native Google Ads/Meta Ads
+(Day 16) and Canva (Day 17) implemented against their mocks (Phase 2).** Provider
+interfaces (`src/lib/integrations/providers.ts`), the connection/health model
 (`src/lib/integrations/health.ts`), and real + mock adapters for Metricool
-(`src/lib/integrations/metricool/`), GA4 (`.../ga4/`), and GSC (`.../gsc/`) all exist.
-Canva remains design-only (Phase 1, optional). Day 15 also verified the Metricool
-adapter against this session's own live MCP connection (not just documented schemas)
-and found + fixed a real parsing bug - see "`getAnalyticsDataByMetrics` real response
-shape" below.
+(`src/lib/integrations/metricool/`), GA4 (`.../ga4/`), GSC (`.../gsc/`),
+Google Ads (`.../google-ads/`), Meta Ads (`.../meta-ads/`), and Canva
+(`.../canva/`) all exist. Day 15 also verified the Metricool adapter against
+this session's own live MCP connection (not just documented schemas) and
+found + fixed a real parsing bug - see "`getAnalyticsDataByMetrics` real
+response shape" below.
 
 ## Principle: Provider Abstraction (BRD-PRD Section 109-112)
 
@@ -89,7 +91,7 @@ implemented, not speculatively here.
 | Ad management (write) | Native Google Ads / Meta Ads (Phase 2) | **Implemented (Day 16/Phase 2)** via `GoogleAdsMockProvider`/`MetaAdsMockProvider` - confirmed unavailable via Metricool (capability gap in the MCP itself), so this is a separate `AdsProvider` implementation, not a Metricool fix. Real adapters are `UnsupportedOperationError` (no verified client library for either platform in this environment) - see below and docs/EXTERNAL-APPROVALS.md |
 | Website analytics | GA4 | Implemented (Day 7) via official `googleapis` client; not live-tested (no OAuth app configured) |
 | Search analytics | Google Search Console | Implemented (Day 7), same caveat as above |
-| Creative | Canva MCP | Optional; not yet implemented |
+| Creative | Canva MCP | **Implemented (Day 17/Phase 2)** via `CanvaMockProvider` - real adapter is `UnsupportedOperationError` (no verified Canva MCP connection in this environment) - see below and docs/EXTERNAL-APPROVALS.md |
 
 ### Metricool MCP — availability confirmed (checked live, 2026-09-10)
 
@@ -231,12 +233,36 @@ future regression back toward the old (wrong) assumption fails loudly.
   `src/lib/integrations/google/oauth.ts`) with no "Connect Google" button; that's
   Day 13 (dashboard).
 
-## Canva
+## Canva — implemented against the mock (Phase 2, Day 17)
 
-Optional in MVP. The `CreativeProvider` must degrade gracefully across
-`Canva connected | Canva not connected | Canva authorization expired | Canva
-unavailable` states (BRD Section 55) — never a hard dependency for the rest
-of the app.
+Optional in MVP (BRD Section 55) — the `CreativeProvider` degrades
+gracefully across `Canva connected | Canva not connected | Canva
+authorization expired | Canva unavailable` states, which map directly onto
+the existing generic `IntegrationHealth` enum
+(`CONNECTED`/no-connection-row/`AUTH_REQUIRED`/`ERROR`) — never a hard
+dependency for the rest of the app.
+
+- **Registered tools** (`src/lib/integrations/canva/tools.ts`):
+  `canva.search_designs`/`search_assets` (LOW, `clients.read`),
+  `canva.create_design`/`edit_design`/`export_design` (MEDIUM, new
+  `creative.manage` permission — BRD Section 21's "Generate creative").
+- **`CanvaMockProvider`** (BRD Section 92) is a full, deterministic
+  implementation — what every tool, the Creative Agent's downstream
+  design-generation step, and every test actually exercises.
+- **Real adapter is `UnsupportedOperationError`** for every method — no
+  Canva MCP connection has ever been available in this environment to
+  verify tool names/schemas against (unlike Metricool's, checked live in
+  an earlier session). Same choice already made for
+  `metricool.publish_post` and the native Ads providers' real adapters.
+  See docs/DECISIONS.md and docs/EXTERNAL-APPROVALS.md.
+- **Connect flow**: single-step connect-and-verify
+  (`connectClientToCanvaAccount`), matching Metricool/Ads' shape rather
+  than GA4/GSC's unwired OAuth flow.
+- **Not live-verified**: no real Canva Developer app/MCP connection exists
+  in this environment. Live-verified via Playwright: connected Client A to
+  a mock Canva brand id, confirmed `CONNECTED`; generated a real mock
+  Canva design for a seeded creative asset and confirmed its editing link
+  appeared, cross-checked against the database.
 
 ## Failure Handling (BRD-PRD Section 56)
 

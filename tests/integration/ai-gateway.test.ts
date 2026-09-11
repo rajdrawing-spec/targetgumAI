@@ -173,4 +173,32 @@ describe('AI Gateway: runStructuredAiTask (real DB, injected fake Anthropic clie
     expect(runs[0]?.status).toBe('FAILED')
     expect(runs[0]?.error).toBeTruthy()
   })
+
+  it('marks the ai_runs row FAILED (not stuck at RUNNING) when the Anthropic client itself can\'t be built - e.g. ANTHROPIC_API_KEY missing (found live during Phase 2 Canva creative workflow verification, docs/DECISIONS.md)', async () => {
+    // Deliberately no mockParse()/setAnthropicClientForTests() call - this
+    // exercises the real getAnthropicClient(), which throws synchronously
+    // before the retry loop's own try/catch (this is the bug: that throw
+    // used to happen after the ai_runs row was created but wasn't wrapped
+    // in anything that could mark it FAILED).
+    resetAnthropicClientForTests()
+
+    await expect(
+      runStructuredAiTask({
+        organizationId: orgId,
+        clientId,
+        promptCategory: 'reporting',
+        variables: {},
+        userMessage: 'Test input',
+        schema: OutputSchema,
+      }),
+    ).rejects.toThrow(AiGatewayError)
+
+    const runs = await db.aiRun.findMany({
+      where: { organizationId: orgId, clientId },
+      orderBy: { createdAt: 'desc' },
+      take: 1,
+    })
+    expect(runs[0]?.status).toBe('FAILED')
+    expect(runs[0]?.error).toContain('ANTHROPIC_API_KEY')
+  })
 })

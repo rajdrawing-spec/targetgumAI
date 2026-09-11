@@ -13,12 +13,14 @@ import {
   SlidersHorizontal,
   ChevronLeft,
   CalendarDays,
+  Image as ImageIcon,
 } from 'lucide-react'
 import { getCurrentAuthContext } from '@/lib/auth/current-context'
 import { getAuthorizedClient } from '@/lib/db/tenant'
 import { listAiRuns } from '@/lib/ai/runs'
 import { getClientPolicy, listClientCompetitors } from '@/lib/clients/brain'
 import { listContentCalendarItems } from '@/lib/content-calendar/persist'
+import { listCreativeAssets } from '@/lib/creative/persist'
 import { listIntegrationConnectionsForOrg } from '@/lib/integrations/health'
 import { listRecommendations } from '@/lib/recommendations/persist'
 import { listTasks } from '@/lib/recommendations/tasks'
@@ -27,12 +29,14 @@ import { listReports } from '@/lib/reports/generate'
 import { ForbiddenError } from '@/lib/rbac/errors'
 import {
   addCompetitorAction,
+  connectCanvaAccountAction,
   connectGoogleAdsAccountAction,
   connectMetaAdsAccountAction,
   connectMetricoolBrandAction,
   createContentItemAction,
   triggerAnalyzeClientAction,
   triggerCompetitorAnalysisAction,
+  triggerCreativeWorkflowAction,
   triggerSeoAnalysisAction,
 } from '../../actions'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -61,22 +65,26 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ c
     throw error
   }
 
-  const [policy, recommendations, tasks, approvals, reports, allConnections, aiRuns, contentItems, competitors] = await Promise.all([
-    getClientPolicy(ctx, clientId),
-    listRecommendations(ctx, clientId),
-    listTasks(ctx, clientId),
-    listApprovals(ctx, { clientId }),
-    listReports(ctx, clientId),
-    listIntegrationConnectionsForOrg(ctx),
-    listAiRuns(ctx, { clientId, limit: 10 }),
-    listContentCalendarItems(ctx, clientId),
-    listClientCompetitors(ctx, clientId),
-  ])
+  const [policy, recommendations, tasks, approvals, reports, allConnections, aiRuns, contentItems, creativeAssets, competitors] =
+    await Promise.all([
+      getClientPolicy(ctx, clientId),
+      listRecommendations(ctx, clientId),
+      listTasks(ctx, clientId),
+      listApprovals(ctx, { clientId }),
+      listReports(ctx, clientId),
+      listIntegrationConnectionsForOrg(ctx),
+      listAiRuns(ctx, { clientId, limit: 10 }),
+      listContentCalendarItems(ctx, clientId),
+      listCreativeAssets(ctx, clientId),
+      listClientCompetitors(ctx, clientId),
+    ])
   const connections = allConnections.filter((c) => c.clientId === clientId)
   const canManageIntegrations = ctx.permissions.has('integrations.manage')
   const canTriggerAnalysis = ctx.permissions.has('analysis.trigger')
   const canManageContent = ctx.permissions.has('content.manage')
+  const canManageCreative = ctx.permissions.has('creative.manage')
   const canEditClient = ctx.permissions.has('clients.edit')
+  const approvedCreativeAssets = creativeAssets.filter((a) => a.status === 'APPROVED')
 
   return (
     <div className="space-y-6">
@@ -212,6 +220,21 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ c
               </div>
               <Button type="submit" variant="outline">
                 Connect Meta Ads account
+              </Button>
+            </form>
+          )}
+          {canManageIntegrations && (
+            <form action={connectCanvaAccountAction.bind(null, clientId)} className="flex flex-wrap items-end gap-3 rounded-md border border-dashed border-border p-3">
+              <div>
+                <Label htmlFor="canvaAccountId">Canva brand id</Label>
+                <Input id="canvaAccountId" name="externalAccountId" type="text" required placeholder="e.g. BAmockbrand" className="w-44" />
+              </div>
+              <div>
+                <Label htmlFor="canvaLabel">Label (optional)</Label>
+                <Input id="canvaLabel" name="label" type="text" className="w-44" />
+              </div>
+              <Button type="submit" variant="outline">
+                Connect Canva brand
               </Button>
             </form>
           )}
@@ -353,6 +376,53 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ c
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
+            <ImageIcon className="h-4 w-4 text-muted-foreground" /> Creatives
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {creativeAssets.length === 0 ? (
+            <EmptyState icon={ImageIcon} title="No creative concepts yet" />
+          ) : (
+            <ul className="divide-y divide-border">
+              {creativeAssets.map((asset) => (
+                <li key={asset.id} className="flex items-center justify-between gap-2 py-2.5 first:pt-0 last:pb-0">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm text-foreground">{asset.copy?.split('\n')[0] || asset.platform || 'Untitled'}</p>
+                    <p className="text-xs text-caption">{asset.platform}</p>
+                  </div>
+                  <StatusBadge status={asset.status} className="shrink-0" />
+                </li>
+              ))}
+            </ul>
+          )}
+          {canManageCreative && (
+            <form action={triggerCreativeWorkflowAction.bind(null, clientId)} className="flex flex-wrap items-end gap-3 rounded-md border border-dashed border-border p-3">
+              <div>
+                <Label htmlFor="creativePlatform">Platform</Label>
+                <Input id="creativePlatform" name="platform" type="text" required defaultValue="instagram" className="w-32" />
+              </div>
+              <div>
+                <Label htmlFor="creativeCount">Count</Label>
+                <Input id="creativeCount" name="count" type="number" min={1} max={10} required defaultValue={3} className="w-20" />
+              </div>
+              <div className="min-w-[14rem] flex-1">
+                <Label htmlFor="campaignBrief">Campaign brief</Label>
+                <Input id="campaignBrief" name="campaignBrief" type="text" required placeholder="e.g. the recommended spring promotion" />
+              </div>
+              <Button type="submit" variant="outline">
+                <Sparkles className="h-3.5 w-3.5" /> Generate concepts
+              </Button>
+            </form>
+          )}
+          <p className="text-xs text-caption">
+            Review, generate designs, and approve from the <Link href="/dashboard/creatives" className="text-primary hover:underline">creatives</Link> page.
+          </p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
             <CalendarDays className="h-4 w-4 text-muted-foreground" /> Content calendar
           </CardTitle>
         </CardHeader>
@@ -388,6 +458,23 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ c
                 <Label htmlFor="caption">Caption</Label>
                 <Input id="caption" name="caption" type="text" placeholder="Post copy…" />
               </div>
+              {approvedCreativeAssets.length > 0 && (
+                <div>
+                  <Label htmlFor="creativeAssetId">Creative (optional)</Label>
+                  <select
+                    id="creativeAssetId"
+                    name="creativeAssetId"
+                    className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+                  >
+                    <option value="">None</option>
+                    {approvedCreativeAssets.map((asset) => (
+                      <option key={asset.id} value={asset.id}>
+                        {asset.copy?.split('\n')[0]?.slice(0, 40) || asset.id}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <Button type="submit" variant="outline">
                 Add to calendar
               </Button>
