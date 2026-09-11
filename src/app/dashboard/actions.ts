@@ -15,6 +15,8 @@ import {
   submitContentForReview,
   syncContentCalendarItemFromApproval,
 } from '@/lib/content-calendar/persist'
+import { connectClientToGoogleAdsAccount } from '@/lib/integrations/google-ads/connect'
+import { connectClientToMetaAdsAccount } from '@/lib/integrations/meta-ads/connect'
 import { connectClientToMetricoolBrand } from '@/lib/integrations/metricool/connect'
 import { acceptRecommendation, rejectRecommendation } from '@/lib/recommendations/persist'
 import { updateTaskStatus } from '@/lib/recommendations/tasks'
@@ -164,6 +166,26 @@ export async function connectMetricoolBrandAction(clientId: string, formData: Fo
   const brandId = String(formData.get('brandId') ?? '')
   const label = String(formData.get('label') ?? '')
   await connectClientToMetricoolBrand(ctx, clientId, brandId, label)
+  revalidatePath(`/dashboard/clients/${clientId}`)
+  revalidatePath('/dashboard/integrations')
+  revalidatePath('/dashboard')
+}
+
+export async function connectGoogleAdsAccountAction(clientId: string, formData: FormData): Promise<void> {
+  const ctx = await requireCtx()
+  const externalAccountId = String(formData.get('externalAccountId') ?? '')
+  const label = String(formData.get('label') ?? '')
+  await connectClientToGoogleAdsAccount(ctx, clientId, externalAccountId, label)
+  revalidatePath(`/dashboard/clients/${clientId}`)
+  revalidatePath('/dashboard/integrations')
+  revalidatePath('/dashboard')
+}
+
+export async function connectMetaAdsAccountAction(clientId: string, formData: FormData): Promise<void> {
+  const ctx = await requireCtx()
+  const externalAccountId = String(formData.get('externalAccountId') ?? '')
+  const label = String(formData.get('label') ?? '')
+  await connectClientToMetaAdsAccount(ctx, clientId, externalAccountId, label)
   revalidatePath(`/dashboard/clients/${clientId}`)
   revalidatePath('/dashboard/integrations')
   revalidatePath('/dashboard')

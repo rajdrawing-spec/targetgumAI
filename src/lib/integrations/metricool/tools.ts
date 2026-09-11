@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { AdCampaignPerformanceSchema, AdCampaignRecordSchema } from '@/lib/integrations/ads-schemas'
 import { withIntegrationHealthTracking } from '@/lib/integrations/health'
 import { registerTool } from '@/lib/tools/registry'
 import type { ToolContext } from '@/lib/tools/types'
@@ -12,7 +13,15 @@ import { getMetricoolProvider } from './index'
  * same example list is deliberately NOT registered - Metricool has no ads
  * write endpoint at all (docs/INTEGRATIONS.md); registering a tool with no
  * working implementation would violate "do not assume unsupported
- * operations" (BRD Section 15/116).
+ * operations" (BRD Section 15/116). That gap is exactly what the native
+ * `google_ads.*`/`meta_ads.*` tools (Phase 2, `src/lib/integrations/
+ * google-ads/`, `src/lib/integrations/meta-ads/`) exist to close, behind
+ * the same `AdsProvider` interface (BRD Section 51) - Metricool's read-only
+ * ad tools below stay exactly as they are.
+ *
+ * The `AdCampaignRecordSchema`/`AdCampaignPerformanceSchema` zod shapes used
+ * below live in `src/lib/integrations/ads-schemas.ts`, shared with those two
+ * native providers rather than redefined here a third time.
  *
  * `metricool.publish_post` (Phase 2, BRD Section 85 "automated social
  * scheduling") is HIGH risk (BRD Section 21: "Publish content"), unlike
@@ -65,37 +74,6 @@ const SocialMetricValueSchema = z.object({
   followers: z.number().optional(),
   videoViews: z.number().optional(),
   watchTimeSeconds: z.number().optional(),
-  raw: z.unknown(),
-})
-
-const AdCampaignRecordSchema = z.object({
-  providerCampaignId: z.string(),
-  name: z.string(),
-  channel: z.string(),
-  status: z.string().optional(),
-  budget: z.number().optional(),
-  startDate: z.string().optional(),
-  endDate: z.string().optional(),
-})
-
-const AdCampaignPerformanceSchema = z.object({
-  source: z.string(),
-  retrievedAt: z.string(),
-  period: z.string(),
-  providerCampaignId: z.string(),
-  spend: z.number().optional(),
-  impressions: z.number().optional(),
-  clicks: z.number().optional(),
-  ctr: z.number().optional(),
-  cpc: z.number().optional(),
-  cpm: z.number().optional(),
-  conversions: z.number().optional(),
-  conversionRate: z.number().optional(),
-  cpa: z.number().optional(),
-  roas: z.number().optional(),
-  revenue: z.number().optional(),
-  frequency: z.number().optional(),
-  reach: z.number().optional(),
   raw: z.unknown(),
 })
 

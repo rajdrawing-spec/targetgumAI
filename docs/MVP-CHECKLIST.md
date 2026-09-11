@@ -1027,7 +1027,60 @@ screenshot. Fixture data and scratch scripts removed afterward.
 
 typecheck, lint, full test suite (222/222), and production build all pass.
 
+### Meta/Google Ads direct integration ✅ DONE
+
+Closes the "ad management (write)" gap `docs/INTEGRATIONS.md` documents as
+confirmed unavailable via Metricool - the MCP server has no ads write
+endpoints at all. Added two new provider modules,
+`src/lib/integrations/google-ads/` and `src/lib/integrations/meta-ads/`,
+identical in shape: `GoogleAdsMockProvider`/`MetaAdsMockProvider` (BRD
+Section 92 names both explicitly) are full, real, deterministic
+implementations of the existing `AdsProvider` interface - unused by any
+provider until now. `IntegrationProvider`'s `GOOGLE_ADS`/`META_ADS` enum
+values had sat unused since Day 1's schema; no migration was needed at
+all.
+
+Nine new Tool Registry entries per provider (`google_ads.*`/`meta_ads.*` -
+reads LOW, `create_campaign`/`pause_campaign` MEDIUM, `update_campaign`/
+`update_budget`/`update_bid` HIGH per BRD Section 21) gated on a new
+`ads.manage` permission for every write - granted to `account_manager`
+only, not `marketing_employee` (BRD 4.3 lists "Analyze campaigns", read
+only, for that role - a deliberate difference from `content.manage`'s
+broader grant). `create_campaign` always creates a `PAUSED` campaign,
+mirroring the content-calendar's `draft: true` safety rule. Connect flow
+(two new forms on the client detail page's Integrations card) mirrors
+Metricool's single-step connect-and-verify rather than GA4/GSC's unwired
+OAuth flow - see docs/DECISIONS.md for why.
+
+Both real adapters (`createGoogleAdsProvider`/`createMetaAdsProvider`)
+throw `UnsupportedOperationError` for every method - no official Node
+client exists for Google Ads at all, and Meta's official SDK isn't
+installed/verifiable in this environment (BRD Section 52/54 require a
+developer token/app review before any real call is possible either way).
+Same choice already made for `metricool.publish_post`'s real adapter, now
+applied because no verified client exists for either platform. Everything
+is built and tested against the mock, consistent with the rest of this
+integration layer.
+
+30 new tests (252 total, up from 222): 16 unit tests in `tests/unit/
+native-ads-providers.test.ts` (both mock providers' full CRUD, both real
+adapters' `UnsupportedOperationError`), 14 integration tests in
+`tests/integration/native-ads-tools.test.ts` (`describe.each`-parametrized
+across both providers - connect flow, reads open to any `clients.read`
+role, `IntegrationUnavailableError` for a disconnected client, MEDIUM
+tools executing directly for `account_manager` only, HIGH tools' full
+approve-and-execute loop proven against the mock's actual state). All 222
+pre-existing tests pass unchanged.
+
+End-to-end smoke-verified live with Playwright: connected Client A to a
+mock Google Ads customer id and a mock Meta Ads account id through the new
+forms, confirmed both show `CONNECTED` in the Integrations card, verified
+directly against the database. Fixture data and scratch scripts removed
+afterward.
+
+typecheck, lint, full test suite (252/252), and production build (19
+routes, unchanged) all pass.
+
 Not yet started from the Phase 2 list (BRD Section 85): Canva creative
-workflow, a Meta/Google Ads direct integration, weekly automated
-intelligence (needs the BullMQ/Redis job infrastructure
-`docs/ARCHITECTURE.md` proposes but nothing built yet).
+workflow, weekly automated intelligence (needs the BullMQ/Redis job
+infrastructure `docs/ARCHITECTURE.md` proposes but nothing built yet).

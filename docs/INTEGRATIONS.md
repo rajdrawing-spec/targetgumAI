@@ -86,7 +86,7 @@ implemented, not speculatively here.
 | AI reasoning | Claude | Implemented (Day 4) - orchestration verified, live API call pending a key |
 | Social scheduling / analytics | Metricool MCP | Implemented (Day 6), analytics parsing corrected against real response data (Day 15) - adapter unit-tested against the verified live shape; the deployed app itself still has no `METRICOOL_MCP_URL` of its own, so wire-level connectivity from the app is not live-tested |
 | Supported ad analysis (read) | Metricool MCP | Implemented (Day 6), same real-shape fix and live-test caveat as above; the `campaigns` connector's exact shape is inferred from the verified `evolution` connector, not independently confirmed (no populated ads account available) |
-| Ad management (write) | — | **Confirmed unavailable via Metricool.** No adapter write path exists; would need a native Google/Meta Ads integration (Phase 2) if ever required |
+| Ad management (write) | Native Google Ads / Meta Ads (Phase 2) | **Implemented (Day 16/Phase 2)** via `GoogleAdsMockProvider`/`MetaAdsMockProvider` - confirmed unavailable via Metricool (capability gap in the MCP itself), so this is a separate `AdsProvider` implementation, not a Metricool fix. Real adapters are `UnsupportedOperationError` (no verified client library for either platform in this environment) - see below and docs/EXTERNAL-APPROVALS.md |
 | Website analytics | GA4 | Implemented (Day 7) via official `googleapis` client; not live-tested (no OAuth app configured) |
 | Search analytics | Google Search Console | Implemented (Day 7), same caveat as above |
 | Creative | Canva MCP | Optional; not yet implemented |
@@ -255,3 +255,39 @@ Amazon Ads integrations are added only when Metricool lacks a required
 operation, more granular control is needed, or provider policy requires
 direct integration — behind the same `AdsProvider` interface, so agent code
 is unchanged.
+
+### Google Ads / Meta Ads — implemented against the mock (Phase 2, Day 16)
+
+Metricool's ads-write gap (above) was exactly the trigger Section 51
+describes, so `src/lib/integrations/google-ads/` and `src/lib/integrations/
+meta-ads/` were built, identical in shape:
+
+- **Registered tools**: `google_ads.*`/`meta_ads.*` -
+  `get_campaigns`/`get_campaign_performance`/`get_ad_groups`/`get_ads` (LOW,
+  `clients.read`), `create_campaign`/`pause_campaign` (MEDIUM, new
+  `ads.manage` permission), `update_campaign`/`update_budget`/`update_bid`
+  (HIGH, `ads.manage`, Approval Engine-gated).
+- **`GoogleAdsMockProvider`/`MetaAdsMockProvider`** (BRD Section 92) are
+  full, deterministic implementations - what every tool/test actually
+  exercises. `createCampaign` always returns `PAUSED`, same safety
+  reasoning as Metricool's `draft: true`.
+- **Real adapters are `UnsupportedOperationError`** for every method -
+  unlike GA4/GSC (which wrap the official, already-installed `googleapis`
+  client), there is no official Node.js client for the Google Ads API at
+  all, and Meta's official SDK (`facebook-nodejs-business-sdk`) is
+  deliberately not added as an unverified dependency - no developer
+  token/Google Cloud project/OAuth app (Google Ads, Section 52) and no
+  Meta developer app/app review/test account (Meta, Section 54) exist in
+  this environment to check an implementation against either way. Same
+  choice already made for `metricool.publish_post`'s real adapter. See
+  docs/DECISIONS.md and docs/EXTERNAL-APPROVALS.md.
+- **Connect flow**: single-step connect-and-verify (`connectClientToGoogleAdsAccount`/
+  `connectClientToMetaAdsAccount`), matching Metricool's shape rather than
+  GA4/GSC's OAuth flow - that OAuth scaffold was built on Day 7 but never
+  wired to any route or UI either, so replicating it here would add a
+  second unexercised flow, not a working one.
+- **Not live-verified**: no real Google Ads/Meta Ads credentials exist in
+  this environment. Live-verified via Playwright: connected Client A to a
+  mock Google Ads customer id and mock Meta Ads account id through the
+  client detail page's new forms, confirmed both show `CONNECTED`,
+  cross-checked against the database.

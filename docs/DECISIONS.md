@@ -1250,6 +1250,192 @@ Metricool itself instead of staying `UnsupportedOperationError`.
 
 ---
 
+## 2026-09-11 — Phase 2: native Google Ads / Meta Ads integration, closing the ad-management-write gap
+
+**Decision:** Closed the "ad management (write)" gap `docs/INTEGRATIONS.md`
+documents as confirmed unavailable via Metricool ("No adapter write path
+exists; would need a native Google/Meta Ads integration (Phase 2) if ever
+required") - the Metricool MCP server has no ads write endpoints at all, a
+capability gap in the MCP itself, not an account-plan restriction. BRD
+Section 51's "Native Ads API Strategy" is explicit that this is exactly
+when a native adapter belongs: "only when Metricool lacks a required
+operation... behind the same AdsProvider interface, so agent code is
+unchanged." `AdsProvider` (`src/lib/integrations/providers.ts`) already
+had that full interface, unused by any provider until now.
+
+Added two new provider modules, `src/lib/integrations/google-ads/` and
+`src/lib/integrations/meta-ads/`, identical in shape (mock-provider.ts /
+provider.ts / index.ts / tools.ts / connect.ts / README.md - see either
+README for the full file-by-file breakdown) - `IntegrationProvider` already
+had `GOOGLE_ADS`/`META_ADS` enum values sitting unused since Day 1's
+schema, and `IntegrationAccount`/`IntegrationConnection` are already fully
+provider-generic, so no migration was needed at all.
+
+**`GoogleAdsMockProvider`/`MetaAdsMockProvider`** (BRD Section 92 names
+both explicitly) are full, real, deterministic implementations - what every
+new tool, test, and (once connected) agent actually exercises.
+`createCampaign` always returns a `PAUSED` campaign, mirroring
+`MetricoolMockProvider.schedulePost`'s `draft: true` safety rule: BRD
+Section 21 classifies "create draft campaign" MEDIUM but "launch campaign"
+HIGH, so a freshly created campaign is never live by default - actually
+enabling one is a separate, HIGH-risk `update_campaign` call.
+
+**Nine new Tool Registry entries per provider** (`google_ads.*`/
+`meta_ads.*` - `get_campaigns`/`get_campaign_performance`/`get_ad_groups`/
+`get_ads` LOW, `create_campaign`/`pause_campaign` MEDIUM, `update_campaign`/
+`update_budget`/`update_bid` HIGH, per BRD Section 21's verbatim examples)
+gated on a new `ads.manage` permission (`src/lib/rbac/permissions.ts`) for
+every write - reads reuse the existing `clients.read` everyone already
+holds, same split as `content.manage`. Unlike `content.manage`, `ads.manage`
+is granted to `account_manager` only, not `marketing_employee`: BRD 4.3's
+Marketing Employee capability list stops at "Analyze campaigns" (read),
+while 4.2's Account Manager gets the broader "Manage assigned clients" -
+this is a deliberate difference from the social-scheduling precedent, not
+an oversight.
+
+**The real adapters (`createGoogleAdsProvider`/`createMetaAdsProvider`)
+throw `UnsupportedOperationError` for every method** - a departure from how
+GA4/GSC's real adapters were built (real, if not-live-verified,
+implementations against the official `googleapis` client already used
+correctly elsewhere in this codebase). The reasoning differs by platform
+but lands the same place for both:
+- **Google Ads**: there is no official Node.js client at all - Google's own
+  published client-library list covers Java/.NET/PHP/Python/Perl/Ruby, not
+  Node. Writing a bespoke REST/GAQL client against an unverified protocol
+  shape (developer-token headers, resource names, mutate-operation
+  envelopes) would mean guessing exact wire formats with nothing in this
+  environment to check them against.
+- **Meta Ads**: an official SDK does exist (`facebook-nodejs-business-sdk`)
+  but is deliberately not added as a dependency - it isn't installed and
+  its API surface can't be inspected from this environment, and there's no
+  Meta developer app/app review/test account to verify calls against
+  either way (BRD Section 54). Adding an unverified dependency and writing
+  unverifiable calls against it isn't meaningfully safer than guessing a
+  raw protocol.
+
+Both land on the same choice already made for `metricool.publish_post`'s
+real adapter: CLAUDE.md rule 5/BRD Section 15/116 rule out fabricating an
+implementation that can't be verified - stub clearly, document why, track
+in `docs/EXTERNAL-APPROVALS.md` (Google Ads' existing row updated from "not
+needed for MVP" to reflect this is now built against the mock; a new Meta
+Ads row added). `resolveGoogleAdsProvider`/`resolveMetaAdsProvider` still
+check an env var and fall back to the mock, matching GA4/GSC's resolution
+shape exactly, even though the real path always fails today - so a future
+real implementation slots in without touching any call site.
+
+**Connect flow deliberately mirrors Metricool's single-step
+connect-and-verify, not GA4/GSC's OAuth flow.** GA4/GSC's OAuth building
+blocks (`buildGoogleAuthUrl`/`exchangeGoogleAuthCode`,
+`src/lib/integrations/google/oauth.ts`) were built on Day 7 but never
+wired to any route or UI - no real Google Cloud OAuth app exists to
+complete a flow against, and neither integration has a "Connect" button
+today either (`docs/INTEGRATIONS.md`). Replicating that same unexercised
+OAuth scaffold for a similarly-credential-less Google Ads connection would
+add a second unused flow rather than a working one, so
+`connectClientToGoogleAdsAccount`/`connectClientToMetaAdsAccount` instead
+follow Metricool's shape: store the external account id, verify with a
+real call to the (mock, today) provider, mark CONNECTED only on success -
+gated on `integrations.manage`, same permission Metricool's connect flow
+uses. Surfaced as two new forms on the client detail page's existing
+Integrations card, next to the Metricool one - no new dashboard page.
+
+**Deliberately NOT done in this pass:**
+- **No UI for the write tools** (create/pause/update campaign, budget, bid).
+  BRD Section 20's own workflow example ("Reduce budget on campaigns with
+  CPA 50% above target") frames these as something an agent does via
+  natural-language instruction through the Tool Registry + Approval Engine,
+  not something a human clicks a dashboard button for - building bespoke
+  CRUD forms would be less faithful to that design than leaving them
+  agent/tool-callable only, matching how Metricool's own equivalent
+  `get_ad_campaigns`/`get_ad_performance` tools have never had dedicated
+  read UI either.
+- **The Marketing Analytics Agent's gather step was not changed** to
+  dynamically pull from whichever ads providers (Metricool vs. native) are
+  actually connected for a client - it still only ever calls
+  `metricool.get_ad_campaigns`/`get_ad_performance`. Wiring that up needs a
+  new "which ad providers does this client have" resolution step the agent
+  doesn't have today; adding `google_ads.*`/`meta_ads.*` to its
+  `allowedToolKeys` without a gather-step change to actually call them
+  would just be dead configuration. Left as a distinct follow-up rather
+  than done as a side effect of this change.
+- **`ClientPolicy.maxDailyAdBudget`/`maxBudgetChangePercent`/
+  `autoChangeAds`** are still not consulted anywhere - same gap already
+  noted in the 2026-09-10 content-calendar entry's "Revisit if", still
+  true here: no module in this codebase makes tool execution conditional
+  on a `ClientPolicy` field yet.
+
+30 new tests (252 total, up from 222): 16 unit tests in `tests/unit/
+native-ads-providers.test.ts` (`describe.each`-parametrized across both
+providers - full mock CRUD round trip including the always-PAUSED
+`createCampaign` rule, plus both real adapters' every method throwing
+`UnsupportedOperationError`), 14 integration tests in `tests/integration/
+native-ads-tools.test.ts` (same `describe.each` parametrization - the
+connect flow, reads working for any `clients.read` role down to
+`client_user`, `IntegrationUnavailableError` for a disconnected client,
+`create_campaign` executing directly for `account_manager` and always
+PAUSED, MEDIUM/HIGH tools denied outright for `marketing_employee`/
+`client_user` (no `ads.manage`), and the full `update_budget`
+approve-and-execute loop - proven against the mock provider's actual
+budget value via a follow-up `get_campaigns` call, not just the `Approval`
+row). All 222 pre-existing tests pass unchanged.
+
+End-to-end smoke-verified live with Playwright: connected Client A to both
+a mock Google Ads customer id and a mock Meta Ads account id through the
+new client-detail-page forms, confirmed both show `CONNECTED` in the
+Integrations card, cross-checked directly against the database
+(`externalAccountId`/`label`/`status`/`lastSuccessfulSyncAt` all correct
+for both). Along the way, found and fixed a real login-flow bug in the
+verification script itself (not an app bug): the sign-in page's
+`handleSubmit` calls next-auth's `signIn()` then does its own
+`window.location.href` navigation once that resolves - a plain
+click-then-`waitForLoadState('networkidle')` races that async handler,
+since the click event returns before `signIn()`'s own fetch completes.
+Fixed by waiting for the actual URL change away from `/sign-in` instead;
+confirmed via a raw `curl` cookie-jar test that the credentials/session
+mechanism itself was never broken, only the script's timing assumption
+was. Fixture data and scratch scripts removed afterward.
+
+typecheck, lint, full test suite (252/252), and production build (19
+routes, unchanged - only two new forms on an existing page) all pass.
+
+**Rationale:** Every new provider module reused an established pattern
+exactly (GA4/GSC's `resolve*Provider`/README shape, Metricool's
+connect-and-verify shape and mock-provider structure, the existing
+`AdsProvider` interface and its zod schemas) rather than inventing new
+ones - `src/lib/integrations/ads-schemas.ts` is the one genuine
+refactor, extracting `AdCampaignRecordSchema`/`AdCampaignPerformanceSchema`
+(previously private to `metricool/tools.ts`) plus two new schemas
+(`AdGroupRecordSchema`/`AdRecordSchema`) into a shared module so three
+providers don't each redefine the same four shapes - pure refactor, no
+behavior change, same reasoning as extracting `src/lib/agents/schemas.ts`
+off the Analytics Agent when the SEO Agent needed it too. The
+`UnsupportedOperationError` choice for both real adapters, while a
+departure from GA4/GSC's precedent, is itself precedent-following - it's
+the exact same choice already made for `metricool.publish_post`'s real
+adapter, for the same reason (no way to verify an implementation in this
+environment), just now applied because *no* verified client library
+exists for either platform, not just one unverified operation.
+
+**Trade-off accepted:** the native integrations exist and are fully
+tool-callable/tested against the mock, but nothing in the app's agent
+layer automatically uses them yet (see "Deliberately NOT done" above) -
+connecting a client to Google Ads/Meta Ads today only unlocks manual
+tool calls (e.g. from a future command layer, BRD Section 44) or direct
+`executeTool` use, not an automatic boost to what "Analyze this client"
+covers.
+
+**Revisit if:** real Google Ads/Meta Ads credentials become available
+(implement the real adapters behind the unchanged interface, per BRD
+Section 51), a second caller needs the Marketing Analytics Agent to read
+native ads data (wire the gather-step's provider-discovery logic then,
+not speculatively now), or `ClientPolicy`-driven risk/approval logic gets
+built for any module (the natural point to wire `maxDailyAdBudget`/
+`maxBudgetChangePercent`/`autoChangeAds` into `update_budget`/
+`update_campaign`'s authorization, same "Revisit if" carried forward from
+2026-09-10).
+
+---
+
 ## Template for future entries
 
 ```text

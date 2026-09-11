@@ -40,6 +40,7 @@ export const PERMISSIONS = [
   'feedback.create',
   'analysis.trigger',
   'content.manage',
+  'ads.manage',
 ] as const
 
 export type Permission = (typeof PERMISSIONS)[number]
@@ -70,6 +71,17 @@ export type Permission = (typeof PERMISSIONS)[number]
  * restriction neither role list asks for. `client_user` gets none of this -
  * BRD 4.4 lists only "View content/creative" (read-only), served by the
  * existing `clients.read` grant everyone already has, same as reports.
+ *
+ * `ads.manage` (Phase 2 native Google Ads/Meta Ads integration, BRD Section
+ * 51/85): covers the `AdsProvider` write surface - create (draft/paused)
+ * campaign, pause, and the HIGH-risk budget/bid/campaign changes gated by
+ * the Approval Engine. Deliberately granted to `account_manager` only, NOT
+ * `marketing_employee` - unlike `content.manage`, BRD 4.3's Marketing
+ * Employee capability list stops at "Analyze campaigns" (read), while 4.2's
+ * Account Manager gets the broader "Manage assigned clients". Reads
+ * (`google_ads.get_campaigns` etc.) need no new permission at all - gated
+ * on the existing `clients.read` every role already holds, same pattern as
+ * Metricool's own `metricool.get_ad_campaigns`/`get_ad_performance`.
  */
 export const ROLE_PERMISSIONS: Record<SystemRoleKey, readonly Permission[]> = {
   super_admin: PERMISSIONS,
@@ -84,6 +96,7 @@ export const ROLE_PERMISSIONS: Record<SystemRoleKey, readonly Permission[]> = {
     'feedback.create',
     'analysis.trigger',
     'content.manage',
+    'ads.manage',
   ],
   marketing_employee: [
     'clients.read',

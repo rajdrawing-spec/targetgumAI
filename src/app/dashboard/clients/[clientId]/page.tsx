@@ -27,6 +27,8 @@ import { listReports } from '@/lib/reports/generate'
 import { ForbiddenError } from '@/lib/rbac/errors'
 import {
   addCompetitorAction,
+  connectGoogleAdsAccountAction,
+  connectMetaAdsAccountAction,
   connectMetricoolBrandAction,
   createContentItemAction,
   triggerAnalyzeClientAction,
@@ -180,6 +182,36 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ c
               </div>
               <Button type="submit" variant="outline">
                 Connect Metricool brand
+              </Button>
+            </form>
+          )}
+          {canManageIntegrations && (
+            <form action={connectGoogleAdsAccountAction.bind(null, clientId)} className="flex flex-wrap items-end gap-3 rounded-md border border-dashed border-border p-3">
+              <div>
+                <Label htmlFor="googleAdsAccountId">Google Ads customer id</Label>
+                <Input id="googleAdsAccountId" name="externalAccountId" type="text" required placeholder="e.g. 123-456-7890" className="w-44" />
+              </div>
+              <div>
+                <Label htmlFor="googleAdsLabel">Label (optional)</Label>
+                <Input id="googleAdsLabel" name="label" type="text" className="w-44" />
+              </div>
+              <Button type="submit" variant="outline">
+                Connect Google Ads account
+              </Button>
+            </form>
+          )}
+          {canManageIntegrations && (
+            <form action={connectMetaAdsAccountAction.bind(null, clientId)} className="flex flex-wrap items-end gap-3 rounded-md border border-dashed border-border p-3">
+              <div>
+                <Label htmlFor="metaAdsAccountId">Meta Ads account id</Label>
+                <Input id="metaAdsAccountId" name="externalAccountId" type="text" required placeholder="e.g. act_123456789" className="w-44" />
+              </div>
+              <div>
+                <Label htmlFor="metaAdsLabel">Label (optional)</Label>
+                <Input id="metaAdsLabel" name="label" type="text" className="w-44" />
+              </div>
+              <Button type="submit" variant="outline">
+                Connect Meta Ads account
               </Button>
             </form>
           )}
