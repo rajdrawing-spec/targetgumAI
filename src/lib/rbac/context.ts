@@ -24,6 +24,11 @@ export async function resolveAuthContext(
 
   const membership = await db.organizationUser.findUnique({
     where: { organizationId_userId: { organizationId, userId } },
+    // A real SQL JOIN instead of Prisma's default per-relation query
+    // batching - this three-level include runs on every authorization
+    // check, so collapsing it to one round trip matters. See the
+    // generator's previewFeatures comment and docs/DECISIONS.md.
+    relationLoadStrategy: 'join',
     include: {
       role: { include: { rolePermissions: { include: { permission: true } } } },
       assignedClients: true,
@@ -96,6 +101,8 @@ export async function resolveDefaultAuthContext(db: PrismaClient, userId: string
   const membership = await db.organizationUser.findFirst({
     where: { userId, status: 'ACTIVE' },
     orderBy: { createdAt: 'asc' },
+    // See resolveAuthContext above - same four-level include, same reason.
+    relationLoadStrategy: 'join',
     include: {
       user: { select: { status: true } },
       role: { include: { rolePermissions: { include: { permission: true } } } },

@@ -86,6 +86,12 @@ export async function listClientsWithSummary(ctx: AuthContext, filter: ClientLis
     where,
     orderBy: filter.sort === 'name' ? { name: 'asc' } : { updatedAt: 'desc' },
     take: filter.limit ?? 200,
+    // Five nested relations (accountManager.user, contacts,
+    // integrationConnections.integrationAccount.integration, aiRuns, and
+    // three filtered _counts) per row - a real SQL join keeps this at one
+    // round trip instead of Prisma's default per-relation batching. This
+    // query backs both the Clients list and the Overview dashboard.
+    relationLoadStrategy: 'join',
     select: {
       id: true,
       name: true,

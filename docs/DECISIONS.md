@@ -2058,6 +2058,58 @@ card to it then.
 
 ---
 
+## 2026-09-11 — "Make it super fast": relationJoins + hot-path indexes
+
+**Decision:** Two further, purely additive performance changes on top of
+Phase 2-5, in response to a direct "make it super fast" request:
+
+1. **`previewFeatures = ["relationJoins"]`** enabled on the Prisma
+   generator, and `relationLoadStrategy: 'join'` applied to the three
+   queries with several nested relations that run on every request -
+   `resolveAuthContext`/`resolveDefaultAuthContext` (role → rolePermissions
+   → permission, plus assignedClients) and `listClientsWithSummary`
+   (accountManager.user, contacts, integrationConnections.integrationAccount
+   .integration, aiRuns, three filtered `_count`s). Prisma's default
+   strategy batches each relation as a separate query; `'join'` issues one
+   SQL query with real JOINs instead. Deliberately not applied
+   everywhere - most of this app's includes are one level deep (e.g.
+   `client: { select: { name: true } }`), where Prisma's own batching is
+   already a single extra query and a join adds nothing.
+2. **New migration `hot_path_indexes_and_relation_joins`**: composite
+   indexes on every client-owned table's actual filter shape from
+   `scopedClientWhere` + the status/priority filters added in Phase 2 -
+   `Approval`, `Recommendation`, `Task`, `IntegrationConnection`, `AiRun`,
+   `Report`, `ContentCalendarItem`, `CreativeAsset`. None of these had any
+   index before this beyond primary keys and one unique constraint - every
+   list query on them was a sequential scan, fine at this session's seed
+   data volume but the first thing to bite once client/row counts grow.
+
+**Measured (production build, local Postgres, statement-logged)**:
+queries per navigation - Overview 12 → 7, client workspace 18 → 11,
+Approvals 7 → 2, Integrations 7 → 2. Combined with Phase 2's caching
+(14 → 6 auth queries), Overview is now ~3x fewer statements than the
+Phase-1 baseline (20). Every test in `tests/security/default-auth-context
+.test.ts`, `tests/integration/client-profile.test.ts` (the query most
+affected by the join) and the full suite still pass unchanged - the join
+strategy changes execution, not results.
+
+**Rationale:** Round trips, not CPU, were already established as the
+app's actual bottleneck (docs/UX-ASSESSMENT.md §5) - this is that same
+lever pushed further, plus the indexes are pure insurance against the
+sequential-scan cliff every one of these tables was otherwise heading
+toward as real data accumulates.
+
+**Alternative(s) considered:** Making `relationLoadStrategy: 'join'` the
+generator-wide default - rejected; per-query opt-in only changes the
+handful of queries that actually nest multiple relations, and leaves
+Prisma's already-efficient default behavior alone everywhere else.
+
+**Revisit if:** Prisma promotes `relationJoins` out of preview (drop the
+`previewFeatures` line, behavior is unaffected) - or a future query
+gains enough nested relations to be worth the same treatment.
+
+---
+
 ## Template for future entries
 
 ```text
