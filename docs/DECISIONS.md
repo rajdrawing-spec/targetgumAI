@@ -2028,6 +2028,36 @@ their own normalized tables instead of validated JSON.
 
 ---
 
+## 2026-09-11 — UX/performance upgrade, Phase 5: Overview redesigned on the attention-scored client summary
+
+**Decision:** `src/app/dashboard/page.tsx` now builds on
+`listClientsWithSummary(ctx, { sort: 'attention' })` (Phase 3) instead of
+its own ad hoc queries, so the Overview's "Attention required" section and
+the Clients list's own attention badges are always the same numbers -
+never two dashboards quietly disagreeing. Added: a per-client "Attention
+required" list (top clients by `attentionScore`, each with direct
+Review/Reconnect-style links into the specific thing needing action, not
+just a count), an "Integration issues" summary tile, an "Upcoming work"
+card (open tasks + scheduled content, both already bounded/sorted lib
+functions from Phase 2), and an honest "Performance summary" empty state
+naming exactly what's missing (no `AnalyticsSnapshot` read path exists
+outside report generation yet) rather than a fabricated number.
+
+**Rationale:** BRD Section 18/42 - "what needs attention across every
+client right now," not a wall of tiles. Reusing the Phase 3 summary query
+rather than writing a second, similar one for the dashboard was a
+deliberate consistency choice - see docs/UX-ASSESSMENT.md §18.
+
+**Alternative(s) considered:** A separate, dashboard-specific attention
+query - rejected; the Clients list and Overview must agree, and only one
+implementation can guarantee that.
+
+**Revisit if:** `AnalyticsSnapshot` gets a general read path (currently
+written only by the reporting pipeline) - wire the Performance summary
+card to it then.
+
+---
+
 ## Template for future entries
 
 ```text
