@@ -1827,6 +1827,34 @@ form instead of the boolean.
 
 ---
 
+## 2026-09-11 — `directUrl` added to the Prisma datasource, for pooled hosts (Supabase/Neon)
+
+**Decision:** `prisma/schema.prisma`'s `datasource db` block adds
+`directUrl = env("DIRECT_URL")` alongside the existing `url =
+env("DATABASE_URL")`.
+
+**Rationale:** Verifying a real deploy surfaced that `prisma migrate
+deploy` needs a direct, unpooled connection - a transaction-mode pooler
+(pgbouncer, which Supabase's default connection string uses) doesn't
+support the advisory locks Migrate takes. Prisma's documented fix is
+exactly this: `url` stays the pooled connection the running app uses for
+ordinary queries, `directUrl` is a second connection string Migrate uses
+instead. Only affects `prisma migrate`/`db push`; `PrismaClient` at
+runtime (`src/lib/db/client.ts`) still only reads `url`, so this is
+additive and doesn't change any existing runtime behavior. On a
+non-pooled provider, `DIRECT_URL` is simply set to the same value as
+`DATABASE_URL`.
+
+**Alternative(s) considered:** Requiring every deployment target to use
+an unpooled connection for `DATABASE_URL` too - rejected: it defeats the
+point of a pooler for a serverless-style runtime (Vercel) making many
+short-lived connections.
+
+**Revisit if:** never, expected - this is Prisma's standard recommended
+shape for any pooled Postgres provider.
+
+---
+
 ## Template for future entries
 
 ```text

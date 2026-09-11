@@ -26,6 +26,65 @@ pilot once those credentials exist. See
 - [`docs/PILOT-RUNBOOK.md`](docs/PILOT-RUNBOOK.md) — how to run a real client pilot
   once live credentials exist
 
+## Deploy to Vercel + Supabase (no local machine required)
+
+Everything below happens in the Vercel and Supabase web dashboards - nothing
+runs on your own computer.
+
+### 1. Create the database (Supabase)
+
+1. https://supabase.com → **New Project**.
+2. Once it's provisioned: **Project Settings → Database → Connection string**.
+   Supabase gives you two you need:
+   - **Transaction pooler** (port `6543`, `?pgbouncer=true`) → this is `DATABASE_URL`
+   - **Direct connection** (port `5432`) → this is `DIRECT_URL`
+
+   (Any other Postgres host works too - Neon, Railway, etc. If your provider
+   doesn't pool connections, use the same URL for both variables.)
+
+### 2. Import the repo into Vercel
+
+1. https://vercel.com → **Add New → Project** → select this repo.
+2. Set the branch to deploy to `claude/plan-execution-fmve0b` (or your
+   default branch, once this work is merged).
+3. **Before the first deploy**, open **Build & Development Settings** and
+   override the **Build Command** with:
+   ```
+   npx prisma migrate deploy && npm run db:seed && npm run build
+   ```
+   This applies every database migration and seeds the three dev users as
+   part of Vercel's own build - no separate step, no local `prisma` CLI run
+   needed. (The seed script is idempotent - upserts, not inserts - so it's
+   safe to run on every deploy; re-running it never duplicates data or resets
+   anything you've since created in the app.)
+
+### 3. Set environment variables (Project Settings → Environment Variables)
+
+| Key | Value |
+|---|---|
+| `DATABASE_URL` | Supabase's **Transaction pooler** connection string |
+| `DIRECT_URL` | Supabase's **Direct connection** string |
+| `AUTH_SECRET` | any long random string (Vercel's env editor doesn't run `openssl` for you - any 32+ char random value works, e.g. mash the keyboard) |
+| `INTEGRATION_ENCRYPTION_KEY` | another long random string, different from `AUTH_SECRET` |
+
+Everything else in `.env.example` (Anthropic, Metricool, GA4, GSC, Canva,
+Ads, Redis, S3, Sentry) can stay unset - every integration has a mock
+fallback. Add `ANTHROPIC_API_KEY` later if/when you want real Claude output
+instead of mocked analysis.
+
+### 4. Deploy, then sign in
+
+Click **Deploy**. Once it finishes, visit `https://<your-project>.vercel.app/sign-in`
+and sign in with `super-admin@targetgum.dev` / `DevPassword!23` (seeded by
+step 2's build command).
+
+**Note on scheduled automation:** `vercel.json`'s weekly cron calls a route
+that only *enqueues* a job (BullMQ/Redis) - there's no worker process on
+Vercel to pick it up (Vercel can't host a long-running process). Every other
+feature works fully on Vercel alone; weekly automation needs a small
+separate always-on host for `npm run worker` if you want to exercise it
+(see `docs/ARCHITECTURE.md` §4a) - not required to see the rest of the app.
+
 ## Local development
 
 Requires Node.js ≥ 20, PostgreSQL 16, and Redis. Redis is only needed if you want
