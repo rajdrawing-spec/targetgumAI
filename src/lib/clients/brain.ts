@@ -113,6 +113,8 @@ export async function updateClientPolicy(
     autoPublishSocial: boolean
     autoChangeAds: boolean
     requireApprovalForCampaignLaunch: boolean
+    /** BRD Section 65's weekly scheduled automation opt-in - see docs/DECISIONS.md. */
+    weeklyAutomationEnabled: boolean
   }>,
 ) {
   assertPermission(ctx, 'clients.edit')

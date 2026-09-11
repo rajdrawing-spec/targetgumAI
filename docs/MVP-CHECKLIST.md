@@ -1158,7 +1158,80 @@ removed afterward.
 typecheck, lint, full test suite (276/276), and production build (20
 routes - `/dashboard/creatives` is the only new one) all pass.
 
-Not yet started from the Phase 2 list (BRD Section 85): weekly automated
-intelligence (needs the BullMQ/Redis job infrastructure
-`docs/ARCHITECTURE.md` proposes but nothing built yet) - the only
-remaining item.
+### Weekly automated intelligence ✅ DONE — Phase 2 (BRD Section 85) complete
+
+Implements BRD Section 65's scheduled automation - the last Phase 2
+backlog item, and the first feature in this codebase needing
+infrastructure beyond the Next.js app itself. `docs/ARCHITECTURE.md`'s
+stack table has said "Redis + BullMQ" since Day 1; this is the first code
+to use it, and - unlike every other "not live-verified" integration this
+session - built and tested against a real local Redis instance (available
+in this sandbox), not a mock.
+
+**Two-process deployment topology**: `src/app/api/cron/weekly-intelligence/route.ts`
+is the fast, stateless half a Vercel serverless function can host
+(triggered by Vercel Cron, `vercel.json`, gated by `CRON_SECRET`) - it
+finds opted-in, not-recently-run clients and enqueues a BullMQ job per
+client. `scripts/worker.ts` (`npm run worker`) is a separate, standalone
+process that actually processes jobs - needs a persistent host
+(Railway/Render/Fly.io/a VM), never Vercel, since serverless functions
+can't host BullMQ's polling `Worker`. See docs/ARCHITECTURE.md §4a for
+the full writeup.
+
+**`resolveAutomationActor`** (`src/lib/queue/resolve-actor.ts`) resolves
+who an unattended job acts as - the client's own assigned
+`account_manager` (falling back to `marketing_employee`), never a new
+"system account" concept. `processWeeklyIntelligenceJob` then calls
+`runAnalyzeClientWorkflow` **unchanged** - the same function "Analyze this
+client" uses, full authorization chain included, so every `AiRun`/
+`WorkflowRun`/`Recommendation`/`Report`/audit row is indistinguishable
+from a human's manual trigger. A client with nobody eligible assigned is
+skipped (a `DENIED` audit event), never run under a fabricated actor.
+
+New `ClientPolicy.weeklyAutomationEnabled` column (one-line migration,
+default `false` - BRD Section 65: "opt-in per client... never enabled
+globally by default"), toggled via the first-ever `ClientPolicy` edit UI
+(a checkbox on the client detail page's existing Policy card -
+`updateClientPolicy` existed since Day 8 with no caller until now).
+Weekly-only scope, deliberately: BRD Section 85's backlog names exactly
+"Weekly automated intelligence," not daily/monthly - see
+docs/DECISIONS.md for why those are a documented, deliberate follow-up
+rather than built speculatively.
+
+A real bug found and fixed in code written this same session: BullMQ
+rejects a `:` in a custom `jobId` - the first version's `<clientId>:<ISO
+week>` idempotency key threw immediately, caught by the first real-Redis
+test run. Fixed by switching to `-`.
+
+15 new tests (288 total, up from 276): 12 in `tests/integration/
+weekly-intelligence.test.ts` (actor resolution, due-client filtering with
+the SUCCEEDED-vs-FAILED idempotency distinction, the job processor's real
+run and its graceful skip path, and a real BullMQ enqueue → Worker →
+completed round trip against real Redis) and 3 in `tests/integration/
+cron-weekly-intelligence.test.ts` (the `CRON_SECRET` gate, correct
+enqueueing, opted-out clients never touched). All 276 pre-existing tests
+pass unchanged.
+
+End-to-end smoke-verified live against real infrastructure: toggled the
+new checkbox on Client A through the live browser (confirmed persisted),
+called the real cron route on the live running dev server with `curl`
+(exactly as Vercel Cron would), confirmed it enqueued the client into the
+real Redis queue, then ran `npm run worker` for real - it processed the
+job, correctly resolved the fallback `marketing_employee` actor (no
+`account_manager` exists in this seed at all, so the fallback path was
+exercised live, not just in tests), and produced a real "Marketing
+Performance Report" visible on the client's Reports card in the browser -
+zero AI spend (no integrations connected, the same zero-fabrication guard
+verified for every other agent workflow this session). Demo data, the
+generated report/workflow rows, and scratch scripts were cleaned up
+afterward; a stray Redis `dump.rdb` was removed and `*.rdb` added to
+`.gitignore`.
+
+typecheck, lint, full test suite (288/288), and production build (20
+routes - `/api/cron/weekly-intelligence` is the only new one) all pass.
+
+**This completes BRD Section 85's entire Phase 2 backlog**: social content
+calendar, SEO workflows, advanced reporting, a Competitor Agent, automated
+social scheduling, native Google Ads/Meta Ads, a Canva creative workflow,
+and weekly automated intelligence - all implemented, tested, and
+live-verified. Nothing remains on the Phase 2 list.

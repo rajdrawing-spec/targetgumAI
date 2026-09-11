@@ -77,16 +77,45 @@ approves — can write to a provider.
 - **Social scheduling** (BRD Section 48): Draft → Approved → Scheduled →
   Published → Failed → Cancelled, all persisted in `content_calendar`.
 
-## Scheduled Automation (BRD-PRD Section 65)
+## Scheduled Automation (BRD-PRD Section 65) — Weekly implemented (Phase 2)
 
-Daily/weekly/monthly scheduled workflows exist as designs but are **opt-in
-per client via `client_policies`**, never enabled globally by default.
+**Weekly** is implemented (BRD Section 85's Phase 2 backlog names exactly
+this cadence - "Weekly automated intelligence"); Daily/Monthly remain
+designs only, a deliberate, documented scope cut (see docs/DECISIONS.md),
+not started. **Opt-in per client via `client_policies`
+(`weeklyAutomationEnabled`), never enabled globally by default** - exactly
+as this section always specified.
+
+```text
+Vercel Cron (weekly) → GET /api/cron/weekly-intelligence
+  → finds opted-in, not-recently-run clients → enqueues a BullMQ job per
+    client (Redis) → scripts/worker.ts (a separate always-on process)
+    processes each job → runAnalyzeClientWorkflow, run as the client's own
+    assigned account_manager/marketing_employee (never a fabricated
+    "system" actor - src/lib/queue/resolve-actor.ts)
+```
+
+This is not a new workflow - `processWeeklyIntelligenceJob`
+(`src/lib/queue/weekly-intelligence-worker.ts`) calls the exact same
+`runAnalyzeClientWorkflow` a human triggers by clicking "Analyze this
+client" above. Every `AiRun`/`WorkflowRun`/`Recommendation`/`Report`/audit
+row it produces is indistinguishable in shape from a manual trigger -
+deliberately, so nothing downstream needs to special-case "was this
+automated." See docs/ARCHITECTURE.md §4a for the full deployment topology
+and why it needs two processes (Vercel can't host BullMQ's polling
+worker), and docs/DECISIONS.md for the resolveAutomationActor design.
 
 ## Idempotency (BRD-PRD Section 57)
 
 Every external write step carries `{ idempotency_key, workflow_run_id,
 step_id, provider, provider_action }`. Before executing, the engine checks
 "has this exact action already succeeded?" — if yes, it does not repeat it.
+Weekly automation (above) is the first concrete example of both halves of
+this rule at once: `enqueueWeeklyIntelligenceJob`'s BullMQ `jobId`
+(`<clientId>-<ISO week>`) makes a duplicate cron tick a harmless no-op
+before a job even runs, and `findClientsDueForWeeklyIntelligence`'s
+"no `SUCCEEDED` run in the last 7 days" check is exactly "has this exact
+action already succeeded" applied at the workflow level.
 
 ## Verification Rule
 

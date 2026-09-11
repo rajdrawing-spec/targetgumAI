@@ -30,7 +30,8 @@ client_brain              — structured knowledge: business, audience, brand,
                              marketing, competitors, policies, feedback (see below)
 client_brand_assets       — logos, colors, fonts, approved/restricted imagery refs
 client_policies           — max budget, max budget change %, auto-publish flags,
-                             approval requirements (BRD Section 62)
+                             approval requirements, weekly automation opt-in
+                             (BRD Section 62/65)
 integrations              — provider-level config per org (e.g. "Metricool")
 integration_accounts      — an org's account with that provider
 integration_connections   — OAuth/credential connection, one per client-to-account

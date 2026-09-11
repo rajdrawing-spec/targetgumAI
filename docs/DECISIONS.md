@@ -1619,6 +1619,183 @@ one caller).
 
 ---
 
+## 2026-09-11 — Phase 2: weekly automated intelligence (Redis/BullMQ), closing the Phase 2 backlog
+
+**Decision:** Implemented BRD Section 65's scheduled automation - the last
+item on BRD Section 85's Phase 2 backlog, and the only one named as a
+specific cadence: "Weekly automated intelligence." This is also the first
+feature in this codebase that needs infrastructure beyond the Next.js app
+itself: `docs/ARCHITECTURE.md`'s stack table has said "Redis + BullMQ"
+since Day 1, unused until now.
+
+**A real local Redis was available in this sandbox** (unlike every other
+"not live-verified" credential this session), so this was built and
+tested against genuinely working queue infrastructure, not a mock -
+`bullmq`+`ioredis` added as real dependencies (`npm view` confirmed
+registry reachability; neither introduces any new `npm audit` finding -
+checked directly). A real end-to-end test
+(`tests/integration/weekly-intelligence.test.ts`) spins up an actual
+BullMQ `Worker` against actual Redis and asserts a job completes - the
+strongest infrastructure test in this codebase.
+
+**Deployment topology - two processes, not one.** Vercel serverless
+functions return after each request; there is no "keep polling Redis in
+the background" primitive there, so BullMQ's `Worker` (a long-lived
+polling loop) cannot run inside the Vercel-hosted app. Split accordingly:
+`src/app/api/cron/weekly-intelligence/route.ts` is the fast, stateless
+half (find who's due, enqueue, return) that fits a serverless function,
+triggered by Vercel Cron (`vercel.json`, weekly) and gated by a
+`CRON_SECRET` bearer header (Vercel's own documented pattern - without it,
+anyone finding the URL could trigger paid AI workflows for every opted-in
+client). `scripts/worker.ts` is a separate, standalone entrypoint
+(`npm run worker`) that actually processes jobs - documented as needing a
+small always-on host (Railway/Render/Fly.io/a VM), never Vercel. This is
+the realistic, commonly-used pattern for "Vercel app + BullMQ," not a
+compromise unique to this codebase.
+
+**`resolveAutomationActor`** (`src/lib/queue/resolve-actor.ts`) is the
+answer to "who does an unattended job act as?" - BRD Section 4.5: "An AI
+agent is not a user... may only access tools and clients explicitly
+permitted." Rather than inventing a new service-account concept (a new
+User row with no login, a new role, a new migration), a scheduled run
+resolves the client's own assigned `account_manager` (falling back to an
+assigned `marketing_employee`) and runs `runAnalyzeClientWorkflow`
+**unchanged** - the exact same function a human triggers by clicking
+"Analyze this client," with the exact same full authorization/tenant/
+permission chain (`docs/SECURITY.md` invariant 2 - no bypass for
+unattended callers). A client with nobody eligible assigned is skipped (a
+`DENIED` audit event), never run under a fabricated actor - `resolveAuthContext`
+never gets called with a made-up userId.
+
+**Why the same workflow, not a new one.** `processWeeklyIntelligenceJob`
+(`src/lib/queue/weekly-intelligence-worker.ts`) calls
+`runAnalyzeClientWorkflow` directly - a scheduled run is not a different
+*kind* of analysis, just a different trigger source. Every `AiRun`/
+`WorkflowRun`/`Recommendation`/`Report`/audit row it produces is therefore
+indistinguishable in shape from a human's manual trigger - deliberately,
+so nothing downstream (dashboard, approvals, reporting) needs to
+special-case "was this automated." One consequence, also deliberate: the
+weekly idempotency check (`findClientsDueForWeeklyIntelligence` - no
+`SUCCEEDED` `analyze_client_performance` `WorkflowRun` in the last 7 days)
+also skips a client a human happened to analyze manually within the
+window - not a bug, just "don't spend AI budget redundantly, regardless
+of who asked."
+
+**Opt-in, never global** (BRD Section 65 explicit requirement): a new
+`ClientPolicy.weeklyAutomationEnabled` column (one-line migration,
+`prisma/migrations/20260911075315_add_weekly_automation_policy/`),
+defaulting `false`. This is also the first UI ever built for editing
+`ClientPolicy` at all - `updateClientPolicy` existed since Day 8 with no
+caller in `src/app`; a small checkbox+Save form was added to the client
+detail page's existing Policy card (gated on `clients.edit`, same
+permission `updateClientPolicy` itself requires) rather than a full policy
+editor - matches this session's "small, single-purpose" discipline (e.g.
+the native-ads/Canva connect forms), not a rebuild of the whole card.
+
+**Weekly-only scope, deliberately.** BRD Section 65 lists Daily
+(performance anomaly check), Weekly (marketing performance summary,
+recommendations, social content planning), and Monthly (client report,
+strategy recommendations) - but Section 85's Phase 2 backlog names only
+"Weekly automated intelligence." Daily would mean building real anomaly
+detection (a genuinely new capability, arguably Phase 3 "Autonomous
+Optimization" territory per BRD Section 49/50) and Monthly is closely
+served by the same `runAnalyzeClientWorkflow`/report pipeline already
+built - neither was invented speculatively. `src/lib/queue/
+weekly-intelligence-queue.ts`'s own doc comment flags this: generalize
+into per-cadence queues once a second cadence is actually scheduled, same
+"generalize on second real caller" discipline as `src/lib/workflows/
+runs.ts`'s own `WorkflowRun`/`WorkflowStep` tracker.
+
+**A real bug found and fixed while building this, in code written this
+same session:** BullMQ rejects a custom `jobId` containing `:` - the first
+version of `enqueueWeeklyIntelligenceJob` used `<clientId>:<ISO week>` and
+every enqueue call threw immediately (`Custom Id cannot contain :`),
+caught by the very first test run against the real queue. Fixed by
+switching the separator to `-`. Not a subtle bug and not something a mock
+queue would ever have caught - direct evidence for why this feature was
+built against real Redis rather than mocked.
+
+**Extracted `DEFAULT_RANGE_DAYS`/`DEFAULT_SOCIAL_NETWORK`/
+`DEFAULT_ADS_CHANNEL`** (previously private to `src/app/dashboard/
+actions.ts`) into `src/lib/workflows/defaults.ts` - the weekly worker
+needed the same MVP placeholder defaults the "Analyze this client" button
+uses. Pure refactor, no behavior change, same "extract on second use"
+discipline as `src/lib/integrations/ads-schemas.ts`.
+
+15 new tests (288 total, up from 276): 12 in `tests/integration/
+weekly-intelligence.test.ts` (`resolveAutomationActor`'s account_manager-
+preferred/marketing_employee-fallback/null-when-nobody-assigned logic,
+`findClientsDueForWeeklyIntelligence`'s opt-in + idempotency-window
+filtering including the SUCCEEDED-vs-FAILED distinction,
+`processWeeklyIntelligenceJob`'s real run + its graceful DENIED-audit skip
+path, and a real BullMQ enqueue/dedup/Worker-processes-a-real-job round
+trip against real Redis), 3 in `tests/integration/
+cron-weekly-intelligence.test.ts` (the route's `CRON_SECRET` gate, that it
+actually enqueues due clients, that an opted-out client is never
+touched). All pre-existing tests pass unchanged.
+
+End-to-end smoke-verified live against real infrastructure (not a
+bypass): seeded, started the dev server, real local Redis, real Postgres.
+Toggled "Weekly automated intelligence" on for Client A through the new
+checkbox on the live client detail page (confirmed persisted in the
+database), called the real cron route on the live running dev server via
+`curl` with the real `CRON_SECRET` (exactly as Vercel Cron would),
+confirmed it enqueued the client into the real Redis queue, then ran
+`npm run worker` for real against that queue - it picked up the job,
+resolved the correct actor (`employee@targetgum.dev`, the only staff
+assigned to Client A in this seed - no `account_manager` exists in this
+seed at all, so the fallback path was exercised live, not just in tests),
+and ran the full `runAnalyzeClientWorkflow` end-to-end, producing a real
+"Marketing Performance Report" visible on the client's Reports card in the
+browser - zero AI spend (Client A has no integrations connected in this
+seed, so the Marketing Analytics Agent's existing "no data source
+connected" guard short-circuited before any Claude call, the same
+zero-fabrication behavior verified for every other agent workflow this
+session). Demo data, the scratch verification script, and the generated
+report/workflow rows were cleaned up afterward; the policy toggle was
+reset to `false`; a stray `dump.rdb` (a local Redis persistence snapshot,
+written to the working directory by `redis-server --daemonize yes`) was
+removed and `*.rdb` added to `.gitignore` so this can't happen again.
+
+typecheck, lint, full test suite (288/288), and production build (20
+routes - `/api/cron/weekly-intelligence` is the only new one) all pass.
+
+**Rationale:** Every new module reused an established pattern
+(`resolve*Provider`-style lazy singletons for the Redis connection, the
+processor-logic-factored-out-for-testability split already used by
+`src/lib/tools/execute.ts`, the "reuse the existing authorization chain,
+never invent a parallel one" discipline already applied everywhere in this
+codebase) rather than inventing new ones. The two genuinely new pieces -
+a second deployable process, and resolving an unattended actor from
+existing staff assignments rather than a new account type - are both
+directly required by the problem ("run this without a human clicking
+anything, on a schedule, on a platform that can't host a background
+worker") and both documented in depth (`docs/ARCHITECTURE.md` §4a,
+`docs/SECURITY.md`) rather than left implicit.
+
+**Trade-off accepted:** Daily/Monthly cadences are not built (see "Weekly-
+only scope" above) - `weeklyAutomationEnabled` is a single boolean, not a
+per-cadence settings object, so adding a second cadence later needs its
+own `ClientPolicy` column and its own queue, not a trivial extension of
+this one. The worker process is a genuinely new piece of infrastructure
+to operate (a persistent host, not just "deploy to Vercel and done") -
+accepted because BRD Section 65 explicitly asks for scheduled automation
+and there is no way to deliver it without something, somewhere, polling a
+queue.
+
+**Revisit if:** Daily or Monthly automation is prioritized (generalize
+`src/lib/queue/weekly-intelligence-queue.ts`'s single-purpose queue into
+one queue per cadence, or one queue with a `cadence` field - decide once
+there's a second real cadence to compare against, not speculatively now),
+a client legitimately needs more than one weekly run's worth of
+distinction from a manual trigger (revisit the "same `WorkflowRun` key,
+so a manual analysis blocks the weekly idempotency window" choice above),
+or the chosen worker host needs documenting concretely once a real
+staging/production deployment happens (this entry documents the pattern,
+not a specific Railway/Render/Fly.io account).
+
+---
+
 ## Template for future entries
 
 ```text

@@ -37,8 +37,14 @@ Super-Admin-only) vs. editing an already-accessible client (new
 Client Approval Portal (`src/app/portal/`) gives a `client_user` a
 genuinely separate experience from staff's `/dashboard` — reviewing/
 approving recommendations, CLIENT-only reports, and feedback — per BRD
-Section 4.4. See `docs/MVP-CHECKLIST.md`'s Phase 2 section and
-`docs/DECISIONS.md` for the full account.
+Section 4.4. Phase 2's backlog (BRD Section 85) is now complete: social
+content calendar, SEO workflows, advanced reporting, a Competitor Agent,
+automated social scheduling, native Google Ads/Meta Ads, a Canva creative
+workflow, and — the last item — weekly scheduled automation (§4a below),
+which is also the first feature in this codebase to need infrastructure
+beyond the Next.js app itself (Redis/BullMQ, a separate always-on worker
+process). See `docs/MVP-CHECKLIST.md`'s Phase 2 section and
+`docs/DECISIONS.md` for the full account of every item.
 
 This document is the architecture assessment and implementation plan requested by
 `docs/BRD-PRD.md` Section 116. It proposes the technology stack, repository structure,
@@ -80,12 +86,16 @@ targetgum-ai-marketing-os/
 │       ├── agents/               # Orchestrator, Client Intelligence, Analytics, Content, Creative
 │       ├── tools/                # Tool Registry + tool implementations
 │       ├── workflows/            # Workflow engine (triggers, approvals, retries, idempotency)
+│       ├── queue/                # BullMQ queue/worker (Phase 2 - weekly scheduled automation)
 │       ├── integrations/
 │       │   ├── metricool/        # MetricoolProvider (Social + Ads)
+│       │   ├── google-ads/       # Native GoogleAdsProvider (Phase 2)
+│       │   ├── meta-ads/         # Native MetaAdsProvider (Phase 2)
 │       │   ├── canva/            # CanvaProvider (Creative)
 │       │   ├── ga4/              # GA4 AnalyticsProvider
 │       │   └── gsc/              # GSC SEOProvider
 │       ├── clients/              # Client resolution + Client Brain retrieval
+│       ├── creative/             # CreativeAsset persistence/lifecycle (Phase 2)
 │       ├── audit/                # Append-only audit event writer
 │       └── db/                   # Prisma client singleton, tenant-scoped query helpers
 ├── prisma/
@@ -100,6 +110,8 @@ targetgum-ai-marketing-os/
 ├── docs/
 ├── prompts/                       # versioned prompt templates (analytics/, content/, reporting/)
 ├── scripts/
+│   └── worker.ts                  # BullMQ worker entrypoint - a SEPARATE deployable process, see §4a
+├── vercel.json                    # Vercel Cron config (weekly-intelligence trigger)
 ├── .github/workflows/ci.yml
 ├── .env.example
 ├── CLAUDE.md
@@ -138,7 +150,9 @@ Postgres instance with a seed script — Day 2 of `docs/MVP-CHECKLIST.md`).
 ## 4. Required Infrastructure
 
 - PostgreSQL 16 instance (per environment: local/dev/staging/production)
-- Redis instance (BullMQ)
+- Redis instance (BullMQ) — **implemented (Phase 2, Day 18)**, see "Scheduled
+  Automation" below for the deployment topology this actually requires
+  (a Vercel-hosted app is not enough on its own)
 - S3-compatible object storage bucket
 - Secrets manager (or equivalent env-injection mechanism per environment)
 - Anthropic API access (Claude)
@@ -147,6 +161,52 @@ Postgres instance with a seed script — Day 2 of `docs/MVP-CHECKLIST.md`).
 - (Optional, Phase 1) Canva Developer/MCP access
 - CI runner (GitHub Actions, included with the repo)
 - Error tracking (Sentry or equivalent) — can be deferred past Day 1
+- **A small always-on Node host** (Railway/Render/Fly.io/a VM — not Vercel)
+  to run `scripts/worker.ts`, the BullMQ worker process — new as of Phase 2's
+  scheduled automation, see below
+
+## 4a. Scheduled Automation (Phase 2, BRD Section 65) — implemented
+
+BRD Section 85's Phase 2 backlog named this "Weekly automated intelligence" -
+only the weekly cadence is built (daily/monthly are a documented, deliberate
+follow-up, not started - see `docs/DECISIONS.md`).
+
+**Why two processes, not one.** Vercel serverless functions return after
+each request; there is no "keep polling Redis in the background" primitive
+there, so BullMQ's own `Worker` (a long-lived polling loop) cannot run
+inside the Vercel-hosted Next.js app itself. The design splits the work
+across the two halves the stack already implies:
+
+```text
+Vercel Cron (weekly, vercel.json)
+  → GET /api/cron/weekly-intelligence (Vercel serverless function)
+      - finds clients opted in (ClientPolicy.weeklyAutomationEnabled) and
+        not already run in the last 7 days (BRD Section 57 idempotency)
+      - enqueues one BullMQ job per client, fast, returns
+  → BullMQ queue (Upstash Redis)
+  → scripts/worker.ts (a SEPARATE always-on process - Railway/Render/
+    Fly.io/a VM, never Vercel) polls the queue and actually runs
+    runAnalyzeClientWorkflow for each job
+```
+
+**Who a scheduled run acts as.** Rather than inventing a new "system
+account" concept, `resolveAutomationActor`
+(`src/lib/queue/resolve-actor.ts`) resolves the client's own assigned
+`account_manager` (falling back to an assigned `marketing_employee`) and
+runs the exact same `runAnalyzeClientWorkflow` a human would trigger by
+clicking "Analyze this client" - full authorization/tenant/permission
+checks apply unchanged; a client with nobody eligible assigned is skipped
+(a `DENIED` audit event, never a fabricated actor). See `docs/DECISIONS.md`
+for the full rationale, including why this is not a security exception
+(BRD Section 4.5 - even an unattended trigger goes through the exact same
+`AuthContext` chain as any human request).
+
+**Local dev**: `npm run worker` runs the worker process against
+`REDIS_URL` (a local `redis-server` works fine for development - this
+session's own tests exercise a real local Redis, not a mock, since a
+mocked queue can't meaningfully prove enqueue/process/retry semantics).
+`CRON_SECRET` gates the cron route - required in any environment where
+that route is reachable.
 
 ## 5. Security Risks Identified (see `docs/SECURITY.md` for the full model)
 

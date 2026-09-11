@@ -37,6 +37,17 @@ it must be recorded here (BRD-PRD Section 125).
 8. **Audit is append-only.** No update/delete path exists for `audit_events`
    from application code or ordinary user roles (BRD Section 28).
 
+**Unattended (scheduled) execution is not an exception to any of the
+above** (Phase 2, BRD Section 65's weekly automation,
+`src/lib/queue/`). A cron-triggered job resolves a real `AuthContext` for
+the client's own assigned staff (`resolveAutomationActor`,
+`src/lib/queue/resolve-actor.ts`) and calls the same permission/tenant-
+scoped workflow function a human triggers by clicking a button - invariant
+2's chain runs in full, every time, whether the caller is a browser
+request or a worker process. A client with no eligible staff assigned is
+skipped (a `DENIED` audit event) rather than run under a fabricated
+"system" identity - see `docs/DECISIONS.md` for the full design.
+
 ## Credential Handling
 
 - OAuth refresh tokens and provider API secrets are stored in

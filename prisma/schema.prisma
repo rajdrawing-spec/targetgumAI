@@ -339,6 +339,9 @@ model ClientPolicy {
   autoPublishSocial                Boolean  @default(false)
   autoChangeAds                    Boolean  @default(false)
   requireApprovalForCampaignLaunch Boolean  @default(true)
+  /// Opt-in for BRD Section 65's weekly scheduled automation (Phase 2) - never
+  /// enabled globally by default, per-client only. See docs/DECISIONS.md.
+  weeklyAutomationEnabled          Boolean  @default(false)
   extra                            Json? // forward-compatible overflow for policy fields not yet promoted to a column
   createdAt                        DateTime @default(now())
   updatedAt                        DateTime @updatedAt

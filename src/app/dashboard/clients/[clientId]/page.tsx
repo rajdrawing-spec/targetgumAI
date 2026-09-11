@@ -38,6 +38,7 @@ import {
   triggerCompetitorAnalysisAction,
   triggerCreativeWorkflowAction,
   triggerSeoAnalysisAction,
+  updateWeeklyAutomationAction,
 } from '../../actions'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge, StatusBadge, toSentenceCase } from '@/components/ui/badge'
@@ -151,7 +152,28 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ c
                 <dt className="text-xs text-caption">Approval for launches</dt>
                 <dd className="mt-0.5 text-sm font-medium text-foreground">{policy.requireApprovalForCampaignLaunch ? 'Required' : 'Not required'}</dd>
               </div>
+              <div>
+                <dt className="text-xs text-caption">Weekly automated intelligence</dt>
+                <dd className="mt-0.5 text-sm font-medium text-foreground">{policy.weeklyAutomationEnabled ? 'Enabled' : 'Disabled'}</dd>
+              </div>
             </dl>
+            {canEditClient && (
+              <form action={updateWeeklyAutomationAction.bind(null, clientId)} className="mt-4 flex items-center gap-2 rounded-md border border-dashed border-border p-3">
+                <input
+                  id="weeklyAutomationEnabled"
+                  name="weeklyAutomationEnabled"
+                  type="checkbox"
+                  defaultChecked={policy.weeklyAutomationEnabled}
+                  className="h-4 w-4 rounded border-input"
+                />
+                <Label htmlFor="weeklyAutomationEnabled" className="mb-0 text-sm text-foreground">
+                  Run weekly automated intelligence for this client
+                </Label>
+                <Button type="submit" variant="outline" size="sm" className="ml-auto">
+                  Save
+                </Button>
+              </form>
+            )}
           </CardContent>
         </Card>
       )}

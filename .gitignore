@@ -42,6 +42,9 @@ next-env.d.ts
 prisma/dev.db
 prisma/dev.db-journal
 
+# redis (local dev instance persistence snapshot, e.g. from `redis-server --daemonize yes`)
+dump.rdb
+
 # IDE
 .idea/
 .vscode/*

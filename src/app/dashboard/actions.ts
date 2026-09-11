@@ -32,7 +32,9 @@ import { approveAndExecuteApproval } from '@/lib/tools/execute'
 import { runAnalyzeClientWorkflow } from '@/lib/workflows/analyze-client-workflow'
 import { runCompetitorAnalysisWorkflow } from '@/lib/workflows/competitor-analysis-workflow'
 import { runCreativeWorkflow } from '@/lib/workflows/creative-workflow'
+import { DEFAULT_ADS_CHANNEL, DEFAULT_RANGE_DAYS, DEFAULT_SOCIAL_NETWORK } from '@/lib/workflows/defaults'
 import { runSeoAnalysisWorkflow } from '@/lib/workflows/seo-analysis-workflow'
+import { updateClientPolicy } from '@/lib/clients/brain'
 import type { TaskStatus } from '@prisma/client'
 
 /**
@@ -48,11 +50,6 @@ async function requireCtx() {
   if (!ctx) throw new Error('Not authenticated.')
   return ctx
 }
-
-/** The DEFAULT_RANGE_DAYS / socialNetwork / adsChannel below are MVP placeholders - a client-level "default channel" setting (Client Brain/policy) is the natural home for these once more than one network/channel is in play. */
-const DEFAULT_RANGE_DAYS = 30
-const DEFAULT_SOCIAL_NETWORK = 'instagram'
-const DEFAULT_ADS_CHANNEL = 'googleAds'
 
 export async function triggerAnalyzeClientAction(clientId: string): Promise<void> {
   const ctx = await requireCtx()
@@ -105,6 +102,13 @@ export async function triggerCompetitorAnalysisAction(clientId: string): Promise
   revalidatePath('/dashboard/approvals')
   revalidatePath('/dashboard/ai-runs')
   revalidatePath('/dashboard/reports')
+}
+
+export async function updateWeeklyAutomationAction(clientId: string, formData: FormData): Promise<void> {
+  const ctx = await requireCtx()
+  const weeklyAutomationEnabled = formData.get('weeklyAutomationEnabled') === 'on'
+  await updateClientPolicy(ctx, clientId, { weeklyAutomationEnabled })
+  revalidatePath(`/dashboard/clients/${clientId}`)
 }
 
 export async function triggerCreativeWorkflowAction(clientId: string, formData: FormData): Promise<void> {
