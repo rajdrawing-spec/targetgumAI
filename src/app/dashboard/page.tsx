@@ -13,7 +13,6 @@ import {
   ShoppingBag,
   Eye,
   DollarSign,
-  Sparkles,
   BarChart3,
   Plus,
   AlertCircle,
@@ -31,7 +30,6 @@ import { listAccessibleClients } from '@/lib/clients/list'
 import { db } from '@/lib/db/client'
 import { StatusBadge } from '@/components/ui/badge'
 import { EmptyState } from '@/components/ui/empty-state'
-import { ActionForm, SubmitButton } from '@/components/ui/action-form'
 import { PostScheduleDialog } from '@/components/content/post-schedule-dialog'
 import { CommandCenterTelemetry } from '@/components/dashboard/command-center-telemetry'
 import { formatDate, formatRelative, initials } from '@/lib/format'
@@ -212,12 +210,13 @@ export default async function DashboardOverviewPage() {
             <PostScheduleDialog clients={accessibleClients} />
           )}
 
-          {campaigns.length === 0 && (
-            <ActionForm action={seedDemoAdsAction.bind(null, accessibleClients[0]?.id)}>
-              <SubmitButton variant="outline" size="sm" className="gap-1.5 text-[#E5252A] border-[#E5252A]/40 hover:bg-[#E5252A]/10">
-                <Sparkles className="h-3.5 w-3.5" /> Populate Demo Telemetry
-              </SubmitButton>
-            </ActionForm>
+          {campaigns.length === 0 && accessibleClients.length > 0 && (
+            <Link
+              href={`/dashboard/clients/${accessibleClients[0]?.id}/integrations`}
+              className="btn-outline-hairline inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-[#E5252A] border-[#E5252A]/40 hover:bg-[#E5252A]/10"
+            >
+              <Plug className="h-3.5 w-3.5" /> Connect Meta Ads
+            </Link>
           )}
         </div>
       </div>
