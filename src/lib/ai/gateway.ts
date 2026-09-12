@@ -61,11 +61,10 @@ function isRetryableError(error: unknown): boolean {
  * Gemini needs a plain JSON Schema object, not a Zod object.
  */
 function zodToGeminiSchema(schema: ZodType): object {
-  // Use Zod's built-in JSON Schema export (zod/v4 supports this natively)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const zodSchema = schema as any
-  if (typeof zodSchema.toJSONSchema === 'function') {
-    return zodSchema.toJSONSchema()
+  // Use Zod's built-in JSON Schema export if available (zod/v4 supports this natively)
+  const candidate = schema as unknown as { toJSONSchema?: () => object }
+  if (typeof candidate.toJSONSchema === 'function') {
+    return candidate.toJSONSchema()
   }
   // Fallback: return a generic object schema that accepts any JSON
   return { type: SchemaType.OBJECT }
