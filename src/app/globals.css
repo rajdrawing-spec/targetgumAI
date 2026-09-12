@@ -1,17 +1,30 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
+    /* Font Fallbacks and Tokens */
+    --font-inter: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    --font-display: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --font-mono: 'JetBrains Mono', 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+    /* Aliases for backwards compatibility */
+    --font-sans: var(--font-inter);
+    --font-public-sans: var(--font-inter);
+    --font-space-grotesk: var(--font-display);
+    --font-ibm-plex-mono: var(--font-mono);
+
     /* TargetGum Precision Brand Tokens (Bullseye Crimson & Charcoal) */
     --bg-page: 240 10% 4%; /* Deep Onyx #09090b */
     --bg-surface: 240 7% 8%; /* Dark Charcoal Panel #121215 */
     --border: 240 5% 16%; /* Hairline Charcoal Border #27272a */
 
-    --text-primary: 240 5% 96%; /* Crisp Alabaster #f4f4f6 */
-    --text-secondary: 240 5% 65%; /* Slate Zinc #a1a1aa */
-    --text-muted: 240 4% 46%; /* Muted Zinc #71717a */
+    --text-primary: 240 5% 98%; /* Ultra Crisp #f8f8fa */
+    --text-secondary: 240 5% 75%; /* Slate Zinc #bebec6 - high readability */
+    --text-muted: 240 5% 62%; /* Muted Zinc #9797a2 - clean, clear contrast */
 
     /* TargetGum Brand Crimson (#E5252A) */
     --primary: 359 79% 52%; /* Vibrant Bullseye Red #E5252A */
@@ -42,9 +55,9 @@
     --surface-subtle: #18181C;
     --border-hairline: #27272A;
     --border-subtle: #1F1F23;
-    --text-primary-hex: #F4F4F6;
-    --text-muted-hex: #A1A1AA;
-    --text-dim-hex: #71717A;
+    --text-primary-hex: #F8F8FA;
+    --text-muted-hex: #B4B4BC;
+    --text-dim-hex: #8E8E98;
     --text-accent: #E5252A;
     --accent-primary: #E5252A;
     --btn-accent-bg: #E5252A;
@@ -68,31 +81,37 @@
   body {
     background-color: var(--bg-ink);
     color: var(--text-primary-hex);
-    font-family: var(--font-public-sans), var(--font-sans), -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-family: var(--font-inter), 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
     overflow-x: hidden;
     line-height: 1.5;
   }
   h1, h2, h3, h4, h5, h6 {
     color: var(--text-primary-hex);
+    font-family: var(--font-display), 'Plus Jakarta Sans', var(--font-inter), sans-serif;
     font-weight: 600;
+    letter-spacing: -0.015em;
   }
 }
 
 /* Typography Role Classes */
 .font-display {
-  font-family: var(--font-space-grotesk), var(--font-sans), sans-serif;
+  font-family: var(--font-display), 'Plus Jakarta Sans', var(--font-inter), -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   font-weight: 600;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.015em;
 }
 
 .font-mono-data {
-  font-family: var(--font-ibm-plex-mono), monospace;
+  font-family: var(--font-mono), 'JetBrains Mono', 'IBM Plex Mono', ui-monospace, SFMono-Regular, monospace;
   font-feature-settings: 'tnum' 1, 'zero' 1;
-  letter-spacing: -0.01em;
+  letter-spacing: 0.02em;
 }
 
 .font-body-ui {
-  font-family: var(--font-public-sans), var(--font-sans), sans-serif;
+  font-family: var(--font-inter), 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
 /* Custom Minimalist Scrollbar */

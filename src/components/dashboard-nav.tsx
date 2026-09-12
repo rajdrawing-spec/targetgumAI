@@ -45,7 +45,7 @@ export function DashboardNav() {
 
   return (
     <nav className="flex flex-1 flex-col gap-0.5 px-3 py-2">
-      <div className="px-3 py-1.5 text-[10px] font-mono-data uppercase tracking-widest text-[#71717A]">
+      <div className="px-3 py-1.5 text-[11px] font-mono-data font-semibold uppercase tracking-wider text-[#A1A1AA]">
         Core Operations
       </div>
       {NAV_ITEMS.map((item) => {
@@ -56,27 +56,27 @@ export function DashboardNav() {
             key={item.href}
             href={item.href}
             className={cn(
-              'group flex items-center gap-2.5 rounded px-3 py-2 text-xs font-medium transition-all duration-150 relative',
+              'group flex items-center gap-2.5 rounded px-3 py-2 text-[13px] font-medium transition-all duration-150 relative',
               active
                 ? 'bg-[#18181C] text-[#FFFFFF] font-semibold shadow-sm border-l-2 border-[#E5252A]'
-                : 'text-[#A1A1AA] hover:bg-[#121215] hover:text-[#F4F4F6]',
+                : 'text-[#D4D4D8] hover:bg-[#18181C] hover:text-[#FFFFFF]',
             )}
           >
             <Icon
               className={cn(
                 'h-4 w-4 shrink-0 transition-colors',
-                active ? 'text-[#E5252A]' : 'text-[#71717A] group-hover:text-[#F4F4F6]'
+                active ? 'text-[#E5252A]' : 'text-[#8E8E98] group-hover:text-[#FFFFFF]'
               )}
               strokeWidth={active ? 2.2 : 1.8}
             />
-            <span className="flex-1 truncate tracking-tight">{item.label}</span>
+            <span className="flex-1 truncate tracking-normal">{item.label}</span>
             {item.badge && (
               <span
                 className={cn(
-                  'rounded px-1.5 py-0.5 text-[9px] font-mono-data font-bold uppercase tracking-wider',
+                  'rounded px-1.5 py-0.5 text-[10px] font-mono-data font-bold uppercase tracking-wider',
                   item.isAlert
                     ? 'bg-[#E5252A]/20 text-[#FF4D4F] border border-[#E5252A]/40'
-                    : 'bg-[#27272A] text-[#A1A1AA] border border-[#3F3F46]'
+                    : 'bg-[#222226] text-[#D4D4D8] border border-[#3F3F46]'
                 )}
               >
                 {item.badge}

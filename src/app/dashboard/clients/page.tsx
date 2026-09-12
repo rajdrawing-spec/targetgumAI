@@ -71,16 +71,16 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
       ) : (
         <div className="overflow-x-auto rounded-lg border border-border bg-card shadow-card">
           <table className="w-full min-w-[960px] text-left text-sm">
-            <thead className="text-xs text-caption">
-              <tr className="border-b border-border">
-                <th className="px-4 py-3 font-medium">Client</th>
-                <th className="px-4 py-3 font-medium">Account manager</th>
-                <th className="px-4 py-3 font-medium">Status</th>
-                <th className="px-4 py-3 font-medium">Automation</th>
-                <th className="px-4 py-3 font-medium">Integrations</th>
-                <th className="px-4 py-3 font-medium">Attention</th>
-                <th className="px-4 py-3 font-medium">Last activity</th>
-                <th className="px-4 py-3 font-medium"></th>
+            <thead>
+              <tr className="border-b border-border bg-[#151518]/60 text-[11px] font-semibold uppercase tracking-wider text-[#A1A1AA]">
+                <th className="px-4 py-3 font-semibold">Client</th>
+                <th className="px-4 py-3 font-semibold">Account manager</th>
+                <th className="px-4 py-3 font-semibold">Status</th>
+                <th className="px-4 py-3 font-semibold">Automation</th>
+                <th className="px-4 py-3 font-semibold">Integrations</th>
+                <th className="px-4 py-3 font-semibold">Attention</th>
+                <th className="px-4 py-3 font-semibold">Last activity</th>
+                <th className="px-4 py-3 font-semibold"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -92,18 +92,18 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
                   <tr key={client.id} className="group">
                     <td className="px-4 py-3">
                       <Link href={`/dashboard/clients/${client.id}`} className="flex items-center gap-3">
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent text-xs font-medium text-accent-foreground">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent text-xs font-semibold text-accent-foreground font-display">
                           {initials(client.name)}
                         </div>
                         <div className="min-w-0">
-                          <p className="truncate text-sm font-medium text-foreground group-hover:text-primary">{client.name}</p>
-                          <p className="truncate text-xs text-caption">
+                          <p className="truncate text-sm font-semibold text-foreground group-hover:text-primary">{client.name}</p>
+                          <p className="truncate text-xs text-[#A1A1AA]">
                             {[client.industry, host].filter(Boolean).join(' · ') || (client.city ?? '—')}
                           </p>
                         </div>
                       </Link>
                     </td>
-                    <td className="px-4 py-3 text-muted-foreground">{client.accountManager?.label ?? <span className="text-caption">Unassigned</span>}</td>
+                    <td className="px-4 py-3 text-sm text-[#D4D4D8]">{client.accountManager?.label ?? <span className="text-xs text-[#8E8E98]">Unassigned</span>}</td>
                     <td className="px-4 py-3">
                       <StatusBadge status={client.status} />
                     </td>
@@ -112,7 +112,7 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
                     </td>
                     <td className="px-4 py-3">
                       {client.integrations.length === 0 ? (
-                        <span className="text-xs text-caption">None connected</span>
+                        <span className="text-xs text-[#8E8E98]">None connected</span>
                       ) : (
                         <div className="flex -space-x-0.5" title={client.integrations.map((i) => `${PROVIDER_LABEL[i.provider]}: ${i.status}`).join(', ')}>
                           {client.integrations.slice(0, 6).map((i, idx) => (
@@ -122,13 +122,13 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
                               aria-label={`${PROVIDER_LABEL[i.provider]}: ${toSentenceCase(i.status)}`}
                             />
                           ))}
-                          {client.integrations.length > 6 && <span className="pl-1.5 text-xs text-caption">+{client.integrations.length - 6}</span>}
+                          {client.integrations.length > 6 && <span className="pl-1.5 text-xs text-[#A1A1AA]">+{client.integrations.length - 6}</span>}
                         </div>
                       )}
                     </td>
                     <td className="px-4 py-3">
                       {attentionTotal === 0 ? (
-                        <span className="text-xs text-caption">—</span>
+                        <span className="text-xs text-[#8E8E98]">—</span>
                       ) : (
                         <div className="flex flex-wrap gap-1">
                           {client.attention.pendingApprovals > 0 && <Badge variant="warning">{client.attention.pendingApprovals} approval{client.attention.pendingApprovals === 1 ? '' : 's'}</Badge>}
@@ -137,7 +137,7 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
                         </div>
                       )}
                     </td>
-                    <td className="whitespace-nowrap px-4 py-3 text-xs tabular-nums text-caption">{formatRelative(client.lastActivityAt)}</td>
+                    <td className="whitespace-nowrap px-4 py-3 text-xs tabular-nums text-[#A1A1AA] font-mono-data">{formatRelative(client.lastActivityAt)}</td>
                     <td className="px-4 py-3 text-right">
                       <ClientRowActions client={client} canEdit={canEdit} canManage={canCreate} />
                     </td>

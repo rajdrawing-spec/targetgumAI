@@ -41,7 +41,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
                 <div className="flex items-center gap-1 font-display text-base font-bold tracking-tight text-[#FFFFFF]">
                   Target<span className="text-[#E5252A]">Gum</span>
                 </div>
-                <span className="text-[8px] font-mono-data uppercase tracking-wider text-[#71717A] block truncate">
+                <span className="text-[10px] font-mono-data font-semibold uppercase tracking-wider text-[#A1A1AA] block truncate">
                   Precision Marketing
                 </span>
               </div>
@@ -60,7 +60,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
                 <p className="truncate text-xs font-semibold text-[#F4F4F6]">
                   {ROLE_LABEL[ctx.roleKey] ?? ctx.roleKey}
                 </p>
-                <p className="truncate text-[10px] font-mono-data text-[#71717A]">
+                <p className="truncate text-[11px] font-mono-data text-[#A1A1AA]">
                   {ctx.organizationId ? `Org: ${ctx.organizationId.slice(0, 8)}...` : 'System Mode'}
                 </p>
               </div>
