@@ -1,24 +1,18 @@
-import Anthropic from '@anthropic-ai/sdk'
-import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod'
+import { SchemaType, type GenerateContentRequest } from '@google/generative-ai'
 import type { ZodType, z } from 'zod/v4'
 import { db } from '@/lib/db/client'
-import { getAnthropicClient } from './client'
+import { getGeminiClient } from './client'
 import { AiGatewayError, InvalidAiOutputError } from './errors'
 import { estimateCostCents, MODEL_IDS, type ModelTier } from './models'
 import { loadPromptTemplate, renderPromptTemplate } from './prompts'
 
 /**
- * The AI Gateway (BRD-PRD Section 11): the one place application code calls
- * Claude. Provides model selection, prompt/version management, structured
- * output validation, token/cost tracking, AI run logging, and a retry
- * policy - so callers (future agents, Day 9+) never touch the Anthropic SDK
- * directly.
+ * The AI Gateway: the one place application code calls Gemini.
+ * Provides model selection, prompt versioning, structured JSON output,
+ * token/cost tracking, AI run logging, and retry policy.
  *
- * Tool permission checking (also listed in Section 11) is intentionally
- * NOT implemented here yet - the Tool Registry doesn't exist until Day 5.
- * `runStructuredAiTask` below does not give Claude any tools; it is a
- * single structured-output call, which is all Day 4's callers need. Wiring
- * agent/tool orchestration through this gateway is Day 5+ work.
+ * Uses Gemini's native JSON schema enforcement (responseMimeType: application/json)
+ * to guarantee structured output — equivalent to Anthropic's zodOutputFormat.
  */
 
 const DEFAULT_MAX_TOKENS = 8192
@@ -29,17 +23,12 @@ export interface RunAiTaskInput<Schema extends ZodType> {
   organizationId: string
   clientId?: string
   userId?: string
-  /**
-   * Reserved for Day 5+: will map to an Agent row once the Tool Registry
-   * exists. Recorded on the ai_runs row today only as a label, not a FK -
-   * see the agentId note in runStructuredAiTask.
-   */
   agentKey?: string
   promptCategory: string
   promptVersion?: string
   /** Interpolated into the versioned prompt template (used as the system prompt). */
   variables?: Record<string, string>
-  /** Task-specific content/context sent as the user turn - e.g. assembled Client Brain + real-time data. */
+  /** Task-specific content/context sent as the user turn. */
   userMessage: string
   schema: Schema
   tier?: ModelTier
@@ -61,21 +50,30 @@ function sleep(ms: number): Promise<void> {
 }
 
 function isRetryableError(error: unknown): boolean {
-  return (
-    error instanceof Anthropic.RateLimitError ||
-    error instanceof Anthropic.InternalServerError ||
-    error instanceof Anthropic.APIConnectionError
-  )
+  if (!(error instanceof Error)) return false
+  const msg = error.message.toLowerCase()
+  // Gemini rate limit errors (429) and server errors (500/503)
+  return msg.includes('429') || msg.includes('rate limit') || msg.includes('503') || msg.includes('internal')
 }
 
 /**
- * Runs one Claude request constrained to `schema` via native structured
- * outputs (`output_config.format`), with the AI Gateway's retry policy
- * (BRD Section 56: "retry where safe, record failure, allow manual retry").
- * Retries transient API errors (rate limit, connection, 5xx) with backoff;
- * non-retryable errors (bad request, auth, etc.) fail immediately. A
- * response that fails schema validation is retried once more before giving
- * up, since it's rare with structured outputs and worth one more attempt.
+ * Converts a Zod schema to Gemini's JSON Schema format for structured output.
+ * Gemini needs a plain JSON Schema object, not a Zod object.
+ */
+function zodToGeminiSchema(schema: ZodType): object {
+  // Use Zod's built-in JSON Schema export (zod/v4 supports this natively)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const zodSchema = schema as any
+  if (typeof zodSchema.toJSONSchema === 'function') {
+    return zodSchema.toJSONSchema()
+  }
+  // Fallback: return a generic object schema that accepts any JSON
+  return { type: SchemaType.OBJECT }
+}
+
+/**
+ * Runs one Gemini request constrained to `schema` via native JSON mode,
+ * with retry policy for transient API errors.
  */
 export async function runStructuredAiTask<Schema extends ZodType>(
   input: RunAiTaskInput<Schema>,
@@ -103,18 +101,10 @@ export async function runStructuredAiTask<Schema extends ZodType>(
   const startedAt = Date.now()
   const maxTokens = input.maxTokens ?? DEFAULT_MAX_TOKENS
 
-  let client: Anthropic
+  let geminiClient: ReturnType<typeof getGeminiClient>
   try {
-    client = getAnthropicClient()
+    geminiClient = getGeminiClient()
   } catch (error) {
-    // getAnthropicClient() throws synchronously (e.g. ANTHROPIC_API_KEY not
-    // configured) before the retry loop's own try/catch below ever runs -
-    // without this, the AiRun row created above is left permanently stuck
-    // at RUNNING instead of FAILED. Found live (Phase 2, Canva creative
-    // workflow verification, docs/DECISIONS.md) - the Creative Agent has
-    // no "no data source connected" short-circuit the way the analysis
-    // agents do, so it's the first caller in this codebase to actually
-    // reach this line without a real API key configured.
     const durationMs = Date.now() - startedAt
     const message = error instanceof Error ? error.message : 'Unknown AI Gateway client error.'
     await db.aiRun.update({ where: { id: aiRun.id }, data: { status: 'FAILED', error: message, durationMs } })
@@ -122,25 +112,42 @@ export async function runStructuredAiTask<Schema extends ZodType>(
     throw new AiGatewayError(message)
   }
 
+  const generativeModel = geminiClient.getGenerativeModel({
+    model,
+    systemInstruction: systemPrompt,
+    generationConfig: {
+      maxOutputTokens: maxTokens,
+      responseMimeType: 'application/json',
+      responseSchema: zodToGeminiSchema(input.schema) as GenerateContentRequest['generationConfig'] extends { responseSchema?: infer S } ? S : never,
+    },
+  })
+
   let lastError: unknown
   for (let attempt = 1; attempt <= DEFAULT_MAX_ATTEMPTS; attempt += 1) {
     try {
-      const response = await client.messages.parse({
-        model,
-        max_tokens: maxTokens,
-        system: systemPrompt,
-        messages: [{ role: 'user', content: input.userMessage }],
-        output_config: { format: zodOutputFormat(input.schema) },
-      })
+      const result = await generativeModel.generateContent(input.userMessage)
+      const response = result.response
+      const text = response.text()
 
-      if (response.parsed_output === null) {
-        lastError = new InvalidAiOutputError()
-        continue // one more attempt, same request
+      // Parse and validate against the Zod schema
+      let parsed: unknown
+      try {
+        parsed = JSON.parse(text)
+      } catch {
+        lastError = new InvalidAiOutputError('Gemini returned invalid JSON.')
+        continue
+      }
+
+      const validated = input.schema.safeParse(parsed)
+      if (!validated.success) {
+        lastError = new InvalidAiOutputError(`Schema validation failed: ${validated.error.message}`)
+        if (attempt < DEFAULT_MAX_ATTEMPTS) continue
+        break
       }
 
       const durationMs = Date.now() - startedAt
-      const inputTokens = response.usage.input_tokens
-      const outputTokens = response.usage.output_tokens
+      const inputTokens = response.usageMetadata?.promptTokenCount ?? 0
+      const outputTokens = response.usageMetadata?.candidatesTokenCount ?? 0
       const estimatedCostCents = estimateCostCents(tier, inputTokens, outputTokens)
 
       await db.aiRun.update({
@@ -155,13 +162,13 @@ export async function runStructuredAiTask<Schema extends ZodType>(
       })
 
       return {
-        data: response.parsed_output,
+        data: validated.data,
         aiRunId: aiRun.id,
         usage: { inputTokens, outputTokens, estimatedCostCents },
       }
     } catch (error) {
       lastError = error
-      if (error instanceof InvalidAiOutputError) continue // already counted as an attempt above
+      if (error instanceof InvalidAiOutputError) continue
       if (!isRetryableError(error) || attempt === DEFAULT_MAX_ATTEMPTS) break
       await sleep(BASE_BACKOFF_MS * 2 ** (attempt - 1))
     }
