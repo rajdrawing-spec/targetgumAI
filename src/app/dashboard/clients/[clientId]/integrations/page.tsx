@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { Plug, ExternalLink } from 'lucide-react'
+import { Plug, ExternalLink, RefreshCw } from 'lucide-react'
 import { getCurrentAuthContext } from '@/lib/auth/current-context'
 import { listIntegrationConnectionsForOrg } from '@/lib/integrations/health'
 import { isGoogleIntegrationConfigured } from '@/lib/integrations/google/oauth'
@@ -8,6 +8,7 @@ import {
   connectGoogleAdsAccountAction,
   connectMetaAdsAccountAction,
   connectMetricoolBrandAction,
+  syncClientMetaAdsAction,
 } from '../../../actions'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { StatusBadge } from '@/components/ui/badge'
@@ -49,6 +50,13 @@ export default async function ClientIntegrationsPage({ params }: { params: Promi
                     {c.lastErrorMessage && <span className="text-xs text-destructive">{c.lastErrorMessage}</span>}
                     <span className="text-xs text-caption">{c.status === 'CONNECTED' ? `Synced ${formatDateTime(c.lastSuccessfulSyncAt)}` : ''}</span>
                     <StatusBadge status={c.status} />
+                    {c.integrationAccount.integration.provider === 'META_ADS' && canManage && (
+                      <ActionForm action={syncClientMetaAdsAction.bind(null, clientId)} className="inline">
+                        <SubmitButton variant="outline" size="sm" pendingLabel="Syncing...">
+                          <RefreshCw className="h-3 w-3 mr-1" /> Sync Live Data
+                        </SubmitButton>
+                      </ActionForm>
+                    )}
                   </div>
                 </li>
               ))}
@@ -62,7 +70,7 @@ export default async function ClientIntegrationsPage({ params }: { params: Promi
           <CardHeader>
             <CardTitle className="text-base">Connect an account</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="space-y-4">
             <ActionForm action={connectMetricoolBrandAction.bind(null, clientId)} className="flex flex-wrap items-end gap-3 rounded-md border border-dashed border-border p-3">
               <div>
                 <div className="mb-1.5 flex items-center gap-2">
@@ -100,17 +108,43 @@ export default async function ClientIntegrationsPage({ params }: { params: Promi
               <SubmitButton variant="outline" pendingLabel="Connecting…">Connect Google Ads</SubmitButton>
             </ActionForm>
 
-            <ActionForm action={connectMetaAdsAccountAction.bind(null, clientId)} className="flex flex-wrap items-end gap-3 rounded-md border border-dashed border-border p-3">
-              <div>
-                <Label htmlFor="metaAdsAccountId">Meta Ads account id</Label>
-                <Input id="metaAdsAccountId" name="externalAccountId" type="text" required placeholder="e.g. act_123456789" className="w-44" />
-                <FieldError name="externalAccountId" />
+            {/* Meta Marketing API (Graph API v20.0) */}
+            <ActionForm action={connectMetaAdsAccountAction.bind(null, clientId)} className="rounded-md border border-dashed border-border p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="font-semibold text-foreground text-sm">Meta Ads</span>
+                  <span className="ml-2 text-xs text-caption">(Facebook & Instagram Marketing API v20.0)</span>
+                </div>
+                <a
+                  href="https://developers.facebook.com/tools/explorer/"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                >
+                  Meta Graph Explorer <ExternalLink className="h-3 w-3" />
+                </a>
               </div>
-              <div>
-                <Label htmlFor="label-meta">Label (optional)</Label>
-                <Input id="label-meta" name="label" type="text" className="w-44" />
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-start">
+                <div>
+                  <Label htmlFor="metaAdsAccountId">Meta Ad Account ID</Label>
+                  <Input id="metaAdsAccountId" name="externalAccountId" type="text" required placeholder="act_123456789 or 123456789" />
+                  <FieldError name="externalAccountId" />
+                  <p className="mt-1 text-[11px] text-caption">Found in Meta Ads Manager URL or Ad Account settings.</p>
+                </div>
+                <div>
+                  <Label htmlFor="metaAccessToken">Meta Access Token</Label>
+                  <Input id="metaAccessToken" name="accessToken" type="password" placeholder="EAAB... (or set via .env.local)" />
+                  <FieldError name="accessToken" />
+                  <p className="mt-1 text-[11px] text-caption">Needs `ads_read` & `read_insights`. Encrypted safely at rest.</p>
+                </div>
+                <div>
+                  <Label htmlFor="label-meta">Label (optional)</Label>
+                  <Input id="label-meta" name="label" type="text" placeholder="e.g. Primary US Account" />
+                </div>
               </div>
-              <SubmitButton variant="outline" pendingLabel="Connecting…">Connect Meta Ads</SubmitButton>
+              <div className="flex justify-end pt-1">
+                <SubmitButton variant="outline" pendingLabel="Connecting & Syncing…">Connect Meta Ads & Sync</SubmitButton>
+              </div>
             </ActionForm>
 
             <ActionForm action={connectCanvaAccountAction.bind(null, clientId)} className="flex flex-wrap items-end gap-3 rounded-md border border-dashed border-border p-3">

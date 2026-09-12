@@ -18,7 +18,7 @@ import { listCampaigns } from '@/lib/ads/service'
 import { analyzeAdImpressionsAndPerformance } from '@/lib/ads/analyzer'
 import { listAccessibleClients } from '@/lib/clients/list'
 import { ActionForm, SubmitButton } from '@/components/ui/action-form'
-import { generateClientReportAction, seedDemoAdsAction } from '../actions'
+import { generateClientReportAction } from '../actions'
 import { cn } from '@/lib/utils'
 
 const DEFAULT_SEVERITY_STYLE = {
@@ -139,13 +139,16 @@ export default async function AdAnalyticsPage({
             No Ad Telemetry Data Found
           </h3>
           <p className="text-xs text-[#A1A1AA] max-w-md mx-auto mt-1 mb-4">
-            Create an ad set or load demo campaigns to simulate live impression trends, click funnels, and AI performance diagnostics.
+            Connect your Meta Ads account to sync genuine impression velocity, click funnels, and AI performance telemetry.
           </p>
-          <ActionForm action={seedDemoAdsAction.bind(null, selectedClient?.id)}>
-            <SubmitButton className="btn-brand text-xs gap-2">
-              <Sparkles className="h-3.5 w-3.5" /> Populate Demo Ad Impressions
-            </SubmitButton>
-          </ActionForm>
+          <div className="flex gap-2 justify-center">
+            <Link href="/dashboard/integrations" className="btn-brand text-xs gap-2 inline-flex items-center px-3.5 py-1.5 font-semibold">
+              <BarChart3 className="h-3.5 w-3.5" /> Connect Meta Ads Account
+            </Link>
+            <Link href="/dashboard/ads/new" className="btn-outline-hairline text-xs gap-2 inline-flex items-center px-3.5 py-1.5 font-medium">
+              Create Ad Brief
+            </Link>
+          </div>
         </div>
       ) : (
         <>

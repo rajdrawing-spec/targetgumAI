@@ -12,46 +12,60 @@ import {
   Pie,
   Cell,
 } from 'recharts'
-import { TrendingUp, PieChart as PieIcon, Activity } from 'lucide-react'
+import { TrendingUp, PieChart as PieIcon, Plug, ArrowUpRight } from 'lucide-react'
+import Link from 'next/link'
+
+export interface DailyTrendPoint {
+  day: string
+  spend: number
+  revenue: number
+}
+
+export interface ChannelMixPoint {
+  name: string
+  value: number
+  spend: number
+  color: string
+}
 
 interface TelemetryProps {
   totalSpend: number
   totalRevenue: number
   avgRoas: number
   campaignCount: number
+  dailyTrends?: DailyTrendPoint[]
+  channelMix?: ChannelMixPoint[]
 }
+
+const DEFAULT_DAYS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN']
 
 export function CommandCenterTelemetry({
   totalSpend,
   totalRevenue,
   avgRoas,
+  campaignCount,
+  dailyTrends,
+  channelMix,
 }: TelemetryProps) {
-  // 7-day velocity trend scaled with actual or baseline telemetry
-  const baseSpend = totalSpend > 0 ? totalSpend / 7 : 450
-  const baseRev = totalRevenue > 0 ? totalRevenue / 7 : 1850
+  // Use strictly genuine daily trend data, or genuine zero-line if no spend has occurred yet
+  const performanceTrendData =
+    dailyTrends && dailyTrends.length > 0
+      ? dailyTrends
+      : DEFAULT_DAYS.map((d) => ({ day: d, spend: 0, revenue: 0 }))
 
-  const performanceTrendData = [
-    { day: 'MON', spend: Math.round(baseSpend * 0.75), revenue: Math.round(baseRev * 0.72) },
-    { day: 'TUE', spend: Math.round(baseSpend * 0.9), revenue: Math.round(baseRev * 0.95) },
-    { day: 'WED', spend: Math.round(baseSpend * 0.85), revenue: Math.round(baseRev * 0.88) },
-    { day: 'THU', spend: Math.round(baseSpend * 1.05), revenue: Math.round(baseRev * 1.1) },
-    { day: 'FRI', spend: Math.round(baseSpend * 1.2), revenue: Math.round(baseRev * 1.25) },
-    { day: 'SAT', spend: Math.round(baseSpend * 1.35), revenue: Math.round(baseRev * 1.4) },
-    { day: 'SUN', spend: Math.round(baseSpend * 1.15), revenue: Math.round(baseRev * 1.2) },
-  ]
+  const hasGenuineSpend = totalSpend > 0
+  const hasGenuineChannelData = channelMix && channelMix.some((c) => c.spend > 0)
 
-  // TargetGum Categorical Palette
-  const colorSeriesMeta = '#E5252A' // Bullseye Crimson
-  const colorSeriesGoogle = '#3B82F6' // Google Slate Blue
-  const colorSeriesAmazon = '#F59E0B' // Amazon Amber
-  const colorSeriesLinkedIn = '#64748B' // LinkedIn Steel
-
-  const channelMixData = [
-    { name: 'Meta Ads', value: 48, color: colorSeriesMeta },
-    { name: 'Google Ads', value: 28, color: colorSeriesGoogle },
-    { name: 'Amazon Ads', value: 16, color: colorSeriesAmazon },
-    { name: 'LinkedIn / Social', value: 8, color: colorSeriesLinkedIn },
-  ]
+  // Default empty channel allocation
+  const displayChannelMix: ChannelMixPoint[] =
+    hasGenuineChannelData && channelMix
+      ? channelMix
+      : [
+          { name: 'Meta Ads', value: 0, spend: 0, color: '#E5252A' },
+          { name: 'Google Ads', value: 0, spend: 0, color: '#3B82F6' },
+          { name: 'Amazon Ads', value: 0, spend: 0, color: '#F59E0B' },
+          { name: 'LinkedIn / Social', value: 0, spend: 0, color: '#64748B' },
+        ]
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -74,16 +88,16 @@ export function CommandCenterTelemetry({
           <div className="flex items-center gap-3 text-[11px] font-mono-data">
             <div className="flex items-center gap-1.5">
               <span className="h-2 w-2 rounded-full bg-[#E5252A]" />
-              <span className="text-[#A1A1AA]">Ad Spend</span>
+              <span className="text-[#A1A1AA]">Ad Spend (${totalSpend.toLocaleString()})</span>
             </div>
             <div className="flex items-center gap-1.5">
               <span className="h-2 w-2 rounded-full bg-[#FFFFFF]" />
-              <span className="text-[#A1A1AA]">Gross Return</span>
+              <span className="text-[#A1A1AA]">Gross Return (${totalRevenue.toLocaleString()})</span>
             </div>
           </div>
         </div>
 
-        <div className="h-56 w-full pt-2">
+        <div className="h-56 w-full pt-2 relative">
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={performanceTrendData} margin={{ top: 10, right: 10, left: -15, bottom: 0 }}>
               <defs>
@@ -102,7 +116,7 @@ export function CommandCenterTelemetry({
                 fontSize={10}
                 tickLine={false}
                 axisLine={{ stroke: '#27272A' }}
-                fontFamily="var(--font-ibm-plex-mono)"
+                fontFamily="var(--font-mono)"
               />
               <YAxis
                 stroke="#54524A"
@@ -110,7 +124,7 @@ export function CommandCenterTelemetry({
                 tickLine={false}
                 axisLine={{ stroke: '#27272A' }}
                 tickFormatter={(v) => `$${v}`}
-                fontFamily="var(--font-ibm-plex-mono)"
+                fontFamily="var(--font-mono)"
               />
               <Tooltip
                 contentStyle={{
@@ -118,7 +132,7 @@ export function CommandCenterTelemetry({
                   borderColor: '#27272A',
                   borderRadius: '4px',
                   fontSize: '11px',
-                  fontFamily: 'var(--font-ibm-plex-mono)',
+                  fontFamily: 'var(--font-mono)',
                   color: '#F4F4F6',
                 }}
                 formatter={(value: any) => [`$${Number(value).toLocaleString()}`, '']}
@@ -143,6 +157,23 @@ export function CommandCenterTelemetry({
               />
             </AreaChart>
           </ResponsiveContainer>
+
+          {!hasGenuineSpend && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#121215]/60 backdrop-blur-[1px] rounded">
+              <p className="text-xs text-[#F4F4F6] font-medium mb-1">
+                No active ad spend telemetry recorded yet
+              </p>
+              <p className="text-[11px] text-[#A1A1AA] max-w-sm text-center mb-3">
+                Connect your genuine Meta Ads or Google Ads account to start streaming daily live spend and return metrics.
+              </p>
+              <Link
+                href="/dashboard/integrations"
+                className="inline-flex items-center gap-1 text-xs font-semibold text-[#E5252A] hover:underline"
+              >
+                <Plug className="h-3.5 w-3.5" /> Connect Meta Ads Account <ArrowUpRight className="h-3 w-3" />
+              </Link>
+            </div>
+          )}
         </div>
       </div>
 
@@ -163,44 +194,53 @@ export function CommandCenterTelemetry({
             </div>
           </div>
           <span className="font-mono-data text-xs text-[#E5252A] font-semibold">
-            {avgRoas > 0 ? `${avgRoas.toFixed(1)}x ROAS` : '3.8x ROAS'}
+            {avgRoas > 0 ? `${avgRoas.toFixed(1)}x ROAS` : '0.0x ROAS'}
           </span>
         </div>
 
-        <div className="h-40 w-full flex items-center justify-center">
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie
-                data={channelMixData}
-                innerRadius={38}
-                outerRadius={58}
-                paddingAngle={4}
-                dataKey="value"
-                stroke="#121215"
-                strokeWidth={2}
-              >
-                {channelMixData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.color} />
-                ))}
-              </Pie>
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: '#121215',
-                  borderColor: '#27272A',
-                  borderRadius: '4px',
-                  fontSize: '11px',
-                  fontFamily: 'var(--font-ibm-plex-mono)',
-                  color: '#F4F4F6',
-                }}
-                formatter={(val: any) => [`${val}%`, 'Allocation']}
-              />
-            </PieChart>
-          </ResponsiveContainer>
+        <div className="h-40 w-full flex items-center justify-center relative">
+          {hasGenuineChannelData ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={displayChannelMix}
+                  innerRadius={38}
+                  outerRadius={58}
+                  paddingAngle={4}
+                  dataKey="value"
+                  stroke="#121215"
+                  strokeWidth={2}
+                >
+                  {displayChannelMix.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: '#121215',
+                    borderColor: '#27272A',
+                    borderRadius: '4px',
+                    fontSize: '11px',
+                    fontFamily: 'var(--font-mono)',
+                    color: '#F4F4F6',
+                  }}
+                  formatter={(val: any) => [`${val}%`, 'Allocation']}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="text-center p-4">
+              <div className="h-16 w-16 mx-auto rounded-full border-2 border-dashed border-[#27272A] flex items-center justify-center text-[10px] font-mono-data text-[#A1A1AA] mb-2">
+                0%
+              </div>
+              <p className="text-xs text-[#A1A1AA]">No ad platform spend allocated yet</p>
+            </div>
+          )}
         </div>
 
         {/* Legend Breakdown */}
         <div className="grid grid-cols-2 gap-2 pt-2 border-t border-[#27272A]">
-          {channelMixData.map((channel) => (
+          {displayChannelMix.map((channel) => (
             <div key={channel.name} className="flex items-center justify-between text-[11px] font-mono-data">
               <div className="flex items-center gap-1.5 truncate">
                 <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: channel.color }} />

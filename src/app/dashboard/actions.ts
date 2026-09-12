@@ -24,6 +24,7 @@ import {
 import { connectClientToCanvaAccount } from '@/lib/integrations/canva/connect'
 import { connectClientToGoogleAdsAccount } from '@/lib/integrations/google-ads/connect'
 import { connectClientToMetaAdsAccount } from '@/lib/integrations/meta-ads/connect'
+import { syncMetaAdAccountTelemetry } from '@/lib/integrations/meta-ads/sync'
 import { connectClientToMetricoolBrand } from '@/lib/integrations/metricool/connect'
 import { acceptRecommendation, rejectRecommendation } from '@/lib/recommendations/persist'
 import { updateTaskStatus } from '@/lib/recommendations/tasks'
@@ -294,7 +295,32 @@ export async function connectGoogleAdsAccountAction(clientId: string, _prev: Act
 }
 
 export async function connectMetaAdsAccountAction(clientId: string, _prev: ActionResult, formData: FormData): Promise<ActionResult> {
-  return connectAction('connect-meta-ads', clientId, formData, 'externalAccountId', (ctx, id, label) => connectClientToMetaAdsAccount(ctx, clientId, id, label), 'Meta Ads account connected.')
+  return runAction('connect-meta-ads', async () => {
+    const ctx = await requireCtx()
+    const input = externalAccountSchema.parse({
+      externalAccountId: formData.get('externalAccountId') ?? '',
+      label: formString(formData, 'label'),
+    })
+    const accessToken = formString(formData, 'accessToken')
+    await connectClientToMetaAdsAccount(ctx, clientId, input.externalAccountId, input.label, accessToken)
+    revalidateClient(clientId)
+    revalidatePath('/dashboard/integrations')
+    revalidatePath('/dashboard/ads')
+    revalidatePath('/dashboard')
+    return actionOk('Meta Ads account connected and live telemetry synced.')
+  })
+}
+
+export async function syncClientMetaAdsAction(clientId: string, _prev: ActionResult, _formData: FormData): Promise<ActionResult> {
+  return runAction('sync-client-meta-ads', async () => {
+    const ctx = await requireCtx()
+    const result = await syncMetaAdAccountTelemetry(ctx, clientId)
+    revalidateClient(clientId)
+    revalidatePath('/dashboard/integrations')
+    revalidatePath('/dashboard/ads')
+    revalidatePath('/dashboard')
+    return actionOk(`Synced ${result.syncedCampaigns} Meta campaigns and ${result.syncedMetrics} daily metrics.`)
+  })
 }
 
 export async function connectCanvaAccountAction(clientId: string, _prev: ActionResult, formData: FormData): Promise<ActionResult> {

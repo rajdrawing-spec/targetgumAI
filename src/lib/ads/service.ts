@@ -96,15 +96,7 @@ export async function createCampaign(ctx: AuthContext, input: CreateCampaignInpu
     },
   })
 
-  // Create initial baseline metrics for simulation & analysis
-  const initialImpressions = Math.floor(Math.random() * 5000) + 1200
-  const initialClicks = Math.floor(initialImpressions * (0.02 + Math.random() * 0.04))
-  const initialCpc = input.defaultBid ?? (1.2 + Math.random() * 0.8)
-  const initialSpend = Number((initialClicks * initialCpc).toFixed(2))
-  const initialConversions = Math.max(1, Math.floor(initialClicks * 0.08))
-  const initialRevenue = Number((initialConversions * (35 + Math.random() * 50)).toFixed(2))
-  const roas = initialSpend > 0 ? initialRevenue / initialSpend : 0
-
+  // Newly created campaign starts clean with zero metrics until genuine telemetry streams from the ad platform
   await db.campaignMetric.create({
     data: {
       organizationId: ctx.organizationId,
@@ -113,15 +105,15 @@ export async function createCampaign(ctx: AuthContext, input: CreateCampaignInpu
       date: new Date(),
       source: input.provider,
       retrievedAt: new Date(),
-      period: 'daily',
-      impressions: initialImpressions,
-      clicks: initialClicks,
-      spend: initialSpend,
-      ctr: initialImpressions > 0 ? Number(((initialClicks / initialImpressions) * 100).toFixed(4)) : 0,
-      cpc: Number(initialCpc.toFixed(4)),
-      conversions: initialConversions,
-      revenue: initialRevenue,
-      roas: Number(roas.toFixed(4)),
+      period: 'initial',
+      impressions: 0,
+      clicks: 0,
+      spend: 0,
+      ctr: 0,
+      cpc: 0,
+      conversions: 0,
+      revenue: 0,
+      roas: 0,
       raw: {
         targetAcos: input.targetAcos,
         amazonType: input.amazonType,
@@ -150,115 +142,34 @@ export async function toggleCampaignStatus(ctx: AuthContext, campaignId: string,
   })
 }
 
-export async function seedDemoAdsData(ctx: AuthContext, targetClientId?: string) {
-  // Find a target client if none specified
-  let clientId = targetClientId
-  if (!clientId) {
-    const accessible = await db.client.findFirst({
-      where: {
-        organizationId: ctx.organizationId,
-        status: 'ACTIVE',
-      },
-    })
-    if (!accessible) throw new Error('No active client found to attach demo ad campaigns')
-    clientId = accessible.id
-  }
-
-  const demoCampaigns = [
-    {
-      name: 'Amazon PPC - Sponsored Products (Core ASINs)',
-      provider: 'AMAZON_ADS' as IntegrationProvider,
-      channel: 'Sponsored Products - Manual Keywords',
-      budget: 1500,
-      impressions: 48250,
-      clicks: 1640,
-      spend: 1420.50,
-      conversions: 184,
-      revenue: 6850.00,
-      targetAcos: 22,
+/**
+ * Purges any demo/mock campaigns and seeded pilot clients so only genuine
+ * client data remains in the database.
+ */
+export async function purgeAllDummyData(ctx: AuthContext) {
+  // 1. Delete all demo campaigns with providerCampaignId starting with 'demo_'
+  await db.campaign.deleteMany({
+    where: {
+      organizationId: ctx.organizationId,
+      providerCampaignId: { startsWith: 'demo_' },
     },
-    {
-      name: 'Amazon PPC - Sponsored Brands (Brand Defense)',
-      provider: 'AMAZON_ADS' as IntegrationProvider,
-      channel: 'Sponsored Brands - Video & Store',
-      budget: 800,
-      impressions: 29400,
-      clicks: 810,
-      spend: 645.20,
-      conversions: 92,
-      revenue: 3420.00,
-      targetAcos: 20,
-    },
-    {
-      name: 'Google Ads - High Intent Search (Purchase Queries)',
-      provider: 'GOOGLE_ADS' as IntegrationProvider,
-      channel: 'Google Search Network',
-      budget: 2200,
-      impressions: 62100,
-      clicks: 2950,
-      spend: 2180.00,
-      conversions: 240,
-      revenue: 9640.00,
-      targetAcos: 24,
-    },
-    {
-      name: 'Meta Ads - Retargeting & Lookalike Audiences',
-      provider: 'META_ADS' as IntegrationProvider,
-      channel: 'Instagram & Facebook Feed',
-      budget: 1200,
-      impressions: 94800,
-      clicks: 2180,
-      spend: 1140.00,
-      conversions: 115,
-      revenue: 4280.00,
-      targetAcos: 28,
-    },
-  ]
+  })
 
-  for (const c of demoCampaigns) {
-    const providerCampaignId = `demo_${c.provider.toLowerCase()}_${Math.random().toString(36).slice(2, 7)}`
-    const created = await db.campaign.create({
-      data: {
-        organizationId: ctx.organizationId,
-        clientId,
-        provider: c.provider,
-        providerCampaignId,
-        name: c.name,
-        channel: c.channel,
-        status: 'ACTIVE',
-        budget: c.budget,
-        startDate: new Date(Date.now() - 30 * 86400000),
-      },
-    })
+  // 2. Delete dummy clients (Client A pilot, Client B) if present
+  const dummyClients = await db.client.findMany({
+    where: {
+      organizationId: ctx.organizationId,
+      slug: { in: ['client-a', 'client-b'] },
+    },
+    select: { id: true },
+  })
 
-    const ctr = (c.clicks / c.impressions) * 100
-    const cpc = c.spend / c.clicks
-    const roas = c.revenue / c.spend
-
-    await db.campaignMetric.create({
-      data: {
-        organizationId: ctx.organizationId,
-        clientId,
-        campaignId: created.id,
-        date: new Date(),
-        source: c.provider,
-        retrievedAt: new Date(),
-        period: '30d',
-        impressions: c.impressions,
-        clicks: c.clicks,
-        spend: c.spend,
-        ctr: Number(ctr.toFixed(4)),
-        cpc: Number(cpc.toFixed(4)),
-        conversions: c.conversions,
-        revenue: c.revenue,
-        roas: Number(roas.toFixed(4)),
-        raw: {
-          targetAcos: c.targetAcos,
-          isDemo: true,
-        },
-      },
+  if (dummyClients.length > 0) {
+    const dummyIds = dummyClients.map((c) => c.id)
+    await db.client.deleteMany({
+      where: { id: { in: dummyIds } },
     })
   }
 
-  return true
+  return { purgedClients: dummyClients.length }
 }

@@ -18,7 +18,7 @@ import { listAccessibleClients } from '@/lib/clients/list'
 import { EmptyState } from '@/components/ui/empty-state'
 import { ActionForm, SubmitButton } from '@/components/ui/action-form'
 import { AIAdCreatorStudio } from '@/components/ads/ai-ad-creator-studio'
-import { seedDemoAdsAction, toggleCampaignStatusAction } from './actions'
+import { toggleCampaignStatusAction } from './actions'
 import { cn } from '@/lib/utils'
 
 const PROVIDER_BADGE: Record<string, { label: string; className: string }> = {
@@ -137,10 +137,10 @@ export default async function AdsPage({
             </div>
           </div>
           <p className="text-xl font-mono-data font-bold text-[#FFFFFF] tracking-tight">
-            {totalImpressions > 0 ? totalImpressions.toLocaleString() : '842,500'}
+            {totalImpressions.toLocaleString()}
           </p>
-          <span className="inline-flex items-center gap-1 font-mono-data text-[10px] text-emerald-400">
-            <TrendingUp className="h-2.5 w-2.5" /> +18.4% this month
+          <span className="inline-flex items-center gap-1 font-mono-data text-[10px] text-[#A1A1AA]">
+            <TrendingUp className="h-2.5 w-2.5 text-[#E5252A]" /> Live telemetry
           </span>
         </div>
 
@@ -154,10 +154,10 @@ export default async function AdsPage({
             </div>
           </div>
           <p className="text-xl font-mono-data font-bold text-[#FFFFFF] tracking-tight">
-            ${totalSpend > 0 ? totalSpend.toLocaleString(undefined, { minimumFractionDigits: 0 }) : '12,450'}
+            ${totalSpend.toLocaleString(undefined, { minimumFractionDigits: 0 })}
           </p>
           <span className="font-mono-data text-[10px] text-[#A1A1AA]">
-            Active across {campaigns.length || 4} campaigns
+            Active across {campaigns.length} campaigns
           </span>
         </div>
 
@@ -171,10 +171,10 @@ export default async function AdsPage({
             </div>
           </div>
           <p className="text-xl font-mono-data font-bold text-[#FFFFFF] tracking-tight">
-            {avgCtr > 0 ? `${avgCtr.toFixed(2)}%` : '3.82%'}
+            {avgCtr.toFixed(2)}%
           </p>
-          <span className="font-mono-data text-[10px] text-emerald-400">
-            {totalClicks > 0 ? totalClicks.toLocaleString() : '32,180'} clicks
+          <span className="font-mono-data text-[10px] text-[#A1A1AA]">
+            {totalClicks.toLocaleString()} total clicks
           </span>
         </div>
 
@@ -188,10 +188,10 @@ export default async function AdsPage({
             </div>
           </div>
           <p className="text-xl font-mono-data font-bold text-[#E5252A] tracking-tight">
-            {avgRoas > 0 ? `${avgRoas.toFixed(2)}x` : '4.10x'}
+            {avgRoas > 0 ? `${avgRoas.toFixed(2)}x` : '0.00x'}
           </p>
           <span className="font-mono-data text-[10px] text-[#A1A1AA]">
-            ${totalRevenue > 0 ? totalRevenue.toLocaleString() : '51,045'} attributed
+            ${totalRevenue.toLocaleString()} attributed
           </span>
         </div>
 
@@ -205,10 +205,10 @@ export default async function AdsPage({
             </div>
           </div>
           <p className="text-xl font-mono-data font-bold text-[#FFFFFF] tracking-tight">
-            {amazonAcos > 0 ? `${amazonAcos.toFixed(1)}%` : '18.4%'}
+            {amazonAcos.toFixed(1)}%
           </p>
-          <span className="font-mono-data text-[10px] text-amber-400">
-            High efficiency target
+          <span className="font-mono-data text-[10px] text-[#A1A1AA]">
+            {amazonSpend > 0 ? `$${amazonSpend.toLocaleString()} spend` : 'No Amazon spend'}
           </span>
         </div>
       </div>
@@ -291,17 +291,15 @@ export default async function AdsPage({
         <EmptyState
           icon={Megaphone}
           title="No campaigns found"
-          description="Create your first ad set across Amazon PPC, Google Ads, or Meta Ads, or populate sample campaigns to explore telemetry."
+          description="Connect your Meta Ads account to stream live campaigns and performance telemetry, or create a new campaign brief."
         >
           <div className="flex gap-2 justify-center mt-2">
-            <Link href="/dashboard/ads/new" className="btn-brand px-3 py-1.5 text-xs flex items-center gap-1">
+            <Link href="/dashboard/ads/new" className="btn-brand px-3.5 py-1.5 text-xs flex items-center gap-1 font-semibold">
               <Plus className="h-4 w-4" /> Create Ad Set
             </Link>
-            <ActionForm action={seedDemoAdsAction.bind(null, clients[0]?.id)}>
-              <SubmitButton variant="outline" size="sm" className="gap-1.5 text-[#E5252A] border-[#E5252A]/40">
-                <Sparkles className="h-3.5 w-3.5" /> Load Demo Ad Sets
-              </SubmitButton>
-            </ActionForm>
+            <Link href="/dashboard/integrations" className="btn-outline-hairline px-3.5 py-1.5 text-xs flex items-center gap-1 font-medium">
+              <BarChart3 className="h-4 w-4 text-[#E5252A]" /> Connect Meta Ads
+            </Link>
           </div>
         </EmptyState>
       ) : (

@@ -28,12 +28,12 @@ import { listTasksForOrg } from '@/lib/recommendations/tasks'
 import { listContentCalendarItemsForOrg } from '@/lib/content-calendar/persist'
 import { listCampaigns } from '@/lib/ads/service'
 import { listAccessibleClients } from '@/lib/clients/list'
+import { db } from '@/lib/db/client'
 import { StatusBadge } from '@/components/ui/badge'
 import { EmptyState } from '@/components/ui/empty-state'
 import { ActionForm, SubmitButton } from '@/components/ui/action-form'
 import { PostScheduleDialog } from '@/components/content/post-schedule-dialog'
 import { CommandCenterTelemetry } from '@/components/dashboard/command-center-telemetry'
-import { seedDemoAdsAction } from './ads/actions'
 import { formatDate, formatRelative, initials } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
@@ -61,19 +61,90 @@ export default async function DashboardOverviewPage() {
     listAccessibleClients(ctx),
   ])
 
-  // Calculate total marketing telemetry
+  // Calculate genuine marketing telemetry
   let totalImpressions = 0
   let totalClicks = 0
   let totalSpend = 0
   let totalRevenue = 0
+  const spendByProvider: Record<string, number> = {
+    META_ADS: 0,
+    GOOGLE_ADS: 0,
+    AMAZON_ADS: 0,
+    OTHER: 0,
+  }
+
   for (const c of campaigns) {
     totalImpressions += c.metrics.impressions
     totalClicks += c.metrics.clicks
     totalSpend += c.metrics.spend
     totalRevenue += c.metrics.revenue
+    const p = c.provider in spendByProvider ? c.provider : 'OTHER'
+    spendByProvider[p] = (spendByProvider[p] || 0) + c.metrics.spend
   }
   const avgCtr = totalImpressions > 0 ? (totalClicks / totalImpressions) * 100 : 0
   const avgRoas = totalSpend > 0 ? totalRevenue / totalSpend : 0
+
+  // Calculate real daily 7-day velocity trend
+  const sevenDaysAgo = new Date(Date.now() - 7 * 86400000)
+  const recentMetrics = await db.campaignMetric.findMany({
+    where: {
+      organizationId: ctx.organizationId,
+      date: { gte: sevenDaysAgo },
+    },
+    select: {
+      date: true,
+      spend: true,
+      revenue: true,
+    },
+    orderBy: { date: 'asc' },
+  })
+
+  const DAY_LABELS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT']
+  const dayMap = new Map<string, { spend: number; revenue: number }>()
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(Date.now() - i * 86400000)
+    const label = DAY_LABELS[d.getDay()]!
+    dayMap.set(label, { spend: 0, revenue: 0 })
+  }
+  for (const m of recentMetrics) {
+    const label = DAY_LABELS[new Date(m.date).getDay()]!
+    const curr = dayMap.get(label) || { spend: 0, revenue: 0 }
+    curr.spend += Number(m.spend || 0)
+    curr.revenue += Number(m.revenue || 0)
+    dayMap.set(label, curr)
+  }
+  const dailyTrends = Array.from(dayMap.entries()).map(([day, val]) => ({
+    day,
+    spend: Math.round(val.spend),
+    revenue: Math.round(val.revenue),
+  }))
+
+  const channelMix = [
+    {
+      name: 'Meta Ads',
+      spend: Math.round(spendByProvider.META_ADS || 0),
+      value: totalSpend > 0 ? Math.round(((spendByProvider.META_ADS || 0) / totalSpend) * 100) : 0,
+      color: '#E5252A',
+    },
+    {
+      name: 'Google Ads',
+      spend: Math.round(spendByProvider.GOOGLE_ADS || 0),
+      value: totalSpend > 0 ? Math.round(((spendByProvider.GOOGLE_ADS || 0) / totalSpend) * 100) : 0,
+      color: '#3B82F6',
+    },
+    {
+      name: 'Amazon Ads',
+      spend: Math.round(spendByProvider.AMAZON_ADS || 0),
+      value: totalSpend > 0 ? Math.round(((spendByProvider.AMAZON_ADS || 0) / totalSpend) * 100) : 0,
+      color: '#F59E0B',
+    },
+    {
+      name: 'LinkedIn / Social',
+      spend: Math.round(spendByProvider.OTHER || 0),
+      value: totalSpend > 0 ? Math.round(((spendByProvider.OTHER || 0) / totalSpend) * 100) : 0,
+      color: '#64748B',
+    },
+  ]
 
   const clientsNeedingAttention = clients.filter((c) => attentionScore(c) > 0).slice(0, 6)
   const totalPendingApprovals = clients.reduce((sum, c) => sum + c.attention.pendingApprovals, 0)
@@ -187,17 +258,17 @@ export default async function DashboardOverviewPage() {
         />
         <StatCard
           label="Tracked Impressions"
-          value={totalImpressions > 0 ? totalImpressions.toLocaleString() : '842,500'}
+          value={totalImpressions.toLocaleString()}
           href="/dashboard/ads/analytics"
           icon={Eye}
-          subtitle={totalImpressions > 0 ? `${avgCtr.toFixed(2)}% CTR` : '3.82% CTR'}
+          subtitle={`${avgCtr.toFixed(2)}% CTR`}
         />
         <StatCard
           label="Active Ad Spend"
-          value={totalSpend > 0 ? `$${totalSpend.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : '$12,450'}
+          value={`$${totalSpend.toLocaleString(undefined, { maximumFractionDigits: 0 })}`}
           href="/dashboard/ads"
           icon={DollarSign}
-          subtitle={totalSpend > 0 ? `${avgRoas.toFixed(1)}x ROAS` : '4.1x Blended ROAS'}
+          subtitle={`${avgRoas.toFixed(1)}x ROAS`}
         />
         <StatCard
           label="Pending Approvals"
@@ -226,10 +297,12 @@ export default async function DashboardOverviewPage() {
 
       {/* Interactive Charts Strip */}
       <CommandCenterTelemetry
-        totalSpend={totalSpend || 12450}
-        totalRevenue={totalRevenue || 51045}
-        avgRoas={avgRoas || 4.1}
+        totalSpend={totalSpend}
+        totalRevenue={totalRevenue}
+        avgRoas={avgRoas}
         campaignCount={campaigns.length}
+        dailyTrends={dailyTrends}
+        channelMix={channelMix}
       />
 
       {/* Attention Required Client Ledger */}

@@ -79,10 +79,8 @@ describe.each([
   })
 })
 
-describe.each([
-  ['Google Ads', createGoogleAdsProvider() as Required<AdsProvider>] as const,
-  ['Meta Ads', createMetaAdsProvider() as Required<AdsProvider>] as const,
-])('%s real adapter (not live-verified - no verified client library, see docs/EXTERNAL-APPROVALS.md)', (_label, provider) => {
+describe('Google Ads real adapter (not live-verified - no verified client library, see docs/EXTERNAL-APPROVALS.md)', () => {
+  const provider = createGoogleAdsProvider() as Required<AdsProvider>
   it('every AdsProvider method throws UnsupportedOperationError', async () => {
     await expect(provider.getCampaigns('a', 'c')).rejects.toThrow(UnsupportedOperationError)
     await expect(provider.getCampaignPerformance('a', 'c', range)).rejects.toThrow(UnsupportedOperationError)
@@ -95,3 +93,12 @@ describe.each([
     await expect(provider.updateBid('a1', 1)).rejects.toThrow(UnsupportedOperationError)
   })
 })
+
+describe('Meta Ads real adapter (Graph API v20.0)', () => {
+  const provider = createMetaAdsProvider() as Required<AdsProvider>
+  it('fails fast when META_ACCESS_TOKEN is not configured', async () => {
+    await expect(provider.getCampaigns('a', 'meta_ads')).rejects.toThrow('Meta Ads API Access Token not configured')
+    await expect(provider.getCampaignPerformance('a', 'meta_ads', range)).rejects.toThrow('Meta Ads API Access Token not configured')
+  })
+})
+

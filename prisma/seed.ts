@@ -59,49 +59,12 @@ async function main() {
     }
   }
 
-  const client = await prisma.client.upsert({
-    where: { organizationId_slug: { organizationId: org.id, slug: 'client-a' } },
-    update: {},
-    create: {
+  // Ensure any past demo clients (Client A pilot, Client B) are purged
+  await prisma.client.deleteMany({
+    where: {
       organizationId: org.id,
-      name: 'Client A (pilot)',
-      slug: 'client-a',
-      industry: 'E-commerce',
-      website: 'https://client-a-pilot.example.com',
-      country: 'India',
-      city: 'Chennai',
-      timezone: 'Asia/Kolkata',
-      description: 'Pilot client used to exercise every workflow end-to-end - see docs/PILOT-RUNBOOK.md.',
-      createdBy: 'seed-script',
+      slug: { in: ['client-a', 'client-b'] },
     },
-  })
-
-  await prisma.clientPolicy.upsert({
-    where: { clientId: client.id },
-    update: {},
-    create: { clientId: client.id },
-  })
-
-  // A second client, unassigned to anyone below, so cross-client-access
-  // tests have somewhere to correctly fail against.
-  const otherClient = await prisma.client.upsert({
-    where: { organizationId_slug: { organizationId: org.id, slug: 'client-b' } },
-    update: {},
-    create: {
-      organizationId: org.id,
-      name: 'Client B (not assigned to seeded staff)',
-      slug: 'client-b',
-      industry: 'Education',
-      website: 'https://client-b.example.com',
-      country: 'India',
-      city: 'Bengaluru',
-      createdBy: 'seed-script',
-    },
-  })
-  await prisma.clientPolicy.upsert({
-    where: { clientId: otherClient.id },
-    update: {},
-    create: { clientId: otherClient.id },
   })
 
   const passwordHash = await hashPassword(DEV_PASSWORD)
@@ -126,7 +89,7 @@ async function main() {
     update: {},
     create: { email: 'employee@targetgum.dev', name: 'Dev Marketing Employee', passwordHash },
   })
-  const employeeMembership = await prisma.organizationUser.upsert({
+  await prisma.organizationUser.upsert({
     where: { organizationId_userId: { organizationId: org.id, userId: employeeUser.id } },
     update: {},
     create: {
@@ -135,31 +98,11 @@ async function main() {
       roleId: roleByKey.get('marketing_employee')!.id,
     },
   })
-  // Assigned to Client A only - used to prove Client B access is denied.
-  await prisma.clientAssignment.upsert({
-    where: {
-      clientId_organizationUserId: { clientId: client.id, organizationUserId: employeeMembership.id },
-    },
-    update: {},
-    create: { clientId: client.id, organizationUserId: employeeMembership.id },
-  })
 
-  const clientPortalUser = await prisma.user.upsert({
-    where: { email: 'client-a-user@targetgum.dev' },
-    update: {},
-    create: { email: 'client-a-user@targetgum.dev', name: 'Client A Portal User', passwordHash },
-  })
-  await prisma.clientUser.upsert({
-    where: { clientId_userId: { clientId: client.id, userId: clientPortalUser.id } },
-    update: {},
-    create: { clientId: client.id, userId: clientPortalUser.id },
-  })
-
-  console.warn(`Seeded organization "${org.name}" with clients "${client.name}" and "${otherClient.name}".`)
-  console.warn(`Dev users (password for all: ${DEV_PASSWORD}):`)
-  console.warn(`  super-admin@targetgum.dev    - super_admin, all clients in org`)
-  console.warn(`  employee@targetgum.dev       - marketing_employee, assigned to Client A only`)
-  console.warn(`  client-a-user@targetgum.dev  - client_user, Client A portal only`)
+  console.warn(`Seeded organization "${org.name}" with zero dummy clients.`)
+  console.warn(`Dev users (password: ${DEV_PASSWORD}):`)
+  console.warn(`  super-admin@targetgum.dev    - super_admin, full agency access`)
+  console.warn(`  employee@targetgum.dev       - marketing_employee`)
 }
 
 main()

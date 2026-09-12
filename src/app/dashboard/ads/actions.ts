@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { getCurrentAuthContext } from '@/lib/auth/current-context'
 import { runAction, actionOk } from '@/lib/actions/result'
 import type { ActionResult } from '@/lib/actions/result'
-import { createCampaign, toggleCampaignStatus, seedDemoAdsData, listCampaigns } from '@/lib/ads/service'
+import { createCampaign, toggleCampaignStatus, purgeAllDummyData, listCampaigns } from '@/lib/ads/service'
 import { analyzeAdImpressionsAndPerformance, createAndShareClientReport } from '@/lib/ads/analyzer'
 import type { IntegrationProvider } from '@prisma/client'
 import type { AmazonCampaignType, AmazonTargetingType } from '@/lib/ads/types'
@@ -70,14 +70,28 @@ export async function toggleCampaignStatusAction(campaignId: string, currentStat
   })
 }
 
-export async function seedDemoAdsAction(clientId?: string): Promise<ActionResult> {
-  return runAction('seed-demo-ads', async () => {
+export async function purgeDummyDataAction(): Promise<ActionResult> {
+  return runAction('purge-dummy-data', async () => {
     const ctx = await requireCtx()
-    await seedDemoAdsData(ctx, clientId)
+    const result = await purgeAllDummyData(ctx)
     revalidatePath('/dashboard/ads')
     revalidatePath('/dashboard/ads/analytics')
+    revalidatePath('/dashboard/clients')
     revalidatePath('/dashboard')
-    return actionOk('Sample multi-channel ad campaigns & impression metrics populated successfully!')
+    return actionOk(`Purged dummy data successfully. Removed ${result.purgedClients} demo clients and sample campaigns.`)
+  })
+}
+
+export async function syncMetaAdsAction(clientId: string): Promise<ActionResult> {
+  return runAction('sync-meta-ads', async () => {
+    const ctx = await requireCtx()
+    const { syncMetaAdAccountTelemetry } = await import('@/lib/integrations/meta-ads/sync')
+    const result = await syncMetaAdAccountTelemetry(ctx, clientId)
+    revalidatePath('/dashboard/ads')
+    revalidatePath('/dashboard/ads/analytics')
+    revalidatePath(`/dashboard/clients/${clientId}`)
+    revalidatePath('/dashboard')
+    return actionOk(`Synced ${result.syncedCampaigns} campaigns and ${result.syncedMetrics} telemetry points from Meta Graph API!`)
   })
 }
 
