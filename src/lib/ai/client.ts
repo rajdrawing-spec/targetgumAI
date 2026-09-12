@@ -10,10 +10,10 @@ let genAI: GoogleGenerativeAI | undefined
 export function getGeminiClient(): GoogleGenerativeAI {
   if (genAI) return genAI
 
-  const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY
+  const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY || process.env.GEMINI_API_KEY
   if (!apiKey) {
     throw new AiGatewayError(
-      'GOOGLE_GENERATIVE_AI_API_KEY is not configured. Set it in your .env.local file.',
+      'GOOGLE_GENERATIVE_AI_API_KEY (or GEMINI_API_KEY) is not configured. Set it in your .env.local file.',
     )
   }
 

@@ -9,9 +9,9 @@
 export type ModelTier = 'fast' | 'default' | 'reasoning'
 
 export const MODEL_IDS: Record<ModelTier, string> = {
-  fast: 'gemini-2.0-flash-lite',
-  default: process.env.GEMINI_DEFAULT_MODEL || 'gemini-2.0-flash',
-  reasoning: 'gemini-2.5-pro',
+  fast: process.env.GEMINI_FAST_MODEL || 'gemini-3.5-flash-lite',
+  default: process.env.GEMINI_DEFAULT_MODEL || 'gemini-3.6-flash',
+  reasoning: process.env.GEMINI_REASONING_MODEL || 'gemini-3.6-flash',
 }
 
 /**

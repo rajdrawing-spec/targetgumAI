@@ -36,6 +36,8 @@ export async function registerMarketingAnalyticsAgent(): Promise<void> {
       'metricool.get_social_analytics',
       'metricool.get_ad_campaigns',
       'metricool.get_ad_performance',
+      'meta_ads.get_campaigns',
+      'meta_ads.get_campaign_performance',
       'ga4.get_report',
       'gsc.get_search_performance',
     ],
@@ -132,6 +134,31 @@ export async function runMarketingAnalysis(input: AnalyticsRunInput): Promise<An
   if (adPerformance) {
     dataBlocks.push(`Ad performance (${input.adsChannel}):\n${JSON.stringify(adPerformance, null, 2)}`)
     metrics.push(...aggregateAdPerformance(adPerformance as AdCampaignPerformance[]))
+  }
+
+  const metaCampaigns = await tryGatherData('Meta Ads campaigns', dataGaps, () =>
+    executeTool({
+      ctx,
+      toolKey: 'meta_ads.get_campaigns',
+      clientId,
+      agentKey: MARKETING_ANALYTICS_AGENT_KEY,
+      input: {},
+    }),
+  )
+  if (metaCampaigns) dataBlocks.push(`Meta Ads campaigns:\n${JSON.stringify(metaCampaigns, null, 2)}`)
+
+  const metaPerformance = await tryGatherData('Meta Ads performance', dataGaps, () =>
+    executeTool({
+      ctx,
+      toolKey: 'meta_ads.get_campaign_performance',
+      clientId,
+      agentKey: MARKETING_ANALYTICS_AGENT_KEY,
+      input: { from: range.from, to: range.to },
+    }),
+  )
+  if (metaPerformance) {
+    dataBlocks.push(`Meta Ads performance:\n${JSON.stringify(metaPerformance, null, 2)}`)
+    metrics.push(...aggregateAdPerformance(metaPerformance as AdCampaignPerformance[]))
   }
 
   const ga4Report = await tryGatherData('GA4 report', dataGaps, () =>
