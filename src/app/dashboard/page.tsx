@@ -13,6 +13,7 @@ import {
   ShoppingBag,
   Eye,
   DollarSign,
+  Sparkles,
   BarChart3,
   Plus,
   AlertCircle,
