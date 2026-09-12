@@ -8,6 +8,7 @@
  * Seeded passwords are dev-only and printed to the console, never meant to
  * be secret - do not reuse this pattern past local development.
  */
+import 'dotenv/config'
 import { PrismaClient } from '@prisma/client'
 import { hashPassword } from '../src/lib/auth/password'
 import { ROLE_PERMISSIONS, SYSTEM_ROLES, type SystemRoleKey } from '../src/lib/rbac/permissions'

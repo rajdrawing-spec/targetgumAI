@@ -16,6 +16,8 @@ import { Input } from './input'
  */
 export function ConfirmDialog({
   trigger,
+  isOpen: controlledOpen,
+  onClose: controlledOnClose,
   title,
   description,
   confirmLabel,
@@ -25,7 +27,9 @@ export function ConfirmDialog({
   destructive = true,
   onSuccess,
 }: {
-  trigger: (open: () => void) => ReactNode
+  trigger?: (open: () => void) => ReactNode
+  isOpen?: boolean
+  onClose?: () => void
   title: string
   description: ReactNode
   confirmLabel: string
@@ -38,7 +42,10 @@ export function ConfirmDialog({
 }) {
   const ref = useRef<HTMLDialogElement>(null)
   const [typed, setTyped] = useState('')
-  const [open, setOpen] = useState(false)
+  const [internalOpen, setInternalOpen] = useState(false)
+
+  const isControlled = controlledOpen !== undefined
+  const open = isControlled ? controlledOpen : internalOpen
 
   useEffect(() => {
     const dialog = ref.current
@@ -48,14 +55,24 @@ export function ConfirmDialog({
   }, [open])
 
   const close = () => {
-    setOpen(false)
+    if (isControlled) {
+      controlledOnClose?.()
+    } else {
+      setInternalOpen(false)
+    }
     setTyped('')
   }
-  const ready = !requireText || typed.trim() === requireText
+  const ready = !requireText || typed.trim().toLowerCase() === requireText.trim().toLowerCase()
 
   return (
     <>
-      {trigger(() => setOpen(true))}
+      {trigger?.(() => {
+        if (isControlled) {
+          // controlled mode
+        } else {
+          setInternalOpen(true)
+        }
+      })}
       <dialog
         ref={ref}
         onClose={close}

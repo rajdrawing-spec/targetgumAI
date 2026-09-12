@@ -5,6 +5,11 @@ import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard,
   Users,
+  Megaphone,
+  KeyRound,
+  CalendarDays,
+  Image as ImageIcon,
+  Search,
   Lightbulb,
   CheckSquare,
   ShieldCheck,
@@ -12,33 +17,37 @@ import {
   FileText,
   Plug,
   ScrollText,
-  CalendarDays,
-  Search,
-  Image as ImageIcon,
+  BarChart3,
   type LucideIcon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-const NAV_ITEMS: Array<{ href: string; label: string; icon: LucideIcon }> = [
-  { href: '/dashboard', label: 'Overview', icon: LayoutDashboard },
-  { href: '/dashboard/clients', label: 'Clients', icon: Users },
+const NAV_ITEMS: Array<{ href: string; label: string; icon: LucideIcon; badge?: string; isAlert?: boolean }> = [
+  { href: '/dashboard', label: 'Command Center', icon: LayoutDashboard },
+  { href: '/dashboard/clients', label: 'Client Workspaces', icon: Users },
+  { href: '/dashboard/ads', label: 'AI Ad Campaigns', icon: Megaphone, badge: 'STUDIO' },
+  { href: '/dashboard/ads/analytics', label: 'Unified Telemetry', icon: BarChart3, badge: 'LIVE' },
+  { href: '/dashboard/keywords', label: 'Keyword Research', icon: KeyRound, badge: 'AI' },
+  { href: '/dashboard/content-calendar', label: 'Social Hub', icon: CalendarDays },
+  { href: '/dashboard/creatives', label: 'Creative Studio', icon: ImageIcon },
+  { href: '/dashboard/seo', label: 'SEO Intelligence', icon: Search },
   { href: '/dashboard/recommendations', label: 'Recommendations', icon: Lightbulb },
-  { href: '/dashboard/tasks', label: 'Tasks', icon: CheckSquare },
-  { href: '/dashboard/content-calendar', label: 'Content calendar', icon: CalendarDays },
-  { href: '/dashboard/creatives', label: 'Creatives', icon: ImageIcon },
-  { href: '/dashboard/seo', label: 'SEO', icon: Search },
-  { href: '/dashboard/approvals', label: 'Approvals', icon: ShieldCheck },
-  { href: '/dashboard/ai-runs', label: 'AI Runs', icon: Bot },
-  { href: '/dashboard/reports', label: 'Reports', icon: FileText },
+  { href: '/dashboard/tasks', label: 'Action Items', icon: CheckSquare },
+  { href: '/dashboard/approvals', label: 'Approvals Gate', icon: ShieldCheck, isAlert: true },
+  { href: '/dashboard/ai-runs', label: 'AI Engine Runs', icon: Bot },
+  { href: '/dashboard/reports', label: 'Performance Reports', icon: FileText },
   { href: '/dashboard/integrations', label: 'Integrations', icon: Plug },
-  { href: '/dashboard/audit', label: 'Audit', icon: ScrollText },
+  { href: '/dashboard/audit', label: 'Ledger & Audit', icon: ScrollText },
 ]
 
 export function DashboardNav() {
   const pathname = usePathname()
 
   return (
-    <nav className="flex flex-1 flex-col gap-0.5 px-3">
+    <nav className="flex flex-1 flex-col gap-0.5 px-3 py-2">
+      <div className="px-3 py-1.5 text-[10px] font-mono-data uppercase tracking-widest text-[#71717A]">
+        Core Operations
+      </div>
       {NAV_ITEMS.map((item) => {
         const active = item.href === '/dashboard' ? pathname === item.href : pathname?.startsWith(item.href)
         const Icon = item.icon
@@ -47,12 +56,32 @@ export function DashboardNav() {
             key={item.href}
             href={item.href}
             className={cn(
-              'flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors',
-              active ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+              'group flex items-center gap-2.5 rounded px-3 py-2 text-xs font-medium transition-all duration-150 relative',
+              active
+                ? 'bg-[#18181C] text-[#FFFFFF] font-semibold shadow-sm border-l-2 border-[#E5252A]'
+                : 'text-[#A1A1AA] hover:bg-[#121215] hover:text-[#F4F4F6]',
             )}
           >
-            <Icon className="h-4 w-4 shrink-0" strokeWidth={2} />
-            {item.label}
+            <Icon
+              className={cn(
+                'h-4 w-4 shrink-0 transition-colors',
+                active ? 'text-[#E5252A]' : 'text-[#71717A] group-hover:text-[#F4F4F6]'
+              )}
+              strokeWidth={active ? 2.2 : 1.8}
+            />
+            <span className="flex-1 truncate tracking-tight">{item.label}</span>
+            {item.badge && (
+              <span
+                className={cn(
+                  'rounded px-1.5 py-0.5 text-[9px] font-mono-data font-bold uppercase tracking-wider',
+                  item.isAlert
+                    ? 'bg-[#E5252A]/20 text-[#FF4D4F] border border-[#E5252A]/40'
+                    : 'bg-[#27272A] text-[#A1A1AA] border border-[#3F3F46]'
+                )}
+              >
+                {item.badge}
+              </span>
+            )}
           </Link>
         )
       })}

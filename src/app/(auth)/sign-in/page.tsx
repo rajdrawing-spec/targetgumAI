@@ -54,13 +54,21 @@ export default function SignInPage() {
       />
 
       <div className="relative w-full max-w-sm">
-        <div className="mb-8 flex flex-col items-center gap-3 text-center">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-card">
-            <Sparkles className="h-5 w-5" strokeWidth={2} />
+        <div className="mb-6 flex flex-col items-center gap-2 text-center">
+          <div className="relative flex h-14 w-14 items-center justify-center overflow-hidden rounded-xl border border-[#27272A] bg-[#09090B] shadow-glow">
+            <img
+              src="/logo.jpg"
+              alt="TargetGum Logo"
+              className="h-full w-full object-contain"
+            />
           </div>
           <div>
-            <h1 className="text-lg font-medium tracking-tight text-foreground">TargetGum</h1>
-            <p className="text-sm text-muted-foreground">AI Marketing OS</p>
+            <h1 className="text-xl font-display font-bold tracking-tight text-[#FFFFFF]">
+              Target<span className="text-[#E5252A]">Gum</span>
+            </h1>
+            <p className="font-mono-data text-[10px] uppercase tracking-widest text-[#A1A1AA]">
+              Precision Marketing. Real Results.
+            </p>
           </div>
         </div>
 

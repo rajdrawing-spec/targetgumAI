@@ -335,6 +335,36 @@ export async function createContentItemAction(clientId: string, _prev: ActionRes
   })
 }
 
+export async function quickSchedulePostAction(_prev: ActionResult, formData: FormData): Promise<ActionResult> {
+  return runAction('quick-schedule-post', async () => {
+    const ctx = await requireCtx()
+    const clientId = formData.get('clientId') as string
+    if (!clientId) throw new Error('Client is required.')
+    const platform = (formData.get('platform') as string) || 'instagram'
+    const publishDateStr = formData.get('publishDate') as string
+    const caption = formString(formData, 'caption')
+    const creativeAssetId = formString(formData, 'creativeAssetId')
+
+    const item = await createContentCalendarItem(ctx, clientId, {
+      platform,
+      publishDate: publishDateStr ? new Date(publishDateStr) : new Date(Date.now() + 86400000),
+      caption,
+      creativeAssetId,
+    })
+
+    if (formData.get('autoApprove') === 'on') {
+      await submitContentForReview(ctx, item.id)
+      await approveContentCalendarItem(ctx, item.id)
+    }
+
+    revalidatePath('/dashboard/content-calendar')
+    revalidatePath('/dashboard')
+    revalidatePath(`/dashboard/clients/${clientId}`)
+    revalidatePath(`/portal/clients/${clientId}`)
+    return actionOk(`Post scheduled for ${platform} successfully!`)
+  })
+}
+
 export async function submitContentForReviewAction(itemId: string, clientId: string, _prev: ActionResult, _formData: FormData): Promise<ActionResult> {
   return runAction('content-submit', async () => {
     const ctx = await requireCtx()

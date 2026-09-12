@@ -29,92 +29,162 @@ export default async function PortalReportDetailPage({ params }: { params: Promi
     if (error instanceof ForbiddenError) notFound()
     throw error
   }
-  const content = report.content as unknown as ReportContent
+  const content = report.content as any
+
+  const isAdReport = Boolean(content.metrics || content.diagnostics || content.executiveSummary)
 
   return (
     <div className="space-y-6">
       <div>
         <Link href={`/portal/clients/${report.clientId}`} className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground">
-          <ChevronLeft className="h-3.5 w-3.5" /> Back
+          <ChevronLeft className="h-3.5 w-3.5" /> Back to Workspace
         </Link>
-        <h1 className="mt-2 text-2xl font-medium tracking-tight text-foreground">{report.title}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {content.periodStart} – {content.periodEnd}
+        <h1 className="mt-2 text-2xl font-bold tracking-tight text-foreground">{report.title}</h1>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Reporting period: {report.periodStart.toISOString().slice(0, 10)} – {report.periodEnd.toISOString().slice(0, 10)}
         </p>
       </div>
 
-      <Card>
+      {/* Summary */}
+      <Card className="border-border shadow-subtle bg-card">
         <CardHeader>
-          <CardTitle className="text-base">Summary</CardTitle>
+          <CardTitle className="text-base font-semibold">Executive Summary</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm leading-relaxed text-foreground">{content.summary}</p>
+          <p className="text-sm leading-relaxed text-foreground">{content.executiveSummary || content.summary}</p>
         </CardContent>
       </Card>
 
-      {content.trends && content.trends.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <TrendingUp className="h-4 w-4 text-muted-foreground" /> Results
-            </CardTitle>
+      {/* Ad Metrics Strip if Ad Report */}
+      {isAdReport && content.metrics && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="rounded-xl border border-border bg-card p-3.5 shadow-subtle">
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">Ad Impressions</span>
+            <p className="mt-1 text-xl font-bold text-foreground tabular-nums">{Number(content.metrics.impressions).toLocaleString()}</p>
+          </div>
+          <div className="rounded-xl border border-border bg-card p-3.5 shadow-subtle">
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">Clicks (CTR)</span>
+            <p className="mt-1 text-xl font-bold text-foreground tabular-nums">{Number(content.metrics.clicks).toLocaleString()} ({content.metrics.ctr}%)</p>
+          </div>
+          <div className="rounded-xl border border-border bg-card p-3.5 shadow-subtle">
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">Total Spend</span>
+            <p className="mt-1 text-xl font-bold text-foreground tabular-nums">${Number(content.metrics.spend).toLocaleString()}</p>
+          </div>
+          <div className="rounded-xl border border-border bg-card p-3.5 shadow-subtle">
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">Return on Ad Spend</span>
+            <p className="mt-1 text-xl font-bold text-emerald-600 tabular-nums">{content.metrics.roas}x ROAS</p>
+          </div>
+        </div>
+      )}
+
+      {/* Channel Breakdown */}
+      {isAdReport && content.channelBreakdown && (
+        <Card className="border-border shadow-subtle">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-semibold">Channel Performance Breakdown</CardTitle>
           </CardHeader>
           <CardContent>
-            <TrendList trends={content.trends} />
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {content.channelBreakdown.map((ch: any) => (
+                <div key={ch.platform} className="rounded-lg border border-border bg-muted/20 p-3 text-xs space-y-1">
+                  <p className="font-bold text-foreground">{ch.platform}</p>
+                  <p className="text-muted-foreground">{ch.impressions.toLocaleString()} impressions · ${ch.spend} spend</p>
+                  <p className="font-semibold text-emerald-600">{ch.roas}x ROAS</p>
+                </div>
+              ))}
+            </div>
           </CardContent>
         </Card>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <FileText className="h-4 w-4 text-muted-foreground" /> Findings
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {content.findings.length === 0 ? (
-            <EmptyState icon={FileText} title="No findings" />
-          ) : (
-            <ul className="space-y-3">
-              {content.findings.map((finding, i) => (
-                <li key={i} className="rounded-md border border-border p-3">
-                  <div className="flex items-center gap-2">
-                    <StatusBadge status={finding.priority} />
-                    <span className="text-sm font-medium text-foreground">{finding.area}</span>
+      {/* AI Diagnostics: What is happening & Recommended Action */}
+      {isAdReport && content.diagnostics && (
+        <Card className="border-border shadow-subtle">
+          <CardHeader>
+            <CardTitle className="text-base font-semibold flex items-center gap-2">
+              <Lightbulb className="h-4 w-4 text-primary" /> AI Diagnostic Findings & Strategic Actions
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {content.diagnostics.map((diag: any, i: number) => (
+                <div key={i} className="rounded-lg border border-border p-4 bg-muted/10 space-y-2 text-xs">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-bold text-foreground">{diag.title}</h4>
+                    <span className="font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded">
+                      {diag.impact}
+                    </span>
                   </div>
-                  <p className="mt-1.5 text-sm text-foreground">{finding.finding}</p>
-                </li>
+                  <div>
+                    <span className="font-semibold text-muted-foreground block mb-0.5">What is happening:</span>
+                    <p className="text-muted-foreground leading-relaxed">{diag.whatIsHappening}</p>
+                  </div>
+                  <div className="pt-2 border-t border-border">
+                    <span className="font-bold text-primary block mb-0.5">Actionable Recommendation:</span>
+                    <p className="text-foreground font-medium leading-relaxed">{diag.recommendation}</p>
+                  </div>
+                </div>
               ))}
-            </ul>
-          )}
-        </CardContent>
-      </Card>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Lightbulb className="h-4 w-4 text-muted-foreground" /> Recommendations
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {content.recommendations.length === 0 ? (
-            <EmptyState icon={Lightbulb} title="No recommendations" />
-          ) : (
-            <ul className="space-y-3">
-              {content.recommendations.map((rec, i) => (
-                <li key={i} className="rounded-md border border-border p-3">
-                  <div className="flex items-center gap-2">
-                    <StatusBadge status={rec.priority} />
-                    <span className="text-sm font-medium text-foreground">{rec.area}</span>
-                  </div>
-                  <p className="mt-1.5 text-sm text-foreground">{rec.recommendation}</p>
-                  {rec.expectedImpact && <p className="mt-1 text-xs text-muted-foreground">Expected impact: {rec.expectedImpact}</p>}
-                </li>
-              ))}
-            </ul>
-          )}
-        </CardContent>
-      </Card>
+      {/* Legacy Findings */}
+      {!isAdReport && content.findings && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <FileText className="h-4 w-4 text-muted-foreground" /> Findings
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {content.findings.length === 0 ? (
+              <EmptyState icon={FileText} title="No findings" />
+            ) : (
+              <ul className="space-y-3">
+                {content.findings.map((finding: any, i: number) => (
+                  <li key={i} className="rounded-md border border-border p-3">
+                    <div className="flex items-center gap-2">
+                      <StatusBadge status={finding.priority} />
+                      <span className="text-sm font-medium text-foreground">{finding.area}</span>
+                    </div>
+                    <p className="mt-1.5 text-sm text-foreground">{finding.finding}</p>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Legacy Recommendations */}
+      {!isAdReport && content.recommendations && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Lightbulb className="h-4 w-4 text-muted-foreground" /> Recommendations
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {content.recommendations.length === 0 ? (
+              <EmptyState icon={Lightbulb} title="No recommendations" />
+            ) : (
+              <ul className="space-y-3">
+                {content.recommendations.map((rec: any, i: number) => (
+                  <li key={i} className="rounded-md border border-border p-3">
+                    <div className="flex items-center gap-2">
+                      <StatusBadge status={rec.priority} />
+                      <span className="text-sm font-medium text-foreground">{rec.area}</span>
+                    </div>
+                    <p className="mt-1.5 text-sm text-foreground">{rec.recommendation}</p>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }

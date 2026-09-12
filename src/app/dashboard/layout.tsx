@@ -1,33 +1,17 @@
 import Link from 'next/link'
+import Image from 'next/image'
 import { redirect } from 'next/navigation'
-import { Sparkles, LogOut } from 'lucide-react'
+import { LogOut, Activity } from 'lucide-react'
 import { getCurrentAuthContext } from '@/lib/auth/current-context'
 import { signOut } from '@/lib/auth'
 import { DashboardNav } from '@/components/dashboard-nav'
 import { ToastProvider } from '@/components/ui/toast'
-
-/**
- * The Day 13/14 dashboard shell (BRD-PRD Section 42). Nav mirrors the
- * subset of the BRD's full nav list that's actually implemented - Overview,
- * Clients, Recommendations, Tasks, Content calendar, Creatives, SEO,
- * Approvals, AI Runs, Reports, Integrations, Audit. Social, Advertising,
- * Analytics, Settings are BRD Section 42's fuller nav, out of scope per
- * Section 45/49 (see docs/MVP-CHECKLIST.md) - added when their underlying
- * modules exist, same as Content Calendar/Creatives/SEO were. Audit is
- * shown to everyone in the
- * nav even though only super_admin holds `audit.read` by default
- * (Section 4.1) - visiting it as anyone else hits the Day 14 error
- * boundary's clean permission-denied message rather than a dead end.
- *
- * This layout is staff-only. A `client_user` gets a distinct, narrower
- * experience at `/portal` (BRD Section 4.4 - "View own dashboard" reads as
- * *their own*, not the internal one) - see `src/app/portal/`.
- */
+import { RoleSwitcher } from '@/components/role-switcher'
 
 const ROLE_LABEL: Record<string, string> = {
   super_admin: 'Super Admin',
   account_manager: 'Account Manager',
-  marketing_employee: 'Marketing Employee',
+  marketing_employee: 'Marketing Specialist',
 }
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -37,50 +21,91 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   return (
     <ToastProvider>
-    <div className="flex min-h-screen">
-      <aside className="flex w-64 shrink-0 flex-col border-r border-border bg-card">
-        <div className="flex items-center gap-2.5 px-5 py-5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-            <Sparkles className="h-4 w-4" strokeWidth={2} />
+      <div className="flex min-h-screen bg-[#09090B] text-[#F4F4F6]">
+        {/* Left Precision Sidebar */}
+        <aside className="flex w-64 shrink-0 flex-col border-r border-[#27272A] bg-[#121215]">
+          {/* Brand Header with TargetGum Logo */}
+          <div className="px-5 py-4 border-b border-[#27272A]">
+            <Link href="/dashboard" className="flex items-center gap-3 group">
+              <div className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-md border border-[#27272A] bg-[#09090B] shadow-sm group-hover:border-[#E5252A] transition-colors">
+                <Image
+                  src="/logo.jpg"
+                  alt="TargetGum"
+                  width={40}
+                  height={40}
+                  className="object-contain"
+                  priority
+                />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1 font-display text-base font-bold tracking-tight text-[#FFFFFF]">
+                  Target<span className="text-[#E5252A]">Gum</span>
+                </div>
+                <span className="text-[8px] font-mono-data uppercase tracking-wider text-[#71717A] block truncate">
+                  Precision Marketing
+                </span>
+              </div>
+            </Link>
           </div>
-          <span className="text-sm font-medium tracking-tight">TargetGum</span>
-        </div>
-        <DashboardNav />
-        <div className="mt-auto border-t border-border p-3">
-          <div className="flex items-center justify-between gap-2 rounded-md px-2 py-1.5">
-            <div className="min-w-0">
-              <p className="truncate text-xs font-medium text-foreground">{ROLE_LABEL[ctx.roleKey] ?? ctx.roleKey}</p>
-              <p className="truncate text-xs text-caption">Signed in</p>
-            </div>
-            <form
-              action={async () => {
-                'use server'
-                await signOut({ redirectTo: '/sign-in' })
-              }}
-            >
-              <button
-                type="submit"
-                title="Sign out"
-                className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-              >
-                <LogOut className="h-3.5 w-3.5" />
-              </button>
-            </form>
-          </div>
-        </div>
-      </aside>
 
-      <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-14 shrink-0 items-center border-b border-border bg-card px-6">
-          <Link href="/dashboard" className="text-sm font-medium text-muted-foreground hover:text-foreground">
-            TargetGum Agency Workspace
-          </Link>
-        </header>
-        <main className="flex-1 overflow-y-auto px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
-          <div className="mx-auto max-w-7xl">{children}</div>
-        </main>
+          {/* Nav List */}
+          <div className="flex-1 overflow-y-auto">
+            <DashboardNav />
+          </div>
+
+          {/* User & Org Session Footer */}
+          <div className="mt-auto border-t border-[#27272A] p-3 bg-[#0E0E11]">
+            <div className="flex items-center justify-between gap-2 rounded px-2.5 py-1.5 bg-[#141418] border border-[#27272A]">
+              <div className="min-w-0">
+                <p className="truncate text-xs font-semibold text-[#F4F4F6]">
+                  {ROLE_LABEL[ctx.roleKey] ?? ctx.roleKey}
+                </p>
+                <p className="truncate text-[10px] font-mono-data text-[#71717A]">
+                  {ctx.organizationId ? `Org: ${ctx.organizationId.slice(0, 8)}...` : 'System Mode'}
+                </p>
+              </div>
+              <form
+                action={async () => {
+                  'use server'
+                  await signOut({ redirectTo: '/sign-in' })
+                }}
+              >
+                <button
+                  type="submit"
+                  title="Sign out"
+                  className="flex h-7 w-7 items-center justify-center rounded text-[#71717A] transition-colors hover:bg-[#E5252A]/15 hover:text-[#FF4D4F]"
+                >
+                  <LogOut className="h-3.5 w-3.5" />
+                </button>
+              </form>
+            </div>
+          </div>
+        </aside>
+
+        {/* Main Content Area */}
+        <div className="flex min-w-0 flex-1 flex-col">
+          <header className="flex h-16 shrink-0 items-center justify-between border-b border-[#27272A] bg-[#121215]/85 px-6 backdrop-blur-md">
+            <div className="flex items-center gap-3">
+              <Link
+                href="/dashboard"
+                className="text-sm font-semibold tracking-tight text-[#FFFFFF] hover:text-[#E5252A] transition-colors"
+              >
+                TargetGum Agency Terminal
+              </Link>
+              <div className="hidden sm:flex items-center gap-1.5 rounded-full border border-[#E5252A]/30 bg-[#E5252A]/10 px-2.5 py-0.5 text-[11px] font-mono-data font-medium text-[#FF4D4F]">
+                <span className="h-1.5 w-1.5 rounded-full bg-[#E5252A] animate-pulse" />
+                <span>AI ENGINE ONLINE</span>
+              </div>
+            </div>
+
+            <RoleSwitcher currentRole={ctx.roleKey} userName={ctx.userId} />
+          </header>
+
+          <main className="flex-1 overflow-y-auto px-4 py-6 sm:px-6 lg:px-8 lg:py-8 bg-[#09090B]">
+            <div className="mx-auto max-w-7xl">{children}</div>
+          </main>
+        </div>
       </div>
-    </div>
     </ToastProvider>
   )
 }

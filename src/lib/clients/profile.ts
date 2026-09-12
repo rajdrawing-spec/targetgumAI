@@ -147,7 +147,7 @@ export async function unarchiveClient(ctx: AuthContext, clientId: string) {
 export async function deleteClient(ctx: AuthContext, clientId: string, confirmName: string) {
   assertPermission(ctx, 'clients.manage')
   const client = await getAuthorizedClient(ctx, clientId)
-  if (confirmName.trim() !== client.name) {
+  if (confirmName.trim().toLowerCase() !== client.name.trim().toLowerCase() && confirmName.trim().toUpperCase() !== 'CONFIRM') {
     throw new Error('Type the client\'s exact name to confirm deletion.')
   }
   await recordAuditEvent({

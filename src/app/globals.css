@@ -2,61 +2,62 @@
 @tailwind components;
 @tailwind utilities;
 
-/**
- * Design tokens (HSL triplets, unitless - consumed by tailwind.config.ts
- * as `hsl(var(--token) / <alpha-value>)`, which is what makes Tailwind's
- * opacity modifiers like `bg-primary/10` work). Values are stored as HSL
- * rather than hex purely for that mechanism; every variable below still
- * renders as the exact hex color named in its comment.
- *
- * Palette: a warm off-white surface, a warm-neutral three-tier text scale
- * (primary/secondary/muted), a single terracotta primary reserved for CTAs
- * / active nav / key metrics, and four status hues (sage/dusty-blue/
- * mustard/blush) each used for exactly one semantic role - see the "usage"
- * comment on each. No dark theme: the app has no theme toggle and no
- * `dark:` classes exist anywhere, so a second palette would only be dead
- * weight to maintain.
- */
 @layer base {
   :root {
-    /* ---- Palette ---- */
-    --bg-page: 60 17% 98%; /* #FAFAF8 */
-    --bg-surface: 0 0% 100%; /* #FFFFFF */
-    --border: 40 11% 89%; /* #E6E4E0 */
+    /* TargetGum Precision Brand Tokens (Bullseye Crimson & Charcoal) */
+    --bg-page: 240 10% 4%; /* Deep Onyx #09090b */
+    --bg-surface: 240 7% 8%; /* Dark Charcoal Panel #121215 */
+    --border: 240 5% 16%; /* Hairline Charcoal Border #27272a */
 
-    --text-primary: 30 3% 12%; /* #201F1E - headings, emphasized values */
-    --text-secondary: 30 3% 42%; /* #6E6B68 - body copy */
-    --text-muted: 34 4% 63%; /* #A3A09C - labels, timestamps, captions (2.6:1 on white - decorative/large text only, never body copy) */
+    --text-primary: 240 5% 96%; /* Crisp Alabaster #f4f4f6 */
+    --text-secondary: 240 5% 65%; /* Slate Zinc #a1a1aa */
+    --text-muted: 240 4% 46%; /* Muted Zinc #71717a */
 
-    --primary: 5 48% 53%; /* #C1584F - CTAs, active nav, key metrics ONLY */
-    --primary-hover: 4 47% 45%; /* #A8453D */
-    --primary-tint: 8 53% 92%; /* #F5E1DE - primary's light surface (active nav bg, avatar chips) */
+    /* TargetGum Brand Crimson (#E5252A) */
+    --primary: 359 79% 52%; /* Vibrant Bullseye Red #E5252A */
+    --primary-hover: 359 81% 45%; /* Deep Crimson #CC1B20 */
+    --primary-tint: 359 79% 52%;
 
-    --sage: 101 15% 60%; /* #93A889 - success / healthy status */
-    --dusty-blue: 209 20% 57%; /* #7C93A8 - info / neutral status */
-    --mustard: 41 61% 57%; /* #D4A94E - warnings */
-    --blush: 0 43% 74%; /* #D9A0A0 - errors / alerts */
+    /* Status Tokens */
+    --sage: 160 84% 39%; /* Emerald #10b981 */
+    --dusty-blue: 217 91% 60%; /* Electric Blue #3b82f6 */
+    --mustard: 38 92% 50%; /* Amber #f59e0b */
+    --blush: 359 79% 52%; /* TargetGum Red */
 
-    /* ---- Derived (not in the source spec, needed to make the palette
-       above actually usable for UI chrome) ----
-       - a soft tint of each status hue, for badge/callout backgrounds
-       - a darker "-text" reading of each status hue: the raw hues above
-         are ~2-3:1 contrast on white, too low for small badge text, so
-         text uses this darker stop of the same hue (~4.5-7:1) while
-         the raw hue above stays the canonical swatch for dots/backgrounds
-       - one neutral hover wash between --border and --bg-page, for
-         row/link hover states that need to read against a white card */
-    --sage-tint: 101 25% 94%;
-    --sage-text: 101 28% 32%;
-    --dusty-blue-tint: 209 30% 95%;
-    --dusty-blue-text: 209 30% 36%;
-    --mustard-tint: 41 65% 93%;
-    --mustard-text: 41 60% 36%;
-    --blush-tint: 0 45% 95%;
-    --blush-text: 0 38% 40%;
-    --surface-hover: 40 11% 94%;
+    --sage-tint: 152 76% 12%;
+    --sage-text: 152 76% 55%;
+    --dusty-blue-tint: 214 95% 12%;
+    --dusty-blue-text: 214 95% 65%;
+    --mustard-tint: 48 100% 12%;
+    --mustard-text: 48 100% 60%;
+    --blush-tint: 359 79% 14%;
+    --blush-text: 359 79% 65%;
+    --surface-hover: 240 6% 12%;
 
-    --radius: 0.625rem;
+    --radius: 0.25rem;
+
+    /* Raw Terminal Precision Variables */
+    --bg-ink: #09090B;
+    --surface-base: #121215;
+    --surface-subtle: #18181C;
+    --border-hairline: #27272A;
+    --border-subtle: #1F1F23;
+    --text-primary-hex: #F4F4F6;
+    --text-muted-hex: #A1A1AA;
+    --text-dim-hex: #71717A;
+    --text-accent: #E5252A;
+    --accent-primary: #E5252A;
+    --btn-accent-bg: #E5252A;
+    --btn-accent-text: #FFFFFF;
+    --data-slate: #5B7083;
+    --data-neutral: #27272A;
+    --alert-rust: #E5252A;
+
+    /* Categorical 4-Series Multi-Platform Palette */
+    --series-meta: #E5252A;
+    --series-google: #3B82F6;
+    --series-amazon: #F59E0B;
+    --series-linkedin: #64748B;
   }
 }
 
@@ -65,13 +66,136 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-muted-foreground antialiased;
-    font-size: 0.875rem;
-    line-height: 1.6;
-    font-feature-settings: 'cv11', 'ss01';
+    background-color: var(--bg-ink);
+    color: var(--text-primary-hex);
+    font-family: var(--font-public-sans), var(--font-sans), -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    overflow-x: hidden;
+    line-height: 1.5;
   }
   h1, h2, h3, h4, h5, h6 {
-    @apply text-foreground;
-    font-weight: 500;
+    color: var(--text-primary-hex);
+    font-weight: 600;
   }
+}
+
+/* Typography Role Classes */
+.font-display {
+  font-family: var(--font-space-grotesk), var(--font-sans), sans-serif;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.font-mono-data {
+  font-family: var(--font-ibm-plex-mono), monospace;
+  font-feature-settings: 'tnum' 1, 'zero' 1;
+  letter-spacing: -0.01em;
+}
+
+.font-body-ui {
+  font-family: var(--font-public-sans), var(--font-sans), sans-serif;
+}
+
+/* Custom Minimalist Scrollbar */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-ink);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-hairline);
+  border-radius: 2px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-dim-hex);
+}
+
+/* Terminal & Ledger Surface Panels */
+.terminal-panel {
+  background-color: var(--surface-base);
+  border: 1px solid var(--border-hairline);
+  border-radius: 4px;
+}
+
+.terminal-panel-subtle {
+  background-color: var(--surface-subtle);
+  border: 1px solid var(--border-hairline);
+  border-radius: 4px;
+}
+
+.terminal-card {
+  background-color: var(--surface-base);
+  border: 1px solid var(--border-hairline);
+  border-radius: 4px;
+}
+
+.terminal-dropdown {
+  background-color: var(--surface-base);
+  border: 1px solid var(--border-hairline);
+  border-radius: 4px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+}
+
+.terminal-alert-rust {
+  background-color: var(--surface-base);
+  border: 1px solid var(--alert-rust);
+  border-radius: 4px;
+}
+
+/* Hairline Dividers */
+.hairline-b {
+  border-bottom: 1px solid var(--border-hairline);
+}
+
+.hairline-t {
+  border-top: 1px solid var(--border-hairline);
+}
+
+.hairline-r {
+  border-right: 1px solid var(--border-hairline);
+}
+
+.hairline-l {
+  border-left: 1px solid var(--border-hairline);
+}
+
+/* TargetGum Crimson Action Button */
+.btn-brand,
+.btn-gold {
+  background-color: var(--btn-accent-bg);
+  color: var(--btn-accent-text);
+  font-weight: 600;
+  border-radius: 4px;
+  border: 1px solid var(--btn-accent-bg);
+  transition: opacity 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
+  box-shadow: 0 0 15px -3px rgba(229, 37, 42, 0.35);
+}
+.btn-brand:hover,
+.btn-gold:hover {
+  opacity: 0.94;
+  transform: translateY(-0.5px);
+  box-shadow: 0 0 20px -2px rgba(229, 37, 42, 0.5);
+}
+
+/* Secondary Hairline Outline Button */
+.btn-outline-hairline {
+  background-color: transparent;
+  color: var(--text-primary-hex);
+  border: 1px solid var(--border-hairline);
+  border-radius: 4px;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+.btn-outline-hairline:hover {
+  background-color: var(--surface-subtle);
+  border-color: var(--border-hairline);
+}
+
+/* Outlined Chip / Badge */
+.chip-outlined {
+  border: 1px solid var(--border-hairline);
+  border-radius: 3px;
+  color: var(--text-muted-hex);
+  font-family: var(--font-ibm-plex-mono), monospace;
+  font-size: 11px;
 }

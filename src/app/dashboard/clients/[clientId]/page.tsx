@@ -12,6 +12,9 @@ import {
   Bot,
   CalendarDays,
   ArrowUpRight,
+  Plus,
+  ShoppingBag,
+  BarChart3,
 } from 'lucide-react'
 import { getCurrentAuthContext } from '@/lib/auth/current-context'
 import { getAuthorizedClientCached } from '@/lib/db/tenant'
@@ -70,25 +73,46 @@ export default async function ClientOverviewPage({ params }: { params: Promise<{
 
   return (
     <div className="space-y-6">
-      {canTriggerAnalysis && (
-        <div className="flex flex-wrap gap-2">
-          <ActionForm action={triggerCompetitorAnalysisAction.bind(null, clientId)}>
-            <SubmitButton variant="outline" pendingLabel="Analyzing competitors…">
-              <Users2 className="h-4 w-4" /> Run competitor analysis
-            </SubmitButton>
-          </ActionForm>
-          <ActionForm action={triggerSeoAnalysisAction.bind(null, clientId)}>
-            <SubmitButton variant="outline" pendingLabel="Running SEO analysis…">
-              <Search className="h-4 w-4" /> Run SEO analysis
-            </SubmitButton>
-          </ActionForm>
-          <ActionForm action={triggerAnalyzeClientAction.bind(null, clientId)}>
-            <SubmitButton pendingLabel="Analyzing… this takes up to a minute">
-              <Sparkles className="h-4 w-4" /> Analyze this client
-            </SubmitButton>
-          </ActionForm>
-        </div>
-      )}
+      <div className="flex flex-wrap items-center gap-2">
+        <Link
+          href={`/dashboard/ads/new?clientId=${clientId}`}
+          className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-sm hover:bg-primary-hover transition-colors"
+        >
+          <Plus className="h-3.5 w-3.5" /> Create Ad Set
+        </Link>
+        <Link
+          href={`/dashboard/ads/new?clientId=${clientId}&platform=AMAZON_ADS`}
+          className="inline-flex items-center gap-1.5 rounded-md border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-900 hover:bg-amber-100 transition-colors"
+        >
+          <ShoppingBag className="h-3.5 w-3.5 text-amber-600" /> Amazon PPC
+        </Link>
+        <Link
+          href={`/dashboard/ads/analytics?clientId=${clientId}`}
+          className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-muted transition-colors"
+        >
+          <BarChart3 className="h-3.5 w-3.5 text-primary" /> Ad Telemetry
+        </Link>
+
+        {canTriggerAnalysis && (
+          <>
+            <ActionForm action={triggerCompetitorAnalysisAction.bind(null, clientId)}>
+              <SubmitButton variant="outline" size="sm" pendingLabel="Analyzing competitors…">
+                <Users2 className="h-3.5 w-3.5" /> Competitor analysis
+              </SubmitButton>
+            </ActionForm>
+            <ActionForm action={triggerSeoAnalysisAction.bind(null, clientId)}>
+              <SubmitButton variant="outline" size="sm" pendingLabel="Running SEO analysis…">
+                <Search className="h-3.5 w-3.5" /> SEO analysis
+              </SubmitButton>
+            </ActionForm>
+            <ActionForm action={triggerAnalyzeClientAction.bind(null, clientId)}>
+              <SubmitButton size="sm" pendingLabel="Analyzing…">
+                <Sparkles className="h-3.5 w-3.5" /> AI Client Audit
+              </SubmitButton>
+            </ActionForm>
+          </>
+        )}
+      </div>
 
       {/* Attention */}
       <Card className={attentionCount > 0 ? 'border-warning/30' : undefined}>

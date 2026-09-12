@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
-import { Lightbulb, FileText, MessageSquare, Check, CalendarDays } from 'lucide-react'
+import { Lightbulb, FileText, MessageSquare, Check, CalendarDays, Eye, DollarSign, TrendingUp, Megaphone, Sparkles } from 'lucide-react'
 import type { ContentStatus } from '@prisma/client'
 import { getCurrentAuthContext } from '@/lib/auth/current-context'
 import { listClientFeedback } from '@/lib/clients/brain'
@@ -8,13 +8,14 @@ import { listContentCalendarItems } from '@/lib/content-calendar/persist'
 import { getAuthorizedClient } from '@/lib/db/tenant'
 import { listRecommendations } from '@/lib/recommendations/persist'
 import { listReports } from '@/lib/reports/generate'
+import { listCampaigns } from '@/lib/ads/service'
 import { ForbiddenError } from '@/lib/rbac/errors'
 import {
   portalAcceptRecommendationAction,
   portalRejectRecommendationAction,
   submitFeedbackAction,
 } from '../../actions'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge, StatusBadge } from '@/components/ui/badge'
 import { Textarea } from '@/components/ui/input'
 import { EmptyState } from '@/components/ui/empty-state'
@@ -25,9 +26,7 @@ import { RejectWithReason } from '@/components/ui/reject-with-reason'
  * The Client Portal's main view for one client (BRD Section 4.4): review
  * and accept/decline recommendations, see CLIENT-facing reports
  * (`listReports` already redacts to CLIENT-type only for a client_user),
- * view planned content (read-only), and leave feedback. No tasks, no
- * Approval-Engine approvals, no AI runs, no integration detail - none of
- * that is a client capability per Section 4.4.
+ * view planned content (read-only), view ad performance telemetry, and leave feedback.
  */
 
 /**
@@ -58,24 +57,89 @@ export default async function PortalClientPage({ params }: { params: Promise<{ c
     throw error
   }
 
-  const [recommendations, reports, contentItems, ownFeedback] = await Promise.all([
+  const [recommendations, reports, contentItems, ownFeedback, campaigns] = await Promise.all([
     listRecommendations(ctx, clientId, { limit: 50 }),
     listReports(ctx, clientId, { limit: 50 }),
     listContentCalendarItems(ctx, clientId, { limit: 50 }),
-    // Only what this client submitted - account-manager notes are internal.
     listClientFeedback(ctx, clientId, 5, { source: 'CLIENT' }),
+    listCampaigns(ctx, clientId),
   ])
   const toReview = recommendations.filter((r) => r.status === 'RECOMMENDED')
   const decided = recommendations.filter((r) => r.status !== 'RECOMMENDED')
 
+  // Calculate client ad totals
+  let clientImpressions = 0
+  let clientClicks = 0
+  let clientSpend = 0
+  let clientRevenue = 0
+  for (const c of campaigns) {
+    clientImpressions += c.metrics.impressions
+    clientClicks += c.metrics.clicks
+    clientSpend += c.metrics.spend
+    clientRevenue += c.metrics.revenue
+  }
+  const clientCtr = clientImpressions > 0 ? (clientClicks / clientImpressions) * 100 : 0
+  const clientRoas = clientSpend > 0 ? clientRevenue / clientSpend : 0
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-medium tracking-tight text-foreground">{client.name}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {toReview.length > 0 ? `${toReview.length} recommendation${toReview.length === 1 ? '' : 's'} waiting for your review.` : 'Nothing is waiting for your review right now.'}
-        </p>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">{client.name}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {toReview.length > 0 ? `${toReview.length} recommendation${toReview.length === 1 ? '' : 's'} waiting for your review.` : 'Marketing telemetry and performance portal.'}
+          </p>
+        </div>
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 px-3 py-1 text-xs font-semibold">
+          <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" /> Client Dashboard Active
+        </span>
       </div>
+
+      {/* Ad Performance Telemetry for the Client */}
+      {clientImpressions > 0 && (
+        <Card className="border-border shadow-card bg-gradient-to-br from-card to-muted/20">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base font-bold flex items-center gap-2">
+                <Megaphone className="h-4 w-4 text-primary" /> Live Advertising & Impression Telemetry
+              </CardTitle>
+              <span className="text-xs text-muted-foreground font-medium">Shared by your marketing team</span>
+            </div>
+            <CardDescription className="text-xs">
+              Real-time impressions, click-through performance, and return on ad spend across your campaigns.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <div className="rounded-lg bg-card border border-border p-3">
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">Impressions</span>
+                <p className="mt-1 text-xl font-bold text-foreground tabular-nums">{clientImpressions.toLocaleString()}</p>
+                <span className="text-[11px] text-emerald-600 font-semibold inline-flex items-center gap-1 mt-0.5">
+                  <TrendingUp className="h-3 w-3" /> Active visibility
+                </span>
+              </div>
+
+              <div className="rounded-lg bg-card border border-border p-3">
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">Clicks (CTR)</span>
+                <p className="mt-1 text-xl font-bold text-foreground tabular-nums">{clientClicks.toLocaleString()}</p>
+                <span className="text-[11px] text-muted-foreground mt-0.5 block">{clientCtr.toFixed(2)}% CTR</span>
+              </div>
+
+              <div className="rounded-lg bg-card border border-border p-3">
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">Ad Spend</span>
+                <p className="mt-1 text-xl font-bold text-foreground tabular-nums">${clientSpend.toLocaleString()}</p>
+                <span className="text-[11px] text-muted-foreground mt-0.5 block">{campaigns.length} campaigns</span>
+              </div>
+
+              <div className="rounded-lg bg-card border border-border p-3">
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">Return on Ad Spend</span>
+                <p className="mt-1 text-xl font-bold text-emerald-600 tabular-nums">{clientRoas.toFixed(2)}x ROAS</p>
+                <span className="text-[11px] text-muted-foreground mt-0.5 block">${clientRevenue.toLocaleString()} revenue</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>
