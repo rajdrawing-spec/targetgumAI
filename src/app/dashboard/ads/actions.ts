@@ -87,6 +87,7 @@ export async function syncMetaAdsAction(clientId?: string): Promise<ActionResult
     const ctx = await requireCtx()
     const { syncMetaAdAccountTelemetry } = await import('@/lib/integrations/meta-ads/sync')
     const { listAccessibleClients } = await import('@/lib/clients/list')
+    const { db } = await import('@/lib/db/client')
 
     let targetClientIds: string[] = []
     if (clientId) {
@@ -96,15 +97,27 @@ export async function syncMetaAdsAction(clientId?: string): Promise<ActionResult
       targetClientIds = clients.map((c) => c.id)
     }
 
+    // A client can have several Meta Ads connections (multiple ad
+    // accounts) - sync every one of them, not just "the client's first
+    // Meta Ads connection" (that used to silently leave the rest stale
+    // forever - see docs/DECISIONS.md, 2026-09-13).
+    const connections = await db.integrationConnection.findMany({
+      where: {
+        clientId: { in: targetClientIds },
+        integrationAccount: { integration: { provider: 'META_ADS' } },
+      },
+      select: { id: true, clientId: true },
+    })
+
     let totalCampaigns = 0
     let totalMetrics = 0
 
-    for (const cid of targetClientIds) {
+    for (const conn of connections) {
       try {
-        const result = await syncMetaAdAccountTelemetry(ctx, cid)
+        const result = await syncMetaAdAccountTelemetry(ctx, conn.clientId, undefined, undefined, conn.id)
         totalCampaigns += result.syncedCampaigns
         totalMetrics += result.syncedMetrics
-        revalidatePath(`/dashboard/clients/${cid}`)
+        revalidatePath(`/dashboard/clients/${conn.clientId}`)
       } catch (err) {
         if (clientId) {
           throw err

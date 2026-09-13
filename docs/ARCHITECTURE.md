@@ -208,6 +208,50 @@ mocked queue can't meaningfully prove enqueue/process/retry semantics).
 `CRON_SECRET` gates the cron route - required in any environment where
 that route is reachable.
 
+## 4b. Meta Ads Scheduled Sync — implemented
+
+Before this, `IntegrationConnection.lastSuccessfulSyncAt` for a Meta Ads
+connection had exactly two writers: connecting the account, and a human
+clicking "Sync Live Data" - nothing ever refreshed it on its own (see
+`docs/DECISIONS.md`, 2026-09-13).
+
+**Why this one runs inline, not via BullMQ.** Unlike the weekly
+AI-analysis job above, refreshing a Meta ad account's campaigns/insights is
+a handful of Graph API calls and DB upserts - fast, no LLM cost. That fits
+inside a single Vercel serverless invocation, so this cron route does the
+sync directly rather than enqueuing to the queue/worker pair 4a needs -
+no second always-on process to deploy for this one:
+
+```text
+Vercel Cron (hourly, vercel.json)
+  → GET /api/cron/meta-ads-sync (Vercel serverless function, maxDuration 300s)
+      - finds every Meta Ads connection due (CONNECTED/DEGRADED, never
+        synced or stale past the interval - findMetaAdsConnectionsDueForSync)
+      - resolves the same automation actor as 4a (resolveAutomationActor)
+      - calls syncMetaAdAccountTelemetry per connection, inline, in the
+        same request; a per-connection failure is recorded as a health
+        failure on that connection and does not stop the others
+```
+
+**No `ClientPolicy` opt-in required**, unlike 4a's `weeklyAutomationEnabled`:
+refreshing read-only ad-platform telemetry has no spend and takes no
+externally-visible action, so it's LOW risk (BRD Section 21) and safe to
+run for every connected account by default.
+
+**Per-connection, not per-client.** A client can have several Meta Ads
+connections (multiple ad accounts) - both the cron job and
+`syncMetaAdAccountTelemetry` now key off a specific `connectionId`, not
+just "this client's Meta Ads connection" (which used to resolve
+arbitrarily via `findFirst` and silently leave every connection past the
+first permanently stale, even when a human clicked "Sync Live Data" on
+its row). See `docs/DECISIONS.md`, 2026-09-13.
+
+**Vercel plan note**: Vercel Cron on the Hobby plan only supports daily
+(or coarser) schedules; the hourly cadence configured in `vercel.json`
+requires a paid plan to actually fire hourly - on Hobby it will be
+silently coerced to a daily run. Either upgrade the plan or lower
+expectations to daily freshness.
+
 ## 5. Security Risks Identified (see `docs/SECURITY.md` for the full model)
 
 1. **Cross-tenant data leakage** — mitigated by mandatory `organization_id`/

@@ -51,7 +51,7 @@ export default async function ClientIntegrationsPage({ params }: { params: Promi
                     <span className="text-xs text-caption">{c.status === 'CONNECTED' ? `Synced ${formatDateTime(c.lastSuccessfulSyncAt)}` : ''}</span>
                     <StatusBadge status={c.status} />
                     {c.integrationAccount.integration.provider === 'META_ADS' && canManage && (
-                      <ActionForm action={syncClientMetaAdsAction.bind(null, clientId)} className="inline">
+                      <ActionForm action={syncClientMetaAdsAction.bind(null, clientId, c.id)} className="inline">
                         <SubmitButton variant="outline" size="sm" pendingLabel="Syncing...">
                           <RefreshCw className="h-3 w-3 mr-1" /> Sync Live Data
                         </SubmitButton>

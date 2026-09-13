@@ -5,6 +5,55 @@ Newest entries at the top.
 
 ---
 
+## 2026-09-13 — Meta Ads sync: an hourly cron, run per-connection instead of per-client
+
+**Decision:** Added `GET /api/cron/meta-ads-sync` (registered in `vercel.json`,
+hourly), which finds every Meta Ads `IntegrationConnection` due for a refresh
+(`findMetaAdsConnectionsDueForSync` — `CONNECTED`/`DEGRADED`, never synced or
+stale past 60 minutes) and calls `syncMetaAdAccountTelemetry` for each,
+running as the same real staff actor as the existing weekly-intelligence
+automation (`resolveAutomationActor` — see the 2026-09-11 entry below). Unlike
+that job, this one runs the sync inline in the serverless function rather
+than enqueuing to BullMQ: a Meta Graph API refresh is a few calls and DB
+upserts, not an LLM call, so it fits one invocation (`maxDuration = 300`)
+without needing the separate always-on worker process the weekly job
+requires.
+
+While building this, found and fixed a real bug it would otherwise have
+inherited: `syncMetaAdAccountTelemetry` resolved "the client's Meta Ads
+connection" via `getProviderConnection`'s `findFirst`, so a client with more
+than one connected ad account (a real, supported case — the Integrations tab
+lists them individually) had every "Sync Live Data" click and every
+connect-time sync silently operate on just one arbitrary connection; the
+other connections' `lastSuccessfulSyncAt` never moved again after their
+initial connect, with no error surfaced anywhere. `syncMetaAdAccountTelemetry`
+now takes an explicit `connectionId` and resolves/stamps that specific row
+(`resolveMetaCredentialsForConnection`); the Integrations tab's per-row "Sync
+Live Data" button and the Ads page's bulk "Sync all" action were both updated
+to pass/loop over the correct connection id instead of just a client id.
+
+**Rationale:** CLAUDE.md rule 5 ("never fabricate external data") cuts both
+ways — a stale sync timestamp presented as current is its own kind of
+fabrication. Read-only ad-platform telemetry has no spend and takes no
+externally-visible action, so per BRD Section 21 it's LOW risk and needs no
+`ClientPolicy` opt-in (unlike `weeklyAutomationEnabled`, which gates real LLM
+spend). Reusing `resolveAutomationActor` rather than inventing a scheduled-job
+identity keeps this on the same authorization chain as every other action in
+the app (BRD Section 4.5 / docs/SECURITY.md invariant 3).
+
+**Trade-off accepted:** Vercel Cron's Hobby plan only supports daily (or
+coarser) schedules — the hourly cadence in `vercel.json` needs a paid plan to
+actually fire hourly; on Hobby it's silently coerced to daily. A connection
+whose client has no eligible staff assigned is skipped (audited `DENIED`),
+same as the weekly job — not retried differently.
+
+**Revisit if:** sync volume grows enough that looping over every due
+connection inline risks the 300s function budget — at that point this should
+move to the same BullMQ enqueue-then-worker split as the weekly job (`docs/
+ARCHITECTURE.md` §4a).
+
+---
+
 ## 2026-09-13 — Google sign-in: an alternative credential for already-invited users, never self-service sign-up
 
 **Decision:** Added a Google OAuth provider to Auth.js (`src/lib/auth/config.ts`),

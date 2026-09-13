@@ -49,7 +49,7 @@ export async function connectClientToMetaAdsAccount(
       })
 
       // Immediate first sync to stream live campaigns and insights
-      await syncMetaAdAccountTelemetry(ctx, clientId, normalizedId, token)
+      await syncMetaAdAccountTelemetry(ctx, clientId, normalizedId, token, connection.id)
       await recordIntegrationSuccess(connection.id)
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Meta Ads verification failed.'

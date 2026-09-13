@@ -311,10 +311,13 @@ export async function connectMetaAdsAccountAction(clientId: string, _prev: Actio
   })
 }
 
-export async function syncClientMetaAdsAction(clientId: string, _prev: ActionResult, _formData: FormData): Promise<ActionResult> {
+export async function syncClientMetaAdsAction(clientId: string, connectionId: string, _prev: ActionResult, _formData: FormData): Promise<ActionResult> {
   return runAction('sync-client-meta-ads', async () => {
     const ctx = await requireCtx()
-    const result = await syncMetaAdAccountTelemetry(ctx, clientId)
+    // Target this specific connection (a client can have several Meta Ads
+    // accounts) rather than "whichever one is found first" - see
+    // docs/DECISIONS.md, 2026-09-13.
+    const result = await syncMetaAdAccountTelemetry(ctx, clientId, undefined, undefined, connectionId)
     revalidateClient(clientId)
     revalidatePath('/dashboard/integrations')
     revalidatePath('/dashboard/ads')

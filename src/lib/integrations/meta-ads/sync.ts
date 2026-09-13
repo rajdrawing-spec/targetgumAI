@@ -27,13 +27,34 @@ export interface MetaCredentialsPayload {
  * Resolves active Meta credentials for a given client:
  * 1. Checks per-client encrypted credentials in database
  * 2. Falls back to environment variables (META_ACCESS_TOKEN / META_AD_ACCOUNT_ID)
+ *
+ * NOTE: a client can have more than one Meta Ads connection (multiple ad
+ * accounts), and `getProviderConnection` resolves the *first* one found -
+ * this is only correct when the client has exactly one. Callers that need
+ * to target a specific ad account (a specific connection row) must use
+ * `resolveMetaCredentialsForConnection` instead - see
+ * `syncMetaAdAccountTelemetry`'s `connectionId` parameter.
  */
 export async function resolveMetaCredentials(
   clientId: string,
 ): Promise<MetaCredentialsPayload | null> {
   const connection = await getProviderConnection(clientId, 'META_ADS')
+  if (!connection) return null
+  return resolveMetaCredentialsForConnection(connection)
+}
 
-  if (connection?.encryptedCredentials) {
+/**
+ * Same resolution as `resolveMetaCredentials`, but scoped to one specific
+ * connection row rather than "whichever connection this client's first
+ * Meta Ads account happens to be" - required once a client has more than
+ * one Meta Ads connection (docs/DECISIONS.md, 2026-09-13 - "sync a specific
+ * ad account, not just the client's first one").
+ */
+export async function resolveMetaCredentialsForConnection(connection: {
+  encryptedCredentials: string | null
+  integrationAccount: { externalAccountId: string }
+}): Promise<MetaCredentialsPayload | null> {
+  if (connection.encryptedCredentials) {
     try {
       const creds = loadProviderCredentials<MetaCredentialsPayload>(connection)
       if (creds?.accessToken && creds?.adAccountId) {
@@ -41,7 +62,7 @@ export async function resolveMetaCredentials(
       }
     } catch (err) {
       console.warn(
-        `[Meta Ads] Stored credentials for client ${clientId} could not be decrypted (encryption key changed):`,
+        `[Meta Ads] Stored credentials for connection could not be decrypted (encryption key changed):`,
         err instanceof Error ? err.message : err,
       )
     }
@@ -50,10 +71,10 @@ export async function resolveMetaCredentials(
   // Fallback to environment variables
   const envToken = process.env.META_ACCESS_TOKEN || process.env.META_SYSTEM_ACCESS_TOKEN
   const envAdAccount = process.env.META_AD_ACCOUNT_ID
-  if (envToken && (envAdAccount || connection?.integrationAccount?.externalAccountId)) {
+  if (envToken && (envAdAccount || connection.integrationAccount.externalAccountId)) {
     return {
       accessToken: envToken,
-      adAccountId: (envAdAccount || connection?.integrationAccount?.externalAccountId)!,
+      adAccountId: (envAdAccount || connection.integrationAccount.externalAccountId)!,
       appId: process.env.META_APP_ID,
       appSecret: process.env.META_APP_SECRET,
     }
@@ -65,21 +86,40 @@ export async function resolveMetaCredentials(
 /**
  * Syncs real campaigns and live telemetry insights from Meta Graph API
  * into TargetGum's database.
+ *
+ * `connectionId`, when given, targets one specific Meta Ads connection -
+ * required as soon as a client has more than one connected ad account
+ * (each "Sync Live Data" click, and each automated sync tick, must refresh
+ * *that* account, not always whichever one `getProviderConnection` finds
+ * first). Omit it only for the connect-time call (`connect.ts`), which
+ * already has an explicit account id + token and doesn't need a lookup.
  */
 export async function syncMetaAdAccountTelemetry(
   ctx: AuthContext,
   clientId: string,
   explicitAdAccountId?: string,
   explicitAccessToken?: string,
+  connectionId?: string,
 ) {
   assertClientAccess(ctx, { id: clientId, organizationId: ctx.organizationId })
   const client = await getAuthorizedClient(ctx, clientId)
 
   let accessToken = explicitAccessToken
   let adAccountId = explicitAdAccountId
+  let resolvedConnectionId = connectionId
 
   if (!accessToken || !adAccountId) {
-    const resolved = await resolveMetaCredentials(clientId)
+    const connection = connectionId
+      ? await db.integrationConnection.findFirst({
+          where: { id: connectionId, clientId: client.id },
+          include: { integrationAccount: true },
+        })
+      : await getProviderConnection(clientId, 'META_ADS')
+    if (!connection) {
+      throw new Error('No Meta Ads connection found for this client.')
+    }
+
+    const resolved = await resolveMetaCredentialsForConnection(connection)
     if (!resolved) {
       throw new Error(
         'No Meta Ads credentials found. Please provide an Access Token and Ad Account ID.',
@@ -87,6 +127,7 @@ export async function syncMetaAdAccountTelemetry(
     }
     accessToken = accessToken || resolved.accessToken
     adAccountId = adAccountId || resolved.adAccountId
+    resolvedConnectionId = resolvedConnectionId || connection.id
   }
 
   // 1. Verify token
@@ -282,10 +323,15 @@ export async function syncMetaAdAccountTelemetry(
     }
   }
 
-  // 5. Update connection health
-  const connection = await getProviderConnection(client.id, 'META_ADS')
-  if (connection) {
-    await recordIntegrationSuccess(connection.id)
+  // 5. Update connection health - stamp the *specific* connection this sync
+  // was for, not just "whichever one comes first for this client" (a
+  // client can have several Meta Ads connections; see the connectionId
+  // parameter above).
+  const connectionToStamp = resolvedConnectionId
+    ? await db.integrationConnection.findUnique({ where: { id: resolvedConnectionId } })
+    : await getProviderConnection(client.id, 'META_ADS')
+  if (connectionToStamp) {
+    await recordIntegrationSuccess(connectionToStamp.id)
   }
 
   return {
