@@ -1,5 +1,6 @@
 import type { AdCampaignPerformance, AdCampaignRecord, AdGroupRecord, AdRecord, AdsProvider } from '../providers'
 import {
+  createMetaCampaign,
   fetchMetaCampaigns,
   fetchMetaDailyInsights,
   pauseMetaCampaign,
@@ -77,8 +78,17 @@ export function createMetaAdsProvider(explicitToken?: string): AdsProvider {
       return []
     },
 
-    async createCampaign(): Promise<AdCampaignRecord> {
-      throw new Error('Direct Meta Campaign creation via Tool Registry is not yet supported. Use the AI Ad Studio.')
+    async createCampaign(adAccountId: string, input: Partial<AdCampaignRecord>): Promise<AdCampaignRecord> {
+      const activeToken = token()
+      if (!input.name) throw new Error('A campaign name is required.')
+      const created = await createMetaCampaign(adAccountId, activeToken, { name: input.name, budget: input.budget })
+      return {
+        providerCampaignId: created.id,
+        name: created.name,
+        channel: 'meta_ads',
+        status: created.status,
+        budget: created.dailyBudget,
+      }
     },
 
     async updateCampaign(providerCampaignId: string, input: Partial<AdCampaignRecord>): Promise<AdCampaignRecord> {

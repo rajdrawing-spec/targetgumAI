@@ -106,7 +106,7 @@ export async function registerMetaAdsTools(): Promise<void> {
     key: 'meta_ads.create_campaign',
     name: 'Create a Meta Ads campaign (paused)',
     provider: 'meta_ads',
-    description: 'Creates a new Meta Ads campaign, always paused - see docs/DECISIONS.md.',
+    description: 'Creates a new Meta Ads campaign on the Graph API, always paused - see docs/DECISIONS.md.',
     riskLevel: 'MEDIUM',
     requiredPermissions: ['ads.manage'],
     inputSchema: z.object({ name: z.string(), budget: z.number().positive().optional() }),

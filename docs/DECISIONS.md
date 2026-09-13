@@ -5,6 +5,74 @@ Newest entries at the top.
 
 ---
 
+## 2026-09-13 — Feature audit follow-up: fix Settings crash, real Meta Ads create/pause, no UI changes
+
+**Context:** the same-day feature audit (see the published report this
+session's summary references) flagged P0-4 (the Client Settings page
+crashes in a production build) and P1-6 (the Ads Hub pause toggle only
+edited TargetGum's database, never Meta). The user asked to continue but
+explicitly said not to change the UI - scoped afterward to: fix bugs and
+wire real backend logic behind the *existing* buttons/screens, without
+redesigning or relabeling anything.
+
+**P0-4 fix:** `ConfirmDialog`'s `trigger` render-prop was defined inline in
+`src/app/dashboard/clients/[clientId]/settings/page.tsx`, a Server
+Component - Next.js forbids passing a plain function (as opposed to a
+Server Action) across the server/client boundary, which crashed the page
+in `next build && next start` while working fine under `next dev` (the
+boundary isn't enforced there), hiding the bug until now. Fixed by moving
+the three Danger Zone triggers into a new client component
+(`src/components/clients/danger-zone-actions.tsx`) that creates the
+closures client-side; the bound Server Actions (`archiveClientAction.bind(...)`
+etc.) still pass through as props unchanged - only they're allowed to cross
+that boundary. Markup/classes are byte-for-byte what they replaced -
+verified by screenshot diff against the pre-fix page.
+
+**Meta Ads `create_campaign` implemented for real:** `meta-ads/provider.ts`'s
+`createCampaign` threw `UnsupportedOperationError` and pointed users at the
+(non-functional) AI Ad Studio; `tests/integration/native-ads-tools.test.ts`
+already specified the intended contract (creates a real, `PAUSED` campaign)
+for both providers under `describe.each`, so Meta was the only one not
+meeting its own test's intent. Added `createMetaCampaign` to
+`meta-ads/meta-client.ts` - a real `POST /act_X/campaigns` - always
+`status: PAUSED` (BRD Section 21: creating is MEDIUM/automatic, launching
+is a separate HIGH/approval-gated `update_campaign` call, unchanged).
+Defaults `objective` to `OUTCOME_TRAFFIC` and `special_ad_categories` to
+`[]` since nothing upstream collects either yet; regulated categories
+(housing/credit/employment/politics) are out of scope until a real intake
+exists for them. Verified with a fetch-mocking unit test
+(`tests/unit/native-ads-providers.test.ts`) asserting the exact request
+body, since this environment has no live `META_ACCESS_TOKEN` to test
+against Meta itself - the 3 pre-existing `native-ads-tools.test.ts` Meta
+failures remain (they need real credentials, not this code) and are
+otherwise unaffected.
+
+**Ads Hub pause toggle now calls the real Graph API - resume does not, yet:**
+`toggleCampaignStatus` (`src/lib/ads/service.ts`) previously flipped only
+the local `Campaign.status` column for every provider and direction. Now,
+pausing a connected `META_ADS` campaign calls `meta_ads.pause_campaign`
+(MEDIUM risk, executes immediately, no approval) before the local row
+updates, and a failed call leaves the row untouched rather than silently
+reporting success. **Resuming stays local-only**, deliberately: BRD
+Section 21 rates re-activating a campaign like "launch campaign" - HIGH
+risk, approval-required - and an approval can't resolve synchronously
+inside a one-click toggle without a pending-approval affordance on this
+button, which is a UI change outside this pass's scope. Non-Meta providers
+are unaffected (no write adapter exists for Google/Amazon Ads yet).
+Covered by `tests/integration/toggle-campaign-status.test.ts` (real-call
+success, failure doesn't fake-succeed, resume/non-Meta stay local-only).
+
+**Deliberately not done in this pass** (still true after this commit, and
+still the accurate self-assessment vs. the audit): "Launch Ad Set" (`/dashboard/
+ads/new`) still creates a local-only DB row; the AI Ad Studio still fakes
+generation/staging; Metricool post scheduling/publishing is still mock/stub;
+weekly automation still only enqueues into an undeployed worker; automation
+levels/policies still don't gate anything but the weekly toggle. Each needs
+either a UI decision (approval/pending states, "not connected" states) or
+more work than fits one pass - see the audit report for the prioritized list.
+
+---
+
 ## 2026-09-13 — Client Workspace "Connections" tab: structure before API (explicit user request)
 
 **Decision:** New `/dashboard/clients/[clientId]/connections` tab listing

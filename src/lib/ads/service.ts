@@ -1,6 +1,7 @@
 import { db } from '@/lib/db/client'
 import { assertClientAccess } from '@/lib/rbac/guards'
 import type { AuthContext } from '@/lib/rbac/types'
+import { executeTool } from '@/lib/tools/execute'
 import type { IntegrationProvider } from '@prisma/client'
 import type { CreateCampaignInput, CampaignSummary } from './types'
 
@@ -128,6 +129,18 @@ export async function createCampaign(ctx: AuthContext, input: CreateCampaignInpu
   return campaign
 }
 
+/**
+ * Pausing a META_ADS campaign calls the real Graph API (`meta_ads.
+ * pause_campaign`, MEDIUM risk - spend-reducing, executes immediately, no
+ * approval) before the local row is flipped, so this button actually stops
+ * spend on Meta instead of only changing what TargetGum displays. Resuming
+ * a campaign is the higher-risk direction (BRD Section 21 treats it like
+ * "launch campaign") and goes through `meta_ads.update_campaign`, which is
+ * HIGH risk and approval-gated - that can't complete synchronously inside
+ * this one-click toggle without a UI for the pending state, so for now
+ * Resume (and every non-Meta provider, in both directions) stays a local
+ * status change only. See docs/DECISIONS.md.
+ */
 export async function toggleCampaignStatus(ctx: AuthContext, campaignId: string, currentStatus: string) {
   const campaign = await db.campaign.findUnique({
     where: { id: campaignId },
@@ -136,6 +149,16 @@ export async function toggleCampaignStatus(ctx: AuthContext, campaignId: string,
   assertClientAccess(ctx, { id: campaign.clientId, organizationId: ctx.organizationId })
 
   const newStatus = currentStatus === 'ACTIVE' ? 'PAUSED' : 'ACTIVE'
+
+  if (newStatus === 'PAUSED' && campaign.provider === 'META_ADS') {
+    await executeTool({
+      ctx,
+      toolKey: 'meta_ads.pause_campaign',
+      clientId: campaign.clientId,
+      input: { providerCampaignId: campaign.providerCampaignId },
+    })
+  }
+
   return db.campaign.update({
     where: { id: campaignId },
     data: { status: newStatus },

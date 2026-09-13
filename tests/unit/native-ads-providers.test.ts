@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { UnsupportedOperationError } from '@/lib/integrations/errors'
 import { GoogleAdsMockProvider } from '@/lib/integrations/google-ads/mock-provider'
 import { createGoogleAdsProvider } from '@/lib/integrations/google-ads/provider'
@@ -99,6 +99,45 @@ describe('Meta Ads real adapter (Graph API v20.0)', () => {
   it('fails fast when META_ACCESS_TOKEN is not configured', async () => {
     await expect(provider.getCampaigns('a', 'meta_ads')).rejects.toThrow('Meta Ads API Access Token not configured')
     await expect(provider.getCampaignPerformance('a', 'meta_ads', range)).rejects.toThrow('Meta Ads API Access Token not configured')
+  })
+
+  it('createCampaign always POSTs status=PAUSED to the Graph API, never live (BRD Section 21) - no network hit', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, _init?: RequestInit) => {
+      const url = String(input)
+      expect(url).toContain('/act_123/campaigns')
+      expect(url).toContain('access_token=fake-token')
+      return new Response(JSON.stringify({ id: '120987654321' }), { status: 200 })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const withToken = createMetaAdsProvider('fake-token') as Required<AdsProvider>
+    const campaign = await withToken.createCampaign('act_123', { name: 'New Meta Campaign', budget: 40 })
+
+    expect(campaign).toMatchObject({
+      providerCampaignId: '120987654321',
+      name: 'New Meta Campaign',
+      channel: 'meta_ads',
+      status: 'PAUSED',
+      budget: 40,
+    })
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const [, init] = fetchMock.mock.calls[0]!
+    expect(init?.method).toBe('POST')
+    const sentParams = new URLSearchParams(init?.body as string)
+    expect(sentParams.get('status')).toBe('PAUSED')
+    expect(sentParams.get('name')).toBe('New Meta Campaign')
+    expect(sentParams.get('special_ad_categories')).toBe('[]')
+    expect(sentParams.get('daily_budget')).toBe('4000') // $40.00 -> cents
+  })
+
+  it('createCampaign requires a name', async () => {
+    const withToken = createMetaAdsProvider('fake-token') as Required<AdsProvider>
+    await expect(withToken.createCampaign('act_123', {})).rejects.toThrow('A campaign name is required.')
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
   })
 })
 

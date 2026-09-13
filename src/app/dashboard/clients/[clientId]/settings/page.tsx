@@ -17,8 +17,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input, Label, Textarea } from '@/components/ui/input'
 import { ActionForm, FieldError, SubmitButton } from '@/components/ui/action-form'
-import { ConfirmDialog } from '@/components/ui/confirm-dialog'
-import { Button } from '@/components/ui/button'
+import { ArchiveOrRestoreAction, DeleteClientAction } from '@/components/clients/danger-zone-actions'
 import { Field } from '@/components/clients/section'
 import { AUTOMATION_LEVELS, CLIENT_STATUSES, COMMON_TIMEZONES, INDUSTRIES } from '@/lib/clients/options'
 
@@ -240,43 +239,18 @@ export default async function ClientSettingsPage({ params }: { params: Promise<{
                 <p className="text-sm font-medium text-foreground">{archived ? 'Restore this client' : 'Archive this client'}</p>
                 <p className="text-xs text-muted-foreground">{archived ? 'Makes the client active again.' : 'Hides the client from lists and stops automation. Nothing is deleted.'}</p>
               </div>
-              {archived ? (
-                <ConfirmDialog
-                  trigger={(open) => <Button type="button" variant="outline" onClick={open}>Restore</Button>}
-                  title={`Restore ${client.name}?`}
-                  description="The client becomes active again and reappears in lists, dashboards and automation."
-                  confirmLabel="Restore client"
-                  destructive={false}
-                  action={unarchiveClientAction.bind(null, clientId)}
-                />
-              ) : (
-                <ConfirmDialog
-                  trigger={(open) => <Button type="button" variant="outline" onClick={open}>Archive</Button>}
-                  title={`Archive ${client.name}?`}
-                  description="Archiving hides the client from lists and stops scheduled automation. Nothing is deleted - you can restore it at any time."
-                  confirmLabel="Archive client"
-                  destructive={false}
-                  action={archiveClientAction.bind(null, clientId)}
-                />
-              )}
+              <ArchiveOrRestoreAction
+                clientName={client.name}
+                archived={archived}
+                action={archived ? unarchiveClientAction.bind(null, clientId) : archiveClientAction.bind(null, clientId)}
+              />
             </div>
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-destructive/30 bg-destructive-bg p-3">
               <div>
                 <p className="text-sm font-medium text-destructive">Delete this client</p>
                 <p className="text-xs text-destructive/80">Permanently removes the client and everything attached to it. This cannot be undone.</p>
               </div>
-              <ConfirmDialog
-                trigger={(open) => <Button type="button" variant="destructive" onClick={open}><Trash2 className="h-3.5 w-3.5" /> Delete</Button>}
-                title={`Delete ${client.name}?`}
-                description={
-                  <>
-                    This permanently removes the client and everything attached to it - contacts, Client Brain, integrations, recommendations, tasks, reports and content. The audit trail is kept. <strong>This cannot be undone.</strong>
-                  </>
-                }
-                confirmLabel="Delete permanently"
-                requireText={client.name}
-                action={deleteClientAction.bind(null, clientId)}
-              />
+              <DeleteClientAction clientName={client.name} action={deleteClientAction.bind(null, clientId)} />
             </div>
           </CardContent>
         </Card>

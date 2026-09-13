@@ -301,6 +301,51 @@ export async function fetchCampaignInsights(
 }
 
 /**
+ * Creates a new Meta Campaign - always `status: PAUSED` (BRD Section 21:
+ * "create draft campaign" is MEDIUM/automatic, "launch campaign" is HIGH/
+ * approval-required; actually activating this campaign is a separate
+ * `updateCampaign` call gated accordingly, see meta-ads/tools.ts). Meta's
+ * Marketing API requires both `objective` and `special_ad_categories` on
+ * every campaign; no UI upstream of this collects either today, so this
+ * defaults to a generic conversion-adjacent objective and "no special
+ * category" (regulated categories - housing/credit/employment/politics -
+ * are deliberately not supported until a real intake flow exists for them).
+ */
+export async function createMetaCampaign(
+  adAccountId: string,
+  token: string,
+  input: { name: string; budget?: number; objective?: string },
+): Promise<MetaCampaign> {
+  const actId = normalizeAdAccountId(adAccountId)
+  const body: Record<string, string> = {
+    name: input.name,
+    objective: input.objective || 'OUTCOME_TRAFFIC',
+    status: 'PAUSED',
+    special_ad_categories: JSON.stringify([]),
+  }
+  if (input.budget !== undefined) {
+    // Campaign-level daily_budget opts the campaign into Advantage Campaign
+    // Budget (formerly CBO) - matches this app's create_campaign input,
+    // which takes one budget per campaign, not per ad set.
+    body.daily_budget = Math.round(input.budget * 100).toString()
+  }
+
+  const created = await metaFetch<{ id: string }>(`/${actId}/campaigns`, token.trim(), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams(body).toString(),
+  })
+
+  return {
+    id: created.id,
+    name: input.name,
+    status: 'PAUSED',
+    objective: body.objective,
+    dailyBudget: input.budget,
+  }
+}
+
+/**
  * Pauses an active Meta Campaign.
  */
 export async function pauseMetaCampaign(campaignId: string, token: string): Promise<void> {
