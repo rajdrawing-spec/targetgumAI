@@ -1,12 +1,16 @@
 import { PrismaAdapter } from '@auth/prisma-adapter'
 import { CredentialsSignin, type NextAuthConfig } from 'next-auth'
 import Credentials from 'next-auth/providers/credentials'
+import Google from 'next-auth/providers/google'
 import Nodemailer from 'next-auth/providers/nodemailer'
 import { z } from 'zod'
 import { db } from '@/lib/db/client'
 import { isEmailConfigured, sendMail } from '@/lib/email/mailer'
+import { hasGoogleSignInAccess, isGoogleLoginConfigured } from './google-access'
 import { verifyMfaToken } from './mfa'
 import { verifyPassword } from './password'
+
+export { isGoogleLoginConfigured, hasGoogleSignInAccess } from './google-access'
 
 /**
  * Auth.js v5 configuration. See docs/DECISIONS.md for why this is
@@ -110,8 +114,43 @@ export const authConfig: NextAuthConfig = {
       from: process.env.EMAIL_FROM,
       sendVerificationRequest,
     }),
+    // Only registered when configured - omitting it entirely (rather than
+    // registering a provider that would just fail) keeps `/api/auth/providers`
+    // honest and lets the sign-in page decide whether to show the button.
+    ...(isGoogleLoginConfigured()
+      ? [
+          Google({
+            // This app has no self-service sign-up (docs/DECISIONS.md,
+            // 2026-09-13 invitation system) - the only way to get access is
+            // a Super Admin's email invite. `allowDangerousEmailAccountLinking`
+            // lets a Google sign-in attach to an *existing* User row by
+            // email match instead of Auth.js refusing with
+            // `OAuthAccountNotLinked` - safe here specifically because the
+            // `signIn` callback below still requires that existing row to
+            // already have real, invited access before letting the sign-in
+            // through; Google is never allowed to create a new account or
+            // grant access on its own.
+            allowDangerousEmailAccountLinking: true,
+          }),
+        ]
+      : []),
   ],
   callbacks: {
+    /**
+     * Google is an alternative credential for an *already-invited* person,
+     * never a self-service sign-up path - docs/SECURITY.md invariant 3
+     * ("never decide your own access") applies to the signed-in user here
+     * exactly as it does to an AI agent elsewhere. A Google account whose
+     * email has no ACTIVE User row with real staff or client-portal access
+     * is denied before anything is persisted (Auth.js runs this callback
+     * before creating/linking the Account row - returning false here
+     * leaves no trace, not an orphaned account).
+     */
+    async signIn({ user, account }) {
+      if (account?.provider !== 'google') return true
+      if (!user.email) return false
+      return (await hasGoogleSignInAccess(user.email)) ? true : '/sign-in?error=google_not_invited'
+    },
     async jwt({ token, user }) {
       if (user?.id) token.sub = user.id
       return token

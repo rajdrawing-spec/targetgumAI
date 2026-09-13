@@ -5,6 +5,46 @@ Newest entries at the top.
 
 ---
 
+## 2026-09-13 — Google sign-in: an alternative credential for already-invited users, never self-service sign-up
+
+**Decision:** Added a Google OAuth provider to Auth.js (`src/lib/auth/config.ts`),
+registered only when `AUTH_GOOGLE_ID`/`AUTH_GOOGLE_SECRET` are both set
+(`isGoogleLoginConfigured()`, `src/lib/auth/google-access.ts`) — an unconfigured
+deployment gets no `google` entry in `/api/auth/providers` and the sign-in page
+shows no button (docs/SECURITY.md — never offer a control that can't work). The
+provider sets `allowDangerousEmailAccountLinking: true` so a Google sign-in can
+attach to an existing `User` row by email instead of Auth.js refusing with
+`OAuthAccountNotLinked`, but a new `signIn` callback gates every Google sign-in
+before Auth.js persists anything: `hasGoogleSignInAccess(email)` requires an
+`ACTIVE` `User` row that already has real access — an `ACTIVE` `OrganizationUser`
+(staff) or a `ClientUser` (client portal) — and returning `false`/a redirect
+string from `signIn` leaves no `Account` row behind at all. A rejected sign-in
+redirects to `/sign-in?error=google_not_invited` with a plain-language message.
+
+**Rationale:** This app has no self-service sign-up (see the invitation-system
+decision below) — the only way anyone gets access is a Super Admin's email
+invite (`src/lib/users/invitations.ts`). Adding "Continue with Google" without
+this check would let anyone with a Google account that happens to share an
+email with an orphaned/disabled `User` row (or, absent the check entirely, any
+Google account at all) sign in — a direct violation of CLAUDE.md rule 3
+("Claude/agents never decide their own access") and its human-facing
+equivalent. `hasGoogleSignInAccess` is the single choke point; it is exercised
+by `tests/security/google-signin.test.ts` (no row, disabled user, disabled
+membership, active staff, active client-portal — 6 cases).
+
+**Trade-off accepted:** `hasGoogleSignInAccess` lives in its own
+`src/lib/auth/google-access.ts` with zero `next-auth`/Next.js imports, purely
+so it stays unit-testable — importing anything from `src/lib/auth/config.ts`
+transitively pulls in `next/server` via next-auth's internals, which breaks
+under Vitest. `config.ts` re-exports both functions so call sites don't need to
+know about the split.
+
+**Revisit if:** the product ever wants Google to be able to *create* an
+account (true self-service sign-up) — that would need its own explicit
+decision and its own risk/approval review, not a change to this check.
+
+---
+
 ## 2026-09-10 — Approval Engine replaces the Day 5 hard block via ApprovalRequiredError, not silent execution (Day 10)
 
 **Decision:** `executeTool()`'s risk gate no longer throws `RiskLevelBlockedError`
