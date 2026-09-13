@@ -33,13 +33,31 @@ export const metadata: Metadata = {
   },
 }
 
+// Runs before paint (blocking, in <head>) so there is no flash of the
+// wrong theme: a saved choice in localStorage wins, otherwise the OS
+// preference decides. Kept tiny and dependency-free on purpose - this is
+// the one script in the app that must run before React hydrates.
+const THEME_INIT_SCRIPT = `
+(function () {
+  try {
+    var saved = localStorage.getItem('tg-theme');
+    var dark = saved ? saved === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
+    document.documentElement.classList.toggle('dark', dark);
+  } catch (e) {}
+})();
+`
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html
       lang="en"
-      className={`${inter.variable} ${plusJakartaSans.variable} ${jetbrainsMono.variable} dark h-full bg-[#09090B]`}
+      className={`${inter.variable} ${plusJakartaSans.variable} ${jetbrainsMono.variable} h-full bg-[var(--bg-ink)]`}
+      suppressHydrationWarning
     >
-      <body className="min-h-full flex flex-col bg-[#09090B] text-[#F8F8FA] font-sans antialiased selection:bg-[#E5252A] selection:text-[#FFFFFF]">
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+      </head>
+      <body className="min-h-full flex flex-col bg-[var(--bg-ink)] text-[var(--text-primary-hex)] font-sans antialiased selection:bg-[#E5252A] selection:text-[#FFFFFF]">
         {children}
       </body>
     </html>

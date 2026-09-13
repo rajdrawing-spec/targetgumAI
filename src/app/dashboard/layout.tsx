@@ -1,11 +1,12 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { redirect } from 'next/navigation'
-import { LogOut } from 'lucide-react'
+import { LogOut, Menu } from 'lucide-react'
 import { getCurrentAuthContext } from '@/lib/auth/current-context'
 import { signOut } from '@/lib/auth'
 import { DashboardNav } from '@/components/dashboard-nav'
 import { ToastProvider } from '@/components/ui/toast'
+import { ThemeToggle } from '@/components/theme-toggle'
 
 /**
  * The dashboard shell (BRD-PRD Section 42). This layout is staff-only. A
@@ -21,6 +22,12 @@ import { ToastProvider } from '@/components/ui/toast'
  * system (`src/lib/users/invitations.ts`). Switching who you're signed in
  * as now means signing out and back in as that account, same as any real
  * user.
+ *
+ * Colors go through the light/dark CSS variables in src/app/globals.css
+ * (`var(--bg-ink)` etc, toggled by ThemeToggle flipping a `dark` class on
+ * <html>) rather than the literal hex this file used before - same visual
+ * design, now theme-aware. The mobile nav drawer below is a pure-CSS
+ * checkbox toggle (`peer-checked:`) - no client component needed for it.
  */
 const ROLE_LABEL: Record<string, string> = {
   super_admin: 'Super Admin',
@@ -34,13 +41,16 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   return (
     <ToastProvider>
-      <div className="flex min-h-screen bg-[#09090B] text-[#F4F4F6]">
-        {/* Left Precision Sidebar */}
-        <aside className="flex w-64 shrink-0 flex-col border-r border-[#27272A] bg-[#121215]">
+      <div className="flex min-h-screen bg-[var(--bg-ink)] text-[var(--text-primary-hex)]">
+        {/* Mobile nav drawer toggle - a hidden checkbox driving peer-checked: below, no JS needed. */}
+        <input type="checkbox" id="mobile-nav-toggle" className="peer hidden" />
+
+        {/* Left Precision Sidebar - off-canvas drawer below lg, static column at lg+ */}
+        <aside className="fixed inset-y-0 left-0 z-50 flex w-72 max-w-[85vw] -translate-x-full flex-col border-r border-[var(--border-hairline)] bg-[var(--surface-base)] transition-transform duration-200 peer-checked:translate-x-0 lg:static lg:z-auto lg:w-64 lg:max-w-none lg:translate-x-0">
           {/* Brand Header with TargetGum Logo */}
-          <div className="px-5 py-4 border-b border-[#27272A]">
-            <Link href="/dashboard" className="flex items-center gap-3 group">
-              <div className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-md border border-[#27272A] bg-[#09090B] shadow-sm group-hover:border-[#E5252A] transition-colors">
+          <div className="flex items-center justify-between border-b border-[var(--border-hairline)] px-5 py-4">
+            <Link href="/dashboard" className="group flex items-center gap-3">
+              <div className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-md border border-[var(--border-hairline)] bg-[var(--bg-ink)] shadow-sm transition-colors group-hover:border-[#E5252A]">
                 <Image
                   src="/logo.jpg"
                   alt="TargetGum"
@@ -51,14 +61,21 @@ export default async function DashboardLayout({ children }: { children: React.Re
                 />
               </div>
               <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-1 font-display text-base font-bold tracking-tight text-[#FFFFFF]">
+                <div className="flex items-center gap-1 font-display text-base font-bold tracking-tight text-[var(--text-primary-hex)]">
                   Target<span className="text-[#E5252A]">Gum</span>
                 </div>
-                <span className="text-[10px] font-mono-data font-semibold uppercase tracking-wider text-[#A1A1AA] block truncate">
+                <span className="block truncate text-[10px] font-mono-data font-semibold uppercase tracking-wider text-[var(--text-muted-hex)]">
                   Precision Marketing
                 </span>
               </div>
             </Link>
+            <label
+              htmlFor="mobile-nav-toggle"
+              aria-label="Close menu"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded text-[var(--text-faint-hex)] hover:bg-[var(--surface-subtle)] hover:text-[var(--text-primary-hex)] lg:hidden"
+            >
+              <Menu className="h-4 w-4" />
+            </label>
           </div>
 
           {/* Nav List */}
@@ -67,13 +84,13 @@ export default async function DashboardLayout({ children }: { children: React.Re
           </div>
 
           {/* User & Org Session Footer */}
-          <div className="mt-auto border-t border-[#27272A] p-3 bg-[#0E0E11]">
-            <div className="flex items-center justify-between gap-2 rounded px-2.5 py-1.5 bg-[#141418] border border-[#27272A]">
+          <div className="mt-auto border-t border-[var(--border-hairline)] bg-[var(--surface-footer)] p-3">
+            <div className="flex items-center justify-between gap-2 rounded border border-[var(--border-hairline)] bg-[var(--surface-base)] px-2.5 py-1.5">
               <div className="min-w-0">
-                <p className="truncate text-xs font-semibold text-[#F4F4F6]">
+                <p className="truncate text-xs font-semibold text-[var(--text-primary-hex)]">
                   {ROLE_LABEL[ctx.roleKey] ?? ctx.roleKey}
                 </p>
-                <p className="truncate text-[11px] font-mono-data text-[#A1A1AA]">
+                <p className="truncate text-[11px] font-mono-data text-[var(--text-muted-hex)]">
                   {ctx.organizationId ? `Org: ${ctx.organizationId.slice(0, 8)}...` : 'System Mode'}
                 </p>
               </div>
@@ -86,7 +103,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
                 <button
                   type="submit"
                   title="Sign out"
-                  className="flex h-7 w-7 items-center justify-center rounded text-[#71717A] transition-colors hover:bg-[#E5252A]/15 hover:text-[#FF4D4F]"
+                  className="flex h-7 w-7 items-center justify-center rounded text-[var(--text-faint-hex)] transition-colors hover:bg-[#E5252A]/15 hover:text-[var(--danger-text-hex)]"
                 >
                   <LogOut className="h-3.5 w-3.5" />
                 </button>
@@ -95,28 +112,45 @@ export default async function DashboardLayout({ children }: { children: React.Re
           </div>
         </aside>
 
+        {/* Backdrop - mobile only, closes the drawer on click via the same checkbox. */}
+        <label
+          htmlFor="mobile-nav-toggle"
+          aria-hidden
+          className="fixed inset-0 z-40 hidden bg-black/50 peer-checked:block lg:hidden"
+        />
+
         {/* Main Content Area */}
         <div className="flex min-w-0 flex-1 flex-col">
-          <header className="flex h-16 shrink-0 items-center justify-between border-b border-[#27272A] bg-[#121215]/85 px-6 backdrop-blur-md">
-            <div className="flex items-center gap-3">
+          <header className="flex h-16 shrink-0 items-center justify-between gap-3 border-b border-[var(--border-hairline)] bg-[var(--surface-base)]/85 px-4 backdrop-blur-md sm:px-6">
+            <div className="flex min-w-0 items-center gap-3">
+              <label
+                htmlFor="mobile-nav-toggle"
+                aria-label="Open menu"
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded text-[var(--text-faint-hex)] hover:bg-[var(--surface-subtle)] hover:text-[var(--text-primary-hex)] lg:hidden"
+              >
+                <Menu className="h-4 w-4" />
+              </label>
               <Link
                 href="/dashboard"
-                className="text-sm font-semibold tracking-tight text-[#FFFFFF] hover:text-[#E5252A] transition-colors"
+                className="truncate text-sm font-semibold tracking-tight text-[var(--text-primary-hex)] transition-colors hover:text-[#E5252A]"
               >
                 TargetGum Agency Terminal
               </Link>
-              <div className="hidden sm:flex items-center gap-1.5 rounded-full border border-[#E5252A]/30 bg-[#E5252A]/10 px-2.5 py-0.5 text-[11px] font-mono-data font-medium text-[#FF4D4F]">
+              <div className="hidden items-center gap-1.5 rounded-full border border-[#E5252A]/30 bg-[#E5252A]/10 px-2.5 py-0.5 text-[11px] font-mono-data font-medium text-[var(--danger-text-hex)] sm:flex">
                 <span className="h-1.5 w-1.5 rounded-full bg-[#E5252A] animate-pulse" />
                 <span>AI ENGINE ONLINE</span>
               </div>
             </div>
 
-            <span className="text-xs font-mono-data uppercase tracking-wider text-[#71717A]">
-              {ROLE_LABEL[ctx.roleKey] ?? ctx.roleKey}
-            </span>
+            <div className="flex shrink-0 items-center gap-3">
+              <span className="hidden text-xs font-mono-data uppercase tracking-wider text-[var(--text-faint-hex)] sm:inline">
+                {ROLE_LABEL[ctx.roleKey] ?? ctx.roleKey}
+              </span>
+              <ThemeToggle className="flex h-8 w-8 items-center justify-center rounded text-[var(--text-faint-hex)] transition-colors hover:bg-[var(--surface-subtle)] hover:text-[var(--text-primary-hex)]" />
+            </div>
           </header>
 
-          <main className="flex-1 overflow-y-auto px-4 py-6 sm:px-6 lg:px-8 lg:py-8 bg-[#09090B]">
+          <main className="flex-1 overflow-y-auto bg-[var(--bg-ink)] px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
             <div className="mx-auto max-w-7xl">{children}</div>
           </main>
         </div>

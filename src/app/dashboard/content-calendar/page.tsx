@@ -52,15 +52,15 @@ export default async function ContentCalendarPage({
   return (
     <div className="space-y-6">
       {/* Top View Toggle */}
-      <div className="flex items-center justify-between border-b border-[#27272A] pb-3">
+      <div className="flex items-center justify-between border-b border-[var(--border-hairline)] pb-3">
         <div className="flex items-center gap-2">
           <Link
             href="/dashboard/content-calendar?view=calendar"
             className={cn(
               'flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono-data rounded transition-all',
               activeView === 'calendar'
-                ? 'bg-[#18181C] text-white font-semibold border-b-2 border-[#E5252A]'
-                : 'text-[#A1A1AA] hover:text-white'
+                ? 'bg-[var(--surface-subtle)] text-white font-semibold border-b-2 border-[#E5252A]'
+                : 'text-[var(--text-muted-hex)] hover:text-white'
             )}
           >
             <Grid className="h-3.5 w-3.5 text-[#E5252A]" />
@@ -72,8 +72,8 @@ export default async function ContentCalendarPage({
             className={cn(
               'flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono-data rounded transition-all',
               activeView === 'list'
-                ? 'bg-[#18181C] text-white font-semibold border-b-2 border-[#E5252A]'
-                : 'text-[#A1A1AA] hover:text-white'
+                ? 'bg-[var(--surface-subtle)] text-white font-semibold border-b-2 border-[#E5252A]'
+                : 'text-[var(--text-muted-hex)] hover:text-white'
             )}
           >
             <ListFilter className="h-3.5 w-3.5" />
@@ -96,8 +96,8 @@ export default async function ContentCalendarPage({
                 className={cn(
                   'px-3 py-1 rounded text-xs font-mono-data transition-colors',
                   window === tab.value
-                    ? 'bg-[#E5252A]/20 text-[#FF4D4F] border border-[#E5252A]/40 font-semibold'
-                    : 'bg-[#18181C] text-[#A1A1AA] hover:text-white'
+                    ? 'bg-[#E5252A]/20 text-[var(--danger-text-hex)] border border-[#E5252A]/40 font-semibold'
+                    : 'bg-[var(--surface-subtle)] text-[var(--text-muted-hex)] hover:text-white'
                 )}
               >
                 {tab.label}
@@ -119,7 +119,7 @@ export default async function ContentCalendarPage({
             <div className="space-y-4">
               {Array.from(byDay.entries()).map(([day, dayItems]) => (
                 <section key={day} className="space-y-2">
-                  <h2 className="text-xs font-mono-data uppercase tracking-wider text-[#A1A1AA] pl-1">
+                  <h2 className="text-xs font-mono-data uppercase tracking-wider text-[var(--text-muted-hex)] pl-1">
                     {formatDay(day)}
                   </h2>
                   {dayItems.map((item) => (
@@ -128,19 +128,19 @@ export default async function ContentCalendarPage({
                         <div className="flex items-center gap-2">
                           <Link
                             href={`/dashboard/clients/${item.clientId}`}
-                            className="text-sm font-medium text-[#F4F4F6] hover:text-[#E5252A]"
+                            className="text-sm font-medium text-[var(--text-primary-hex)] hover:text-[#E5252A]"
                           >
                             {item.client?.name ?? item.clientId}
                           </Link>
-                          <span className="text-xs font-mono-data text-[#71717A] uppercase">
+                          <span className="text-xs font-mono-data text-[var(--text-faint-hex)] uppercase">
                             · {item.platform}
                           </span>
                         </div>
                         <StatusBadge status={item.status} />
                       </div>
-                      {item.caption && <p className="text-xs text-[#F4F4F6]">{item.caption}</p>}
+                      {item.caption && <p className="text-xs text-[var(--text-primary-hex)]">{item.caption}</p>}
                       {item.providerPostId && (
-                        <p className="text-[10px] font-mono-data text-[#71717A]">
+                        <p className="text-[10px] font-mono-data text-[var(--text-faint-hex)]">
                           Metricool draft id: {item.providerPostId}
                         </p>
                       )}
@@ -177,21 +177,21 @@ export default async function ContentCalendarPage({
                           className="mt-3 space-y-2"
                         >
                           <fieldset>
-                            <legend className="mb-1.5 text-xs font-medium text-[#A1A1AA]">
+                            <legend className="mb-1.5 text-xs font-medium text-[var(--text-muted-hex)]">
                               Schedule to networks
                             </legend>
                             <div className="flex flex-wrap gap-x-4 gap-y-1.5">
                               {NETWORKS.map((network) => (
                                 <label
                                   key={network}
-                                  className="flex items-center gap-1.5 text-xs text-[#F4F4F6] cursor-pointer"
+                                  className="flex items-center gap-1.5 text-xs text-[var(--text-primary-hex)] cursor-pointer"
                                 >
                                   <input
                                     type="checkbox"
                                     name="networks"
                                     value={network}
                                     defaultChecked={network === item.platform.toLowerCase()}
-                                    className="rounded border-[#27272A] bg-[#18181C] text-[#E5252A]"
+                                    className="rounded border-[var(--border-hairline)] bg-[var(--surface-subtle)] text-[#E5252A]"
                                   />
                                   <span>{network}</span>
                                 </label>
@@ -207,7 +207,7 @@ export default async function ContentCalendarPage({
 
                       {canManage && item.status === 'SCHEDULED' && (
                         item.approvalId ? (
-                          <p className="mt-2 text-xs text-[#A1A1AA]">
+                          <p className="mt-2 text-xs text-[var(--text-muted-hex)]">
                             Publish requested - awaiting approval on{' '}
                             <Link href="/dashboard/approvals" className="text-[#E5252A] hover:underline">
                               Approvals Gate

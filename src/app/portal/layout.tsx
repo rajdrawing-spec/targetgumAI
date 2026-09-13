@@ -4,6 +4,7 @@ import { Sparkles, LogOut } from 'lucide-react'
 import { getCurrentAuthContext } from '@/lib/auth/current-context'
 import { signOut } from '@/lib/auth'
 import { ToastProvider } from '@/components/ui/toast'
+import { ThemeToggle } from '@/components/theme-toggle'
 
 /**
  * The Client Portal (BRD-PRD Section 4.4, Phase 2's "Client approval
@@ -32,9 +33,9 @@ export default async function PortalLayout({ children }: { children: React.React
     <ToastProvider>
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-30 border-b border-border bg-card/80 backdrop-blur-md">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-3.5">
-          <div className="flex items-center gap-3">
-            <Link href="/portal" className="flex items-center gap-2.5">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-2 px-4 py-3 sm:px-6 sm:py-3.5">
+          <div className="flex min-w-0 items-center gap-3">
+            <Link href="/portal" className="flex shrink-0 items-center gap-2.5">
               <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-tr from-primary to-indigo-600 text-primary-foreground shadow-glow">
                 <Sparkles className="h-4 w-4" strokeWidth={2.5} />
               </div>
@@ -43,12 +44,13 @@ export default async function PortalLayout({ children }: { children: React.React
                 <span className="text-[10px] font-medium text-caption uppercase tracking-wider block">Client Portal</span>
               </div>
             </Link>
-            <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-0.5 text-xs font-semibold">
+            <span className="ml-2 hidden items-center gap-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-0.5 text-xs font-semibold sm:inline-flex">
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Client Workspace
             </span>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex shrink-0 items-center gap-2">
+            <ThemeToggle className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground" />
             <form
               action={async () => {
                 'use server'
@@ -65,7 +67,7 @@ export default async function PortalLayout({ children }: { children: React.React
           </div>
         </div>
       </header>
-      <main className="mx-auto max-w-6xl px-6 py-8">{children}</main>
+      <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">{children}</main>
     </div>
     </ToastProvider>
   )

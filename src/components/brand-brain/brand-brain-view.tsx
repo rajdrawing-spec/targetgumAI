@@ -92,15 +92,15 @@ export function BrandBrainView({
       <div className="terminal-panel p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <span className="font-mono-data text-[10px] px-2 py-0.5 rounded bg-[#18181C] text-[#A1A1AA] border border-[#27272A] flex items-center gap-1.5">
+            <span className="font-mono-data text-[10px] px-2 py-0.5 rounded bg-[var(--surface-subtle)] text-[var(--text-muted-hex)] border border-[var(--border-hairline)] flex items-center gap-1.5">
               <BrainCircuit className="h-3 w-3 text-[#E5252A]" />
               BRAND MEMORY VAULT
             </span>
           </div>
-          <h2 className="text-lg font-display font-bold text-[#FFFFFF]">
+          <h2 className="text-lg font-display font-bold text-[var(--text-primary-hex)]">
             {initialClientName} Brand DNA & Governance
           </h2>
-          <p className="text-xs text-[#A1A1AA] mt-0.5">
+          <p className="text-xs text-[var(--text-muted-hex)] mt-0.5">
             Every AI agent references these rules, banned terms, and voice guidelines prior to generating ad sets or social posts.
           </p>
         </div>
@@ -127,48 +127,48 @@ export function BrandBrainView({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Core Tone & Voice */}
         <div className="terminal-card p-4 space-y-4">
-          <div className="flex items-center gap-2 border-b border-[#27272A] pb-3">
+          <div className="flex items-center gap-2 border-b border-[var(--border-hairline)] pb-3">
             <BookOpen className="h-4 w-4 text-[#E5252A]" />
-            <h3 className="text-xs font-display font-semibold uppercase tracking-wider text-[#FFFFFF]">
+            <h3 className="text-xs font-display font-semibold uppercase tracking-wider text-[var(--text-primary-hex)]">
               Brand Voice & Strategic Persona
             </h3>
           </div>
 
           <div>
-            <label className="block text-xs font-mono-data text-[#A1A1AA] mb-1">
+            <label className="block text-xs font-mono-data text-[var(--text-muted-hex)] mb-1">
               Brand Voice Persona
             </label>
             <textarea
               rows={3}
               value={voice}
               onChange={(e) => setVoice(e.target.value)}
-              className="w-full rounded border border-[#27272A] bg-[#18181C] px-3 py-2 text-xs text-[#F4F4F6] focus:border-[#E5252A] focus:outline-none resize-none"
+              className="w-full rounded border border-[var(--border-hairline)] bg-[var(--surface-subtle)] px-3 py-2 text-xs text-[var(--text-primary-hex)] focus:border-[#E5252A] focus:outline-none resize-none"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-mono-data text-[#A1A1AA] mb-1">
+            <label className="block text-xs font-mono-data text-[var(--text-muted-hex)] mb-1">
               Emotional Tone & Style
             </label>
             <input
               type="text"
               value={tone}
               onChange={(e) => setTone(e.target.value)}
-              className="w-full rounded border border-[#27272A] bg-[#18181C] px-3 py-2 text-xs text-[#F4F4F6] focus:border-[#E5252A] focus:outline-none"
+              className="w-full rounded border border-[var(--border-hairline)] bg-[var(--surface-subtle)] px-3 py-2 text-xs text-[var(--text-primary-hex)] focus:border-[#E5252A] focus:outline-none"
             />
           </div>
         </div>
 
         {/* Banned Words & Compliance Safety Guardrails */}
         <div className="terminal-card p-4 space-y-4">
-          <div className="flex items-center gap-2 border-b border-[#27272A] pb-3">
-            <ShieldAlert className="h-4 w-4 text-[#FF4D4F]" />
-            <h3 className="text-xs font-display font-semibold uppercase tracking-wider text-[#FFFFFF]">
+          <div className="flex items-center gap-2 border-b border-[var(--border-hairline)] pb-3">
+            <ShieldAlert className="h-4 w-4 text-[var(--danger-text-hex)]" />
+            <h3 className="text-xs font-display font-semibold uppercase tracking-wider text-[var(--text-primary-hex)]">
               Compliance & Banned Words Guardrail
             </h3>
           </div>
 
-          <p className="text-[11px] text-[#A1A1AA]">
+          <p className="text-[11px] text-[var(--text-muted-hex)]">
             AI agents will automatically reject or replace these words to avoid platform ad disapprovals and policy violations.
           </p>
 
@@ -179,7 +179,7 @@ export function BrandBrainView({
               onChange={(e) => setNewBannedWord(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && addBannedWord()}
               placeholder="Add prohibited claim or word..."
-              className="flex-1 rounded border border-[#27272A] bg-[#18181C] px-3 py-1.5 text-xs text-[#F4F4F6] focus:border-[#E5252A] focus:outline-none"
+              className="flex-1 rounded border border-[var(--border-hairline)] bg-[var(--surface-subtle)] px-3 py-1.5 text-xs text-[var(--text-primary-hex)] focus:border-[#E5252A] focus:outline-none"
             />
             <button
               type="button"
@@ -194,7 +194,7 @@ export function BrandBrainView({
             {bannedWords.map((word, idx) => (
               <span
                 key={idx}
-                className="inline-flex items-center gap-1.5 rounded bg-[#E5252A]/10 border border-[#E5252A]/30 px-2 py-0.5 text-xs font-mono-data text-[#FF4D4F]"
+                className="inline-flex items-center gap-1.5 rounded bg-[#E5252A]/10 border border-[#E5252A]/30 px-2 py-0.5 text-xs font-mono-data text-[var(--danger-text-hex)]"
               >
                 <span>{word}</span>
                 <button
@@ -211,9 +211,9 @@ export function BrandBrainView({
 
         {/* Unique Selling Points */}
         <div className="terminal-card p-4 space-y-4">
-          <div className="flex items-center gap-2 border-b border-[#27272A] pb-3">
+          <div className="flex items-center gap-2 border-b border-[var(--border-hairline)] pb-3">
             <Tag className="h-4 w-4 text-[#E5252A]" />
-            <h3 className="text-xs font-display font-semibold uppercase tracking-wider text-[#FFFFFF]">
+            <h3 className="text-xs font-display font-semibold uppercase tracking-wider text-[var(--text-primary-hex)]">
               Core Value Propositions (USPs)
             </h3>
           </div>
@@ -225,7 +225,7 @@ export function BrandBrainView({
               onChange={(e) => setNewUsp(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && addUsp()}
               placeholder="Add a key selling point..."
-              className="flex-1 rounded border border-[#27272A] bg-[#18181C] px-3 py-1.5 text-xs text-[#F4F4F6] focus:border-[#E5252A] focus:outline-none"
+              className="flex-1 rounded border border-[var(--border-hairline)] bg-[var(--surface-subtle)] px-3 py-1.5 text-xs text-[var(--text-primary-hex)] focus:border-[#E5252A] focus:outline-none"
             />
             <button
               type="button"
@@ -240,13 +240,13 @@ export function BrandBrainView({
             {usps.map((usp, idx) => (
               <li
                 key={idx}
-                className="flex items-center justify-between gap-2 rounded bg-[#18181C] px-3 py-2 border border-[#27272A] text-xs text-[#F4F4F6]"
+                className="flex items-center justify-between gap-2 rounded bg-[var(--surface-subtle)] px-3 py-2 border border-[var(--border-hairline)] text-xs text-[var(--text-primary-hex)]"
               >
                 <span>{usp}</span>
                 <button
                   type="button"
                   onClick={() => removeUsp(idx)}
-                  className="text-[#71717A] hover:text-[#FF4D4F]"
+                  className="text-[var(--text-faint-hex)] hover:text-[var(--danger-text-hex)]"
                 >
                   <Trash2 className="h-3 w-3" />
                 </button>
@@ -257,9 +257,9 @@ export function BrandBrainView({
 
         {/* High-Intent CTAs */}
         <div className="terminal-card p-4 space-y-4">
-          <div className="flex items-center gap-2 border-b border-[#27272A] pb-3">
+          <div className="flex items-center gap-2 border-b border-[var(--border-hairline)] pb-3">
             <Sparkles className="h-4 w-4 text-[#E5252A]" />
-            <h3 className="text-xs font-display font-semibold uppercase tracking-wider text-[#FFFFFF]">
+            <h3 className="text-xs font-display font-semibold uppercase tracking-wider text-[var(--text-primary-hex)]">
               Approved Call To Actions (CTAs)
             </h3>
           </div>
@@ -271,7 +271,7 @@ export function BrandBrainView({
               onChange={(e) => setNewCta(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && addCta()}
               placeholder="e.g. Claim Free Diagnostic..."
-              className="flex-1 rounded border border-[#27272A] bg-[#18181C] px-3 py-1.5 text-xs text-[#F4F4F6] focus:border-[#E5252A] focus:outline-none"
+              className="flex-1 rounded border border-[var(--border-hairline)] bg-[var(--surface-subtle)] px-3 py-1.5 text-xs text-[var(--text-primary-hex)] focus:border-[#E5252A] focus:outline-none"
             />
             <button
               type="button"
@@ -286,13 +286,13 @@ export function BrandBrainView({
             {ctas.map((cta, idx) => (
               <span
                 key={idx}
-                className="inline-flex items-center gap-1.5 rounded bg-[#18181C] border border-[#27272A] px-2.5 py-1 text-xs font-mono-data text-[#F4F4F6]"
+                className="inline-flex items-center gap-1.5 rounded bg-[var(--surface-subtle)] border border-[var(--border-hairline)] px-2.5 py-1 text-xs font-mono-data text-[var(--text-primary-hex)]"
               >
                 <span>{cta}</span>
                 <button
                   type="button"
                   onClick={() => removeCta(idx)}
-                  className="text-[#71717A] hover:text-[#FF4D4F]"
+                  className="text-[var(--text-faint-hex)] hover:text-[var(--danger-text-hex)]"
                 >
                   <Trash2 className="h-2.5 w-2.5" />
                 </button>

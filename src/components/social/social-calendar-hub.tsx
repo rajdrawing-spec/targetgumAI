@@ -76,15 +76,15 @@ export function SocialCalendarHub({ clients = [] }: SocialHubProps) {
       {/* Hub Header */}
       <div className="terminal-panel p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2 font-mono-data text-[10px] text-[#A1A1AA] mb-1">
+          <div className="flex items-center gap-2 font-mono-data text-[10px] text-[var(--text-muted-hex)] mb-1">
             <span className="font-semibold text-[#E5252A]">METRICOOL & SOCIAL ENGINE</span>
             <span>•</span>
             <span>MULTI-CHANNEL POST DISPATCHER</span>
           </div>
-          <h2 className="text-lg font-display font-bold text-[#FFFFFF] flex items-center gap-2">
+          <h2 className="text-lg font-display font-bold text-[var(--text-primary-hex)] flex items-center gap-2">
             <CalendarIcon className="h-5 w-5 text-[#E5252A]" /> Social Hub & Visual Scheduler
           </h2>
-          <p className="text-xs text-[#A1A1AA] mt-0.5">
+          <p className="text-xs text-[var(--text-muted-hex)] mt-0.5">
             Plan, compose, and automate social media releases with multi-network Metricool integration.
           </p>
         </div>
@@ -94,7 +94,7 @@ export function SocialCalendarHub({ clients = [] }: SocialHubProps) {
             <select
               value={selectedClientId}
               onChange={(e) => setSelectedClientId(e.target.value)}
-              className="rounded border border-[#27272A] bg-[#18181C] px-3 py-1.5 text-xs text-[#F4F4F6] focus:border-[#E5252A] focus:outline-none"
+              className="rounded border border-[var(--border-hairline)] bg-[var(--surface-subtle)] px-3 py-1.5 text-xs text-[var(--text-primary-hex)] focus:border-[#E5252A] focus:outline-none"
             >
               {clients.map((c) => (
                 <option key={c.id} value={c.id}>
@@ -118,10 +118,10 @@ export function SocialCalendarHub({ clients = [] }: SocialHubProps) {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left: 30-Day Interactive Calendar Grid */}
         <div className="lg:col-span-7 terminal-card p-4 space-y-3">
-          <div className="flex items-center justify-between border-b border-[#27272A] pb-3">
+          <div className="flex items-center justify-between border-b border-[var(--border-hairline)] pb-3">
             <div className="flex items-center gap-2">
               <CalendarIcon className="h-4 w-4 text-[#E5252A]" />
-              <span className="font-display text-sm font-semibold text-[#FFFFFF]">
+              <span className="font-display text-sm font-semibold text-[var(--text-primary-hex)]">
                 September 2026
               </span>
             </div>
@@ -129,7 +129,7 @@ export function SocialCalendarHub({ clients = [] }: SocialHubProps) {
               <span className="flex items-center gap-1 text-emerald-400">
                 <span className="h-2 w-2 rounded-full bg-emerald-400" /> Published
               </span>
-              <span className="flex items-center gap-1 text-[#FF4D4F]">
+              <span className="flex items-center gap-1 text-[var(--danger-text-hex)]">
                 <span className="h-2 w-2 rounded-full bg-[#E5252A]" /> Pending
               </span>
               <span className="flex items-center gap-1 text-blue-400">
@@ -139,7 +139,7 @@ export function SocialCalendarHub({ clients = [] }: SocialHubProps) {
           </div>
 
           {/* Days of Week Header */}
-          <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-mono-data text-[#71717A] py-1 border-b border-[#27272A]">
+          <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-mono-data text-[var(--text-faint-hex)] py-1 border-b border-[var(--border-hairline)]">
             <span>SUN</span>
             <span>MON</span>
             <span>TUE</span>
@@ -161,14 +161,14 @@ export function SocialCalendarHub({ clients = [] }: SocialHubProps) {
                   onClick={() => d.isCurrentMonth && setSelectedDate(d.date)}
                   className={cn(
                     'min-h-[58px] p-1.5 rounded border transition-all cursor-pointer flex flex-col justify-between',
-                    d.isCurrentMonth ? 'bg-[#18181C] border-[#27272A]' : 'bg-[#0E0E11] border-transparent opacity-40',
+                    d.isCurrentMonth ? 'bg-[var(--surface-subtle)] border-[var(--border-hairline)]' : 'bg-[var(--surface-footer)] border-transparent opacity-40',
                     isSelected && 'border-[#E5252A] ring-1 ring-[#E5252A]'
                   )}
                 >
                   <span
                     className={cn(
                       'text-[10px] font-mono-data font-semibold',
-                      isSelected ? 'text-[#E5252A]' : 'text-[#A1A1AA]'
+                      isSelected ? 'text-[#E5252A]' : 'text-[var(--text-muted-hex)]'
                     )}
                   >
                     {d.day}
@@ -181,9 +181,9 @@ export function SocialCalendarHub({ clients = [] }: SocialHubProps) {
                         className={cn(
                           'truncate px-1 py-0.2 rounded text-[8px] font-mono-data font-bold uppercase',
                           post.status === 'PUBLISHED' && 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40',
-                          post.status === 'PENDING_APPROVAL' && 'bg-[#E5252A]/20 text-[#FF4D4F] border border-[#E5252A]/40',
+                          post.status === 'PENDING_APPROVAL' && 'bg-[#E5252A]/20 text-[var(--danger-text-hex)] border border-[#E5252A]/40',
                           post.status === 'SCHEDULED' && 'bg-blue-500/20 text-blue-300 border border-blue-500/40',
-                          post.status === 'DRAFT' && 'bg-[#27272A] text-[#A1A1AA]'
+                          post.status === 'DRAFT' && 'bg-[var(--border-hairline)] text-[var(--text-muted-hex)]'
                         )}
                         title={post.title}
                       >
@@ -199,8 +199,8 @@ export function SocialCalendarHub({ clients = [] }: SocialHubProps) {
 
         {/* Right: Live Composer & Platform Simulation */}
         <div className="lg:col-span-5 terminal-card p-4 space-y-4">
-          <div className="flex items-center justify-between border-b border-[#27272A] pb-3">
-            <span className="text-xs font-display font-semibold uppercase tracking-wider text-[#FFFFFF] flex items-center gap-1.5">
+          <div className="flex items-center justify-between border-b border-[var(--border-hairline)] pb-3">
+            <span className="text-xs font-display font-semibold uppercase tracking-wider text-[var(--text-primary-hex)] flex items-center gap-1.5">
               <Share2 className="h-3.5 w-3.5 text-[#E5252A]" /> Post Composer
             </span>
             <div className="flex items-center gap-1">
@@ -213,7 +213,7 @@ export function SocialCalendarHub({ clients = [] }: SocialHubProps) {
                     'px-2 py-0.5 text-[10px] font-mono-data rounded transition-colors',
                     activePlatform === p
                       ? 'bg-[#E5252A] text-white font-bold'
-                      : 'text-[#A1A1AA] hover:text-white bg-[#18181C]'
+                      : 'text-[var(--text-muted-hex)] hover:text-white bg-[var(--surface-subtle)]'
                   )}
                 >
                   {p.slice(0, 2)}
@@ -223,29 +223,29 @@ export function SocialCalendarHub({ clients = [] }: SocialHubProps) {
           </div>
 
           {/* Live Mobile Feed Card Preview */}
-          <div className="rounded border border-[#27272A] bg-[#18181C] p-3 space-y-2">
+          <div className="rounded border border-[var(--border-hairline)] bg-[var(--surface-subtle)] p-3 space-y-2">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <div className="h-6 w-6 rounded-full bg-[#E5252A] flex items-center justify-center text-[10px] font-bold text-white">
                   TG
                 </div>
                 <div>
-                  <p className="text-xs font-semibold text-[#FFFFFF]">TargetGum Marketing</p>
-                  <p className="text-[9px] font-mono-data text-[#71717A]">
+                  <p className="text-xs font-semibold text-[var(--text-primary-hex)]">TargetGum Marketing</p>
+                  <p className="text-[9px] font-mono-data text-[var(--text-faint-hex)]">
                     {activePlatform} · Scheduled for {selectedDate}
                   </p>
                 </div>
               </div>
             </div>
 
-            <p className="text-xs text-[#F4F4F6] leading-relaxed whitespace-pre-line">
+            <p className="text-xs text-[var(--text-primary-hex)] leading-relaxed whitespace-pre-line">
               {caption}
             </p>
 
             <p className="text-[11px] font-mono-data text-[#E5252A]">{hashtags}</p>
 
             {/* Social Engagement Icons */}
-            <div className="flex items-center justify-between pt-1 border-t border-[#27272A] text-[#71717A]">
+            <div className="flex items-center justify-between pt-1 border-t border-[var(--border-hairline)] text-[var(--text-faint-hex)]">
               <div className="flex items-center gap-3">
                 <Heart className="h-3.5 w-3.5" />
                 <MessageCircle className="h-3.5 w-3.5" />
@@ -258,26 +258,26 @@ export function SocialCalendarHub({ clients = [] }: SocialHubProps) {
           {/* Composer Inputs */}
           <div className="space-y-2.5">
             <div>
-              <label className="block text-[11px] font-mono-data text-[#A1A1AA] mb-1">
+              <label className="block text-[11px] font-mono-data text-[var(--text-muted-hex)] mb-1">
                 Post Caption
               </label>
               <textarea
                 rows={3}
                 value={caption}
                 onChange={(e) => setCaption(e.target.value)}
-                className="w-full rounded border border-[#27272A] bg-[#18181C] px-3 py-2 text-xs text-[#F4F4F6] focus:border-[#E5252A] focus:outline-none resize-none"
+                className="w-full rounded border border-[var(--border-hairline)] bg-[var(--surface-subtle)] px-3 py-2 text-xs text-[var(--text-primary-hex)] focus:border-[#E5252A] focus:outline-none resize-none"
               />
             </div>
 
             <div>
-              <label className="block text-[11px] font-mono-data text-[#A1A1AA] mb-1">
+              <label className="block text-[11px] font-mono-data text-[var(--text-muted-hex)] mb-1">
                 Tags & Hashtags
               </label>
               <input
                 type="text"
                 value={hashtags}
                 onChange={(e) => setHashtags(e.target.value)}
-                className="w-full rounded border border-[#27272A] bg-[#18181C] px-3 py-1.5 text-xs text-[#F4F4F6] focus:border-[#E5252A] focus:outline-none font-mono-data"
+                className="w-full rounded border border-[var(--border-hairline)] bg-[var(--surface-subtle)] px-3 py-1.5 text-xs text-[var(--text-primary-hex)] focus:border-[#E5252A] focus:outline-none font-mono-data"
               />
             </div>
 

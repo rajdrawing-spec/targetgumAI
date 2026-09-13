@@ -17,25 +17,99 @@
     --font-space-grotesk: var(--font-display);
     --font-ibm-plex-mono: var(--font-mono);
 
-    /* TargetGum Precision Brand Tokens (Bullseye Crimson & Charcoal) */
+    /*
+     * Light mode (2026-09-13, docs/DECISIONS.md) - the default. Cool,
+     * slightly lavender-tinted neutrals + pastel-tinted status
+     * backgrounds, tuned for text contrast (WCAG AA) against every
+     * surface below, not just against the page background. `.dark`
+     * further down carries the original "Precision Marketing" dark
+     * theme unchanged - toggled via a `dark` class on <html>
+     * (tailwind.config.ts's `darkMode: 'class'`), see
+     * src/components/theme-toggle.tsx.
+     */
+    --bg-page: 220 33% 97%; /* Cool off-white #F4F6FB */
+    --bg-surface: 0 0% 100%; /* Card white */
+    --border: 220 20% 89%; /* Soft cool-gray hairline */
+
+    --text-primary: 224 32% 14%; /* Deep slate-navy - strong contrast on white/pastel */
+    --text-secondary: 222 16% 38%;
+    --text-muted: 222 12% 52%;
+
+    /* TargetGum Brand Crimson (#E5252A) - unchanged across themes, brand identity */
+    --primary: 359 79% 52%;
+    --primary-hover: 359 81% 45%;
+    --primary-tint: 359 79% 52%;
+
+    /* Status Tokens (hue held constant with dark mode; lightness/tint retuned for a white page) */
+    --sage: 160 84% 32%;
+    --dusty-blue: 217 91% 52%;
+    --mustard: 38 92% 42%;
+    --blush: 359 79% 52%;
+
+    --sage-tint: 152 65% 94%; /* Pastel mint */
+    --sage-text: 152 70% 26%;
+    --dusty-blue-tint: 214 90% 95%; /* Pastel sky */
+    --dusty-blue-text: 217 80% 38%;
+    --mustard-tint: 45 90% 94%; /* Pastel cream */
+    --mustard-text: 32 85% 32%;
+    --blush-tint: 359 85% 96%; /* Pastel pink */
+    --blush-text: 359 72% 42%;
+    --surface-hover: 220 25% 95%;
+
+    --radius: 0.25rem;
+
+    /* Raw hex mirror of the tokens above, for the components that use
+       Tailwind arbitrary-value classes (`bg-[var(--bg-ink)]`) instead of
+       the semantic `bg-background` etc. classes - same light/dark split. */
+    --bg-ink: #F4F6FB;
+    --surface-base: #FFFFFF;
+    --surface-subtle: #EAEEF6;
+    --surface-footer: #EEF1F8;
+    --surface-header-row: #EEF1F8;
+    --surface-badge-neutral: #E7EBF3;
+    --border-hairline: #DEE3EE;
+    --border-subtle: #E7EAF2;
+    --border-badge-neutral: #D5DBE8;
+    --text-primary-hex: #151A28; /* Strongest - was #F8F8FA in dark */
+    --text-secondary-hex: #3A4157; /* Was #D4D4D8 */
+    --text-muted-hex: #565D72; /* Was #A1A1AA - the most-used tier (nav labels, captions) */
+    --text-dim-hex: #6B7286; /* Was #8E8E98 */
+    --text-faint-hex: #7D849A; /* Was #71717A - least emphasis */
+    --danger-text-hex: #C22730; /* Deeper than dark mode's #FF4D4F for AA contrast on a pastel-pink chip */
+    --chart-grid-hex: #D7DCE8;
+    --text-accent: #E5252A;
+    --accent-primary: #E5252A;
+    --btn-accent-bg: #E5252A;
+    --btn-accent-text: #FFFFFF;
+    --data-slate: #5B7083;
+    --data-neutral: #27272A;
+    --alert-rust: #E5252A;
+
+    /* Categorical 4-Series Multi-Platform Palette - vivid, reads on both themes */
+    --series-meta: #E5252A;
+    --series-google: #3B82F6;
+    --series-amazon: #F59E0B;
+    --series-linkedin: #64748B;
+  }
+
+  /* Dark mode - the original "Precision Marketing" theme, unchanged. */
+  :root.dark {
     --bg-page: 240 10% 4%; /* Deep Onyx #09090b */
     --bg-surface: 240 7% 8%; /* Dark Charcoal Panel #121215 */
     --border: 240 5% 16%; /* Hairline Charcoal Border #27272a */
 
     --text-primary: 240 5% 98%; /* Ultra Crisp #f8f8fa */
-    --text-secondary: 240 5% 75%; /* Slate Zinc #bebec6 - high readability */
-    --text-muted: 240 5% 62%; /* Muted Zinc #9797a2 - clean, clear contrast */
+    --text-secondary: 240 5% 75%; /* Slate Zinc #bebec6 */
+    --text-muted: 240 5% 62%; /* Muted Zinc #9797a2 */
 
-    /* TargetGum Brand Crimson (#E5252A) */
-    --primary: 359 79% 52%; /* Vibrant Bullseye Red #E5252A */
-    --primary-hover: 359 81% 45%; /* Deep Crimson #CC1B20 */
+    --primary: 359 79% 52%;
+    --primary-hover: 359 81% 45%;
     --primary-tint: 359 79% 52%;
 
-    /* Status Tokens */
-    --sage: 160 84% 39%; /* Emerald #10b981 */
-    --dusty-blue: 217 91% 60%; /* Electric Blue #3b82f6 */
-    --mustard: 38 92% 50%; /* Amber #f59e0b */
-    --blush: 359 79% 52%; /* TargetGum Red */
+    --sage: 160 84% 39%;
+    --dusty-blue: 217 91% 60%;
+    --mustard: 38 92% 50%;
+    --blush: 359 79% 52%;
 
     --sage-tint: 152 76% 12%;
     --sage-text: 152 76% 55%;
@@ -47,30 +121,22 @@
     --blush-text: 359 79% 65%;
     --surface-hover: 240 6% 12%;
 
-    --radius: 0.25rem;
-
-    /* Raw Terminal Precision Variables */
     --bg-ink: #09090B;
     --surface-base: #121215;
     --surface-subtle: #18181C;
+    --surface-footer: #0E0E11;
+    --surface-header-row: #151518;
+    --surface-badge-neutral: #222226;
     --border-hairline: #27272A;
     --border-subtle: #1F1F23;
+    --border-badge-neutral: #3F3F46;
     --text-primary-hex: #F8F8FA;
-    --text-muted-hex: #B4B4BC;
+    --text-secondary-hex: #D4D4D8;
+    --text-muted-hex: #A1A1AA;
     --text-dim-hex: #8E8E98;
-    --text-accent: #E5252A;
-    --accent-primary: #E5252A;
-    --btn-accent-bg: #E5252A;
-    --btn-accent-text: #FFFFFF;
-    --data-slate: #5B7083;
-    --data-neutral: #27272A;
-    --alert-rust: #E5252A;
-
-    /* Categorical 4-Series Multi-Platform Palette */
-    --series-meta: #E5252A;
-    --series-google: #3B82F6;
-    --series-amazon: #F59E0B;
-    --series-linkedin: #64748B;
+    --text-faint-hex: #71717A;
+    --danger-text-hex: #FF4D4F;
+    --chart-grid-hex: #54524A;
   }
 }
 

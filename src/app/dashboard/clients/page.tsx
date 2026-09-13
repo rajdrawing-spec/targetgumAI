@@ -72,7 +72,7 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
         <div className="overflow-x-auto rounded-lg border border-border bg-card shadow-card">
           <table className="w-full min-w-[960px] text-left text-sm">
             <thead>
-              <tr className="border-b border-border bg-[#151518]/60 text-[11px] font-semibold uppercase tracking-wider text-[#A1A1AA]">
+              <tr className="border-b border-border bg-[var(--surface-header-row)]/60 text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted-hex)]">
                 <th className="px-4 py-3 font-semibold">Client</th>
                 <th className="px-4 py-3 font-semibold">Account manager</th>
                 <th className="px-4 py-3 font-semibold">Status</th>
@@ -97,13 +97,13 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
                         </div>
                         <div className="min-w-0">
                           <p className="truncate text-sm font-semibold text-foreground group-hover:text-primary">{client.name}</p>
-                          <p className="truncate text-xs text-[#A1A1AA]">
+                          <p className="truncate text-xs text-[var(--text-muted-hex)]">
                             {[client.industry, host].filter(Boolean).join(' · ') || (client.city ?? '—')}
                           </p>
                         </div>
                       </Link>
                     </td>
-                    <td className="px-4 py-3 text-sm text-[#D4D4D8]">{client.accountManager?.label ?? <span className="text-xs text-[#8E8E98]">Unassigned</span>}</td>
+                    <td className="px-4 py-3 text-sm text-[var(--text-secondary-hex)]">{client.accountManager?.label ?? <span className="text-xs text-[var(--text-dim-hex)]">Unassigned</span>}</td>
                     <td className="px-4 py-3">
                       <StatusBadge status={client.status} />
                     </td>
@@ -112,7 +112,7 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
                     </td>
                     <td className="px-4 py-3">
                       {client.integrations.length === 0 ? (
-                        <span className="text-xs text-[#8E8E98]">None connected</span>
+                        <span className="text-xs text-[var(--text-dim-hex)]">None connected</span>
                       ) : (
                         <div className="flex -space-x-0.5" title={client.integrations.map((i) => `${PROVIDER_LABEL[i.provider]}: ${i.status}`).join(', ')}>
                           {client.integrations.slice(0, 6).map((i, idx) => (
@@ -122,13 +122,13 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
                               aria-label={`${PROVIDER_LABEL[i.provider]}: ${toSentenceCase(i.status)}`}
                             />
                           ))}
-                          {client.integrations.length > 6 && <span className="pl-1.5 text-xs text-[#A1A1AA]">+{client.integrations.length - 6}</span>}
+                          {client.integrations.length > 6 && <span className="pl-1.5 text-xs text-[var(--text-muted-hex)]">+{client.integrations.length - 6}</span>}
                         </div>
                       )}
                     </td>
                     <td className="px-4 py-3">
                       {attentionTotal === 0 ? (
-                        <span className="text-xs text-[#8E8E98]">—</span>
+                        <span className="text-xs text-[var(--text-dim-hex)]">—</span>
                       ) : (
                         <div className="flex flex-wrap gap-1">
                           {client.attention.pendingApprovals > 0 && <Badge variant="warning">{client.attention.pendingApprovals} approval{client.attention.pendingApprovals === 1 ? '' : 's'}</Badge>}
@@ -137,7 +137,7 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
                         </div>
                       )}
                     </td>
-                    <td className="whitespace-nowrap px-4 py-3 text-xs tabular-nums text-[#A1A1AA] font-mono-data">{formatRelative(client.lastActivityAt)}</td>
+                    <td className="whitespace-nowrap px-4 py-3 text-xs tabular-nums text-[var(--text-muted-hex)] font-mono-data">{formatRelative(client.lastActivityAt)}</td>
                     <td className="px-4 py-3 text-right">
                       <ClientRowActions client={client} canEdit={canEdit} canManage={canCreate} />
                     </td>

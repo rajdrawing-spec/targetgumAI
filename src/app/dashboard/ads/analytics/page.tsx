@@ -29,7 +29,7 @@ const DEFAULT_SEVERITY_STYLE = {
 
 const SEVERITY_STYLE: Record<string, { badge: string; border: string; bg: string }> = {
   CRITICAL: {
-    badge: 'bg-[#E5252A]/20 text-[#FF4D4F] border border-[#E5252A]/40',
+    badge: 'bg-[#E5252A]/20 text-[var(--danger-text-hex)] border border-[#E5252A]/40',
     border: 'border-[#E5252A]/40',
     bg: 'bg-[#E5252A]/10',
   },
@@ -71,21 +71,21 @@ export default async function AdAnalyticsPage({
       <div>
         <Link
           href="/dashboard/ads"
-          className="inline-flex items-center gap-1.5 font-mono-data text-xs text-[#A1A1AA] hover:text-[#FFFFFF] mb-3"
+          className="inline-flex items-center gap-1.5 font-mono-data text-xs text-[var(--text-muted-hex)] hover:text-[var(--text-primary-hex)] mb-3"
         >
           <ArrowLeft className="h-3.5 w-3.5" /> Back to Ads Hub
         </Link>
         <div className="terminal-panel p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <div className="flex items-center gap-2 font-mono-data text-[10px] text-[#A1A1AA] mb-1">
+            <div className="flex items-center gap-2 font-mono-data text-[10px] text-[var(--text-muted-hex)] mb-1">
               <span className="font-semibold text-[#E5252A]">TELEMETRY DIAGNOSTICS</span>
               <span>•</span>
               <span>AI ROOT-CAUSE ENGINE</span>
             </div>
-            <h1 className="text-xl font-display font-bold tracking-tight text-[#FFFFFF] flex items-center gap-2.5">
+            <h1 className="text-xl font-display font-bold tracking-tight text-[var(--text-primary-hex)] flex items-center gap-2.5">
               <BarChart3 className="h-5 w-5 text-[#E5252A]" /> Ad Impression & Telemetry Analyzer
             </h1>
-            <p className="text-xs text-[#A1A1AA] mt-1">
+            <p className="text-xs text-[var(--text-muted-hex)] mt-1">
               Deep impression telemetry diagnosis: how ads are performing and what algorithmic optimizations to execute.
             </p>
           </div>
@@ -101,15 +101,15 @@ export default async function AdAnalyticsPage({
       </div>
 
       {/* Client Filter Pill Bar */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-1 border-b border-[#27272A]">
-        <span className="font-mono-data text-xs text-[#71717A] whitespace-nowrap">Filter Workspace:</span>
+      <div className="flex items-center gap-2 overflow-x-auto pb-1 border-b border-[var(--border-hairline)]">
+        <span className="font-mono-data text-xs text-[var(--text-faint-hex)] whitespace-nowrap">Filter Workspace:</span>
         <Link
           href="/dashboard/ads/analytics"
           className={cn(
             'rounded px-3 py-1 font-mono-data text-xs transition-all whitespace-nowrap',
             !sp.clientId
-              ? 'bg-[#18181C] text-white font-semibold border border-[#E5252A]'
-              : 'text-[#A1A1AA] hover:text-white hover:bg-[#18181C]'
+              ? 'bg-[var(--surface-subtle)] text-white font-semibold border border-[#E5252A]'
+              : 'text-[var(--text-muted-hex)] hover:text-white hover:bg-[var(--surface-subtle)]'
           )}
         >
           All Clients
@@ -121,8 +121,8 @@ export default async function AdAnalyticsPage({
             className={cn(
               'rounded px-3 py-1 font-mono-data text-xs transition-all whitespace-nowrap',
               sp.clientId === c.id
-                ? 'bg-[#18181C] text-white font-semibold border border-[#E5252A]'
-                : 'text-[#A1A1AA] hover:text-white hover:bg-[#18181C]'
+                ? 'bg-[var(--surface-subtle)] text-white font-semibold border border-[#E5252A]'
+                : 'text-[var(--text-muted-hex)] hover:text-white hover:bg-[var(--surface-subtle)]'
             )}
           >
             {c.name}
@@ -135,10 +135,10 @@ export default async function AdAnalyticsPage({
           <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[#E5252A]/20 text-[#E5252A] mb-3">
             <BarChart3 className="h-6 w-6" />
           </div>
-          <h3 className="text-base font-display font-semibold text-[#FFFFFF]">
+          <h3 className="text-base font-display font-semibold text-[var(--text-primary-hex)]">
             No Ad Telemetry Data Found
           </h3>
-          <p className="text-xs text-[#A1A1AA] max-w-md mx-auto mt-1 mb-4">
+          <p className="text-xs text-[var(--text-muted-hex)] max-w-md mx-auto mt-1 mb-4">
             Connect your Meta Ads account to sync genuine impression velocity, click funnels, and AI performance telemetry.
           </p>
           <div className="flex gap-2 justify-center">
@@ -156,12 +156,12 @@ export default async function AdAnalyticsPage({
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div className="terminal-card p-4">
               <div className="flex items-center justify-between">
-                <span className="text-[10px] font-mono-data uppercase tracking-wider text-[#A1A1AA]">
+                <span className="text-[10px] font-mono-data uppercase tracking-wider text-[var(--text-muted-hex)]">
                   Total Impressions
                 </span>
                 <Eye className="h-3.5 w-3.5 text-[#E5252A]" />
               </div>
-              <p className="mt-2 text-2xl font-mono-data font-bold text-[#FFFFFF] tracking-tight">
+              <p className="mt-2 text-2xl font-mono-data font-bold text-[var(--text-primary-hex)] tracking-tight">
                 {analysis.totalImpressions.toLocaleString()}
               </p>
               <span className="text-[10px] font-mono-data text-emerald-400 inline-flex items-center gap-1 mt-1">
@@ -171,22 +171,22 @@ export default async function AdAnalyticsPage({
 
             <div className="terminal-card p-4">
               <div className="flex items-center justify-between">
-                <span className="text-[10px] font-mono-data uppercase tracking-wider text-[#A1A1AA]">
+                <span className="text-[10px] font-mono-data uppercase tracking-wider text-[var(--text-muted-hex)]">
                   Blended CTR
                 </span>
                 <Percent className="h-3.5 w-3.5 text-blue-400" />
               </div>
-              <p className="mt-2 text-2xl font-mono-data font-bold text-[#FFFFFF] tracking-tight">
+              <p className="mt-2 text-2xl font-mono-data font-bold text-[var(--text-primary-hex)] tracking-tight">
                 {analysis.blendedCtr}%
               </p>
-              <span className="text-[10px] font-mono-data text-[#A1A1AA] mt-1 block">
+              <span className="text-[10px] font-mono-data text-[var(--text-muted-hex)] mt-1 block">
                 {analysis.totalClicks.toLocaleString()} total clicks
               </span>
             </div>
 
             <div className="terminal-card p-4">
               <div className="flex items-center justify-between">
-                <span className="text-[10px] font-mono-data uppercase tracking-wider text-[#A1A1AA]">
+                <span className="text-[10px] font-mono-data uppercase tracking-wider text-[var(--text-muted-hex)]">
                   Blended ROAS
                 </span>
                 <TrendingUp className="h-3.5 w-3.5 text-[#E5252A]" />
@@ -194,14 +194,14 @@ export default async function AdAnalyticsPage({
               <p className="mt-2 text-2xl font-mono-data font-bold text-[#E5252A] tracking-tight">
                 {analysis.blendedRoas}x
               </p>
-              <span className="text-[10px] font-mono-data text-[#A1A1AA] mt-1 block">
+              <span className="text-[10px] font-mono-data text-[var(--text-muted-hex)] mt-1 block">
                 ${analysis.totalRevenue.toLocaleString()} revenue
               </span>
             </div>
 
             <div className="terminal-card p-4">
               <div className="flex items-center justify-between">
-                <span className="text-[10px] font-mono-data uppercase tracking-wider text-[#A1A1AA]">
+                <span className="text-[10px] font-mono-data uppercase tracking-wider text-[var(--text-muted-hex)]">
                   Amazon PPC ACoS
                 </span>
                 <Zap className="h-3.5 w-3.5 text-amber-400" />
@@ -209,23 +209,23 @@ export default async function AdAnalyticsPage({
               <p className="mt-2 text-2xl font-mono-data font-bold text-amber-300 tracking-tight">
                 {analysis.amazonAcos > 0 ? `${analysis.amazonAcos}%` : '—'}
               </p>
-              <span className="text-[10px] font-mono-data text-[#A1A1AA] mt-1 block">
+              <span className="text-[10px] font-mono-data text-[var(--text-muted-hex)] mt-1 block">
                 Target: &lt; 22.0%
               </span>
             </div>
           </div>
 
           {/* AI Executive Assessment Banner */}
-          <div className="rounded border border-[#E5252A]/40 bg-gradient-to-r from-[#18181C] via-[#141418] to-[#18181C] p-5">
+          <div className="rounded border border-[#E5252A]/40 bg-gradient-to-r from-[var(--surface-subtle)] via-[var(--surface-footer)] to-[var(--surface-subtle)] p-5">
             <div className="flex items-start gap-3">
               <div className="rounded bg-[#E5252A] p-2 text-white shadow-sm mt-0.5">
                 <Sparkles className="h-4 w-4" />
               </div>
               <div className="flex-1">
-                <h3 className="text-xs font-mono-data font-bold text-[#FFFFFF] uppercase tracking-wider">
+                <h3 className="text-xs font-mono-data font-bold text-[var(--text-primary-hex)] uppercase tracking-wider">
                   AI Marketing Engine — Executive Performance Assessment
                 </h3>
-                <p className="mt-1.5 text-xs text-[#F4F4F6] leading-relaxed">
+                <p className="mt-1.5 text-xs text-[var(--text-primary-hex)] leading-relaxed">
                   {analysis.executiveSummary}
                 </p>
               </div>
@@ -234,33 +234,33 @@ export default async function AdAnalyticsPage({
 
           {/* Channel Breakdown */}
           <div className="terminal-card p-4 space-y-3">
-            <div className="border-b border-[#27272A] pb-2">
-              <h3 className="text-xs font-display font-semibold uppercase tracking-wider text-[#FFFFFF]">
+            <div className="border-b border-[var(--border-hairline)] pb-2">
+              <h3 className="text-xs font-display font-semibold uppercase tracking-wider text-[var(--text-primary-hex)]">
                 Channel Impression & Revenue Breakdown
               </h3>
-              <p className="text-[10px] font-mono-data text-[#A1A1AA]">
+              <p className="text-[10px] font-mono-data text-[var(--text-muted-hex)]">
                 Comparative telemetry across Amazon PPC, Google Ads, and Meta Ads.
               </p>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               {analysis.channelBreakdown.map((ch) => (
-                <div key={ch.platform} className="rounded border border-[#27272A] p-3.5 bg-[#18181C] space-y-2 font-mono-data text-xs">
-                  <p className="font-bold text-[#FFFFFF]">{ch.platform}</p>
-                  <div className="space-y-1.5 text-[11px] pt-1 border-t border-[#27272A]">
+                <div key={ch.platform} className="rounded border border-[var(--border-hairline)] p-3.5 bg-[var(--surface-subtle)] space-y-2 font-mono-data text-xs">
+                  <p className="font-bold text-[var(--text-primary-hex)]">{ch.platform}</p>
+                  <div className="space-y-1.5 text-[11px] pt-1 border-t border-[var(--border-hairline)]">
                     <div className="flex justify-between">
-                      <span className="text-[#A1A1AA]">Impressions:</span>
+                      <span className="text-[var(--text-muted-hex)]">Impressions:</span>
                       <span className="font-semibold text-white">{ch.impressions.toLocaleString()}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-[#A1A1AA]">Clicks:</span>
+                      <span className="text-[var(--text-muted-hex)]">Clicks:</span>
                       <span className="font-semibold text-white">{ch.clicks.toLocaleString()}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-[#A1A1AA]">Total Spend:</span>
+                      <span className="text-[var(--text-muted-hex)]">Total Spend:</span>
                       <span className="font-semibold text-white">${ch.spend.toLocaleString()}</span>
                     </div>
-                    <div className="flex justify-between pt-1 border-t border-[#27272A]">
-                      <span className="text-[#A1A1AA]">Channel ROAS:</span>
+                    <div className="flex justify-between pt-1 border-t border-[var(--border-hairline)]">
+                      <span className="text-[var(--text-muted-hex)]">Channel ROAS:</span>
                       <span className="font-bold text-[#E5252A]">{ch.roas}x</span>
                     </div>
                   </div>
@@ -272,10 +272,10 @@ export default async function AdAnalyticsPage({
           {/* AI Diagnostic Plan */}
           <div className="space-y-3">
             <div>
-              <h2 className="text-sm font-display font-bold uppercase tracking-wider text-[#FFFFFF] flex items-center gap-2">
+              <h2 className="text-sm font-display font-bold uppercase tracking-wider text-[var(--text-primary-hex)] flex items-center gap-2">
                 <Sparkles className="h-4 w-4 text-[#E5252A]" /> Algorithmic Optimization Action Plan
               </h2>
-              <p className="text-xs text-[#A1A1AA] mt-0.5">
+              <p className="text-xs text-[var(--text-muted-hex)] mt-0.5">
                 Root-cause analysis identifying impression fatigue, negative search terms, and budget reallocations.
               </p>
             </div>
@@ -290,25 +290,25 @@ export default async function AdAnalyticsPage({
                         <span className={`inline-flex items-center rounded px-2 py-0.5 text-[10px] font-mono-data font-bold uppercase ${style.badge}`}>
                           {item.severity}
                         </span>
-                        <h4 className="text-xs font-semibold text-[#FFFFFF]">{item.title}</h4>
+                        <h4 className="text-xs font-semibold text-[var(--text-primary-hex)]">{item.title}</h4>
                       </div>
                       <span className="text-[10px] font-mono-data font-semibold text-emerald-400 bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 rounded">
                         Impact: {item.impactEstimate}
                       </span>
                     </div>
 
-                    <div className="rounded bg-[#121215] p-3 border border-[#27272A] space-y-2">
+                    <div className="rounded bg-[var(--surface-base)] p-3 border border-[var(--border-hairline)] space-y-2">
                       <div>
-                        <span className="text-[10px] font-mono-data uppercase tracking-wider text-[#A1A1AA] block mb-0.5">
+                        <span className="text-[10px] font-mono-data uppercase tracking-wider text-[var(--text-muted-hex)] block mb-0.5">
                           Telemetry Diagnostic:
                         </span>
-                        <p className="text-xs text-[#F4F4F6] leading-relaxed">{item.whatIsHappening}</p>
+                        <p className="text-xs text-[var(--text-primary-hex)] leading-relaxed">{item.whatIsHappening}</p>
                       </div>
-                      <div className="pt-2 border-t border-[#27272A]">
+                      <div className="pt-2 border-t border-[var(--border-hairline)]">
                         <span className="text-[10px] font-mono-data uppercase tracking-wider text-[#E5252A] block mb-0.5">
                           Recommended AI Action:
                         </span>
-                        <p className="text-xs text-[#FFFFFF] font-medium leading-relaxed">{item.recommendedAction}</p>
+                        <p className="text-xs text-[var(--text-primary-hex)] font-medium leading-relaxed">{item.recommendedAction}</p>
                       </div>
                     </div>
                   </div>

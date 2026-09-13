@@ -161,15 +161,15 @@ export default async function DashboardOverviewPage() {
       {/* Precision Command Header */}
       <div className="terminal-panel p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2 font-mono-data text-[10px] text-[#A1A1AA] mb-1">
-            <span className="font-semibold text-[#FFFFFF] tracking-wider">TARGETGUM OPERATING SYSTEM</span>
+          <div className="flex items-center gap-2 font-mono-data text-[10px] text-[var(--text-muted-hex)] mb-1">
+            <span className="font-semibold text-[var(--text-primary-hex)] tracking-wider">TARGETGUM OPERATING SYSTEM</span>
             <span>•</span>
             <span className="text-[#E5252A] font-semibold">PRECISION MARKETING TERMINAL</span>
           </div>
-          <h1 className="text-xl font-display font-bold tracking-tight text-[#FFFFFF] flex items-center gap-2">
+          <h1 className="text-xl font-display font-bold tracking-tight text-[var(--text-primary-hex)] flex items-center gap-2">
             Marketing Command Center
           </h1>
-          <p className="text-xs text-[#A1A1AA] mt-1">
+          <p className="text-xs text-[var(--text-muted-hex)] mt-1">
             Real-time telemetry, campaign velocities, AI optimization agents, and client approval pipelines.
           </p>
         </div>
@@ -226,14 +226,14 @@ export default async function DashboardOverviewPage() {
       {(totalPendingApprovals > 0 || pendingApprovals.length > 0) && (
         <div className="terminal-alert-rust p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#E5252A]/10 border border-[#E5252A]/40 rounded">
           <div className="flex items-center gap-3">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded bg-[#E5252A]/20 text-[#FF4D4F]">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded bg-[#E5252A]/20 text-[var(--danger-text-hex)]">
               <AlertCircle className="h-4 w-4" />
             </div>
             <div>
-              <span className="font-mono-data text-xs font-bold uppercase tracking-wider text-[#FF4D4F] mr-2">
+              <span className="font-mono-data text-xs font-bold uppercase tracking-wider text-[var(--danger-text-hex)] mr-2">
                 Approval Gate Active:
               </span>
-              <span className="text-xs text-[#F4F4F6]">
+              <span className="text-xs text-[var(--text-primary-hex)]">
                 {totalPendingApprovals || pendingApprovals.length} action{totalPendingApprovals === 1 ? '' : 's'} awaiting client or manager authorization before execution.
               </span>
             </div>
@@ -307,10 +307,10 @@ export default async function DashboardOverviewPage() {
 
       {/* Attention Required Client Ledger */}
       <div className="terminal-card">
-        <div className="flex items-center justify-between border-b border-[#27272A] px-4 py-3">
+        <div className="flex items-center justify-between border-b border-[var(--border-hairline)] px-4 py-3">
           <div className="flex items-center gap-2">
             <Activity className="h-4 w-4 text-[#E5252A]" />
-            <h2 className="text-sm font-display font-semibold uppercase tracking-wider text-[#FFFFFF]">
+            <h2 className="text-sm font-display font-semibold uppercase tracking-wider text-[var(--text-primary-hex)]">
               Client Workspace Health & Attention
             </h2>
           </div>
@@ -329,7 +329,7 @@ export default async function DashboardOverviewPage() {
               description="Zero pending approvals, blocked integrations, or critical recommendations."
             />
           ) : (
-            <div className="divide-y divide-[#27272A]">
+            <div className="divide-y divide-[var(--border-hairline)]">
               {clientsNeedingAttention.map((client) => (
                 <div
                   key={client.id}
@@ -339,10 +339,10 @@ export default async function DashboardOverviewPage() {
                     href={`/dashboard/clients/${client.id}`}
                     className="flex min-w-0 items-center gap-3 group"
                   >
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded bg-[#18181C] border border-[#27272A] text-xs font-mono-data font-bold text-[#FFFFFF] group-hover:border-[#E5252A] transition-colors">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded bg-[var(--surface-subtle)] border border-[var(--border-hairline)] text-xs font-mono-data font-bold text-[var(--text-primary-hex)] group-hover:border-[#E5252A] transition-colors">
                       {initials(client.name)}
                     </div>
-                    <span className="truncate text-sm font-medium text-[#F4F4F6] group-hover:text-[#E5252A] transition-colors">
+                    <span className="truncate text-sm font-medium text-[var(--text-primary-hex)] group-hover:text-[#E5252A] transition-colors">
                       {client.name}
                     </span>
                   </Link>
@@ -351,7 +351,7 @@ export default async function DashboardOverviewPage() {
                     {client.attention.pendingApprovals > 0 && (
                       <Link
                         href="/dashboard/approvals"
-                        className="rounded px-2 py-0.5 text-xs font-mono-data font-medium bg-[#E5252A]/15 text-[#FF4D4F] border border-[#E5252A]/30 hover:bg-[#E5252A]/25"
+                        className="rounded px-2 py-0.5 text-xs font-mono-data font-medium bg-[#E5252A]/15 text-[var(--danger-text-hex)] border border-[#E5252A]/30 hover:bg-[#E5252A]/25"
                       >
                         {client.attention.pendingApprovals} approval{client.attention.pendingApprovals === 1 ? '' : 's'}
                       </Link>
@@ -390,10 +390,10 @@ export default async function DashboardOverviewPage() {
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {/* Pending Approvals */}
         <div className="terminal-card">
-          <div className="flex items-center justify-between border-b border-[#27272A] px-4 py-3">
+          <div className="flex items-center justify-between border-b border-[var(--border-hairline)] px-4 py-3">
             <div className="flex items-center gap-2">
-              <ShieldCheck className="h-4 w-4 text-[#A1A1AA]" />
-              <h3 className="text-xs font-display font-semibold uppercase tracking-wider text-[#FFFFFF]">
+              <ShieldCheck className="h-4 w-4 text-[var(--text-muted-hex)]" />
+              <h3 className="text-xs font-display font-semibold uppercase tracking-wider text-[var(--text-primary-hex)]">
                 Pending Approvals Gate
               </h3>
             </div>
@@ -408,7 +408,7 @@ export default async function DashboardOverviewPage() {
             {pendingApprovals.length === 0 ? (
               <EmptyState icon={ShieldCheck} title="No pending approvals" />
             ) : (
-              <ul className="divide-y divide-[#27272A]">
+              <ul className="divide-y divide-[var(--border-hairline)]">
                 {pendingApprovals.map((approval) => (
                   <li
                     key={approval.id}
@@ -417,11 +417,11 @@ export default async function DashboardOverviewPage() {
                     <div className="min-w-0">
                       <Link
                         href={`/dashboard/clients/${approval.clientId}`}
-                        className="font-medium text-[#F4F4F6] hover:text-[#E5252A] transition-colors"
+                        className="font-medium text-[var(--text-primary-hex)] hover:text-[#E5252A] transition-colors"
                       >
                         {approval.client.name}
                       </Link>
-                      <p className="truncate text-xs text-[#A1A1AA]">{approval.actionSummary}</p>
+                      <p className="truncate text-xs text-[var(--text-muted-hex)]">{approval.actionSummary}</p>
                     </div>
                     <StatusBadge status={approval.riskLevel} className="shrink-0" />
                   </li>
@@ -433,10 +433,10 @@ export default async function DashboardOverviewPage() {
 
         {/* Scheduled Content & Work */}
         <div className="terminal-card">
-          <div className="flex items-center justify-between border-b border-[#27272A] px-4 py-3">
+          <div className="flex items-center justify-between border-b border-[var(--border-hairline)] px-4 py-3">
             <div className="flex items-center gap-2">
-              <CalendarDays className="h-4 w-4 text-[#A1A1AA]" />
-              <h3 className="text-xs font-display font-semibold uppercase tracking-wider text-[#FFFFFF]">
+              <CalendarDays className="h-4 w-4 text-[var(--text-muted-hex)]" />
+              <h3 className="text-xs font-display font-semibold uppercase tracking-wider text-[var(--text-primary-hex)]">
                 Upcoming Scheduled Work
               </h3>
             </div>
@@ -449,20 +449,20 @@ export default async function DashboardOverviewPage() {
           </div>
           <div className="p-4 space-y-3">
             <div>
-              <p className="mb-1.5 font-mono-data text-[10px] uppercase tracking-wider text-[#71717A]">
+              <p className="mb-1.5 font-mono-data text-[10px] uppercase tracking-wider text-[var(--text-faint-hex)]">
                 Active Tasks
               </p>
               {openTasks.length === 0 ? (
-                <p className="text-xs text-[#A1A1AA]">No open tasks right now.</p>
+                <p className="text-xs text-[var(--text-muted-hex)]">No open tasks right now.</p>
               ) : (
                 <ul className="space-y-1.5">
                   {openTasks.map((task) => (
                     <li
                       key={task.id}
-                      className="flex items-center justify-between gap-2 text-xs rounded bg-[#18181C] px-2.5 py-1.5 border border-[#27272A]"
+                      className="flex items-center justify-between gap-2 text-xs rounded bg-[var(--surface-subtle)] px-2.5 py-1.5 border border-[var(--border-hairline)]"
                     >
-                      <span className="truncate text-[#F4F4F6]">{task.title}</span>
-                      <span className="shrink-0 font-mono-data text-[10px] text-[#A1A1AA]">
+                      <span className="truncate text-[var(--text-primary-hex)]">{task.title}</span>
+                      <span className="shrink-0 font-mono-data text-[10px] text-[var(--text-muted-hex)]">
                         {task.client?.name}
                       </span>
                     </li>
@@ -471,20 +471,20 @@ export default async function DashboardOverviewPage() {
               )}
             </div>
 
-            <div className="pt-2 border-t border-[#27272A]">
-              <p className="mb-1.5 font-mono-data text-[10px] uppercase tracking-wider text-[#71717A]">
+            <div className="pt-2 border-t border-[var(--border-hairline)]">
+              <p className="mb-1.5 font-mono-data text-[10px] uppercase tracking-wider text-[var(--text-faint-hex)]">
                 Scheduled Posts
               </p>
               {upcomingContent.length === 0 ? (
-                <p className="text-xs text-[#A1A1AA]">Nothing scheduled.</p>
+                <p className="text-xs text-[var(--text-muted-hex)]">Nothing scheduled.</p>
               ) : (
                 <ul className="space-y-1.5">
                   {upcomingContent.map((item) => (
                     <li
                       key={item.id}
-                      className="flex items-center justify-between gap-2 text-xs rounded bg-[#18181C] px-2.5 py-1.5 border border-[#27272A]"
+                      className="flex items-center justify-between gap-2 text-xs rounded bg-[var(--surface-subtle)] px-2.5 py-1.5 border border-[var(--border-hairline)]"
                     >
-                      <span className="truncate text-[#F4F4F6]">
+                      <span className="truncate text-[var(--text-primary-hex)]">
                         {item.client?.name} · {item.platform}
                       </span>
                       <span className="shrink-0 font-mono-data text-[10px] text-[#E5252A]">
@@ -501,10 +501,10 @@ export default async function DashboardOverviewPage() {
 
       {/* Recent AI Engine Runs */}
       <div className="terminal-card">
-        <div className="flex items-center justify-between border-b border-[#27272A] px-4 py-3">
+        <div className="flex items-center justify-between border-b border-[var(--border-hairline)] px-4 py-3">
           <div className="flex items-center gap-2">
             <Sparkles className="h-4 w-4 text-[#E5252A]" />
-            <h3 className="text-xs font-display font-semibold uppercase tracking-wider text-[#FFFFFF]">
+            <h3 className="text-xs font-display font-semibold uppercase tracking-wider text-[var(--text-primary-hex)]">
               Recent AI Engine Executions
             </h3>
           </div>
@@ -525,7 +525,7 @@ export default async function DashboardOverviewPage() {
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs font-mono-data">
-                <thead className="text-[#71717A] border-b border-[#27272A]">
+                <thead className="text-[var(--text-faint-hex)] border-b border-[var(--border-hairline)]">
                   <tr>
                     <th className="pb-2 font-medium">Client Workspace</th>
                     <th className="pb-2 font-medium">Model</th>
@@ -534,20 +534,20 @@ export default async function DashboardOverviewPage() {
                     <th className="pb-2 font-medium text-right">Timestamp</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#27272A]">
+                <tbody className="divide-y divide-[var(--border-hairline)]">
                   {recentAiRuns.map((run) => (
-                    <tr key={run.id} className="hover:bg-[#18181C] transition-colors">
-                      <td className="py-2.5 font-medium text-[#FFFFFF]">{run.client?.name ?? '—'}</td>
-                      <td className="py-2.5 text-[#A1A1AA]">{run.model}</td>
+                    <tr key={run.id} className="hover:bg-[var(--surface-subtle)] transition-colors">
+                      <td className="py-2.5 font-medium text-[var(--text-primary-hex)]">{run.client?.name ?? '—'}</td>
+                      <td className="py-2.5 text-[var(--text-muted-hex)]">{run.model}</td>
                       <td className="py-2.5">
                         <StatusBadge status={run.status} />
                       </td>
-                      <td className="py-2.5 text-[#A1A1AA]">
+                      <td className="py-2.5 text-[var(--text-muted-hex)]">
                         {run.estimatedCostCents != null
                           ? `$${(run.estimatedCostCents / 100).toFixed(3)}`
                           : '—'}
                       </td>
-                      <td className="py-2.5 text-[#71717A] text-right">
+                      <td className="py-2.5 text-[var(--text-faint-hex)] text-right">
                         {formatRelative(run.createdAt)}
                       </td>
                     </tr>
@@ -581,15 +581,15 @@ function StatCard({
     <Link href={href} className="group">
       <div className="terminal-card p-3.5 space-y-1.5 transition-all duration-150 group-hover:border-[#E5252A]/60">
         <div className="flex items-center justify-between">
-          <span className="text-[10px] font-mono-data uppercase tracking-wider text-[#A1A1AA]">
+          <span className="text-[10px] font-mono-data uppercase tracking-wider text-[var(--text-muted-hex)]">
             {label}
           </span>
           <div
             className={cn(
               'flex h-5 w-5 items-center justify-center rounded border transition-colors',
               isWarning
-                ? 'bg-[#E5252A]/15 text-[#FF4D4F] border-[#E5252A]/40'
-                : 'bg-[#18181C] text-[#A1A1AA] border-[#27272A] group-hover:text-[#E5252A] group-hover:border-[#E5252A]/40'
+                ? 'bg-[#E5252A]/15 text-[var(--danger-text-hex)] border-[#E5252A]/40'
+                : 'bg-[var(--surface-subtle)] text-[var(--text-muted-hex)] border-[var(--border-hairline)] group-hover:text-[#E5252A] group-hover:border-[#E5252A]/40'
             )}
           >
             <Icon className="h-3 w-3" />
@@ -597,13 +597,13 @@ function StatCard({
         </div>
 
         <div className="flex items-baseline gap-2 pt-0.5">
-          <span className="text-xl font-mono-data font-bold text-[#FFFFFF] tracking-tight">
+          <span className="text-xl font-mono-data font-bold text-[var(--text-primary-hex)] tracking-tight">
             {value}
           </span>
         </div>
 
         {subtitle && (
-          <p className="text-[10px] font-mono-data text-[#71717A] group-hover:text-[#A1A1AA] transition-colors">
+          <p className="text-[10px] font-mono-data text-[var(--text-faint-hex)] group-hover:text-[var(--text-muted-hex)] transition-colors">
             {subtitle}
           </p>
         )}

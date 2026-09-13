@@ -71,16 +71,16 @@ export function CommandCenterTelemetry({
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
       {/* 7-Day Performance Velocity Chart */}
       <div className="lg:col-span-2 terminal-card p-4 space-y-3">
-        <div className="flex items-center justify-between border-b border-[#27272A] pb-3">
+        <div className="flex items-center justify-between border-b border-[var(--border-hairline)] pb-3">
           <div className="flex items-center gap-2">
             <div className="flex h-6 w-6 items-center justify-center rounded bg-[#E5252A]/15 text-[#E5252A]">
               <TrendingUp className="h-3.5 w-3.5" />
             </div>
             <div>
-              <h3 className="text-xs font-display font-semibold uppercase tracking-wider text-[#FFFFFF]">
+              <h3 className="text-xs font-display font-semibold uppercase tracking-wider text-[var(--text-primary-hex)]">
                 Performance Velocity (7-Day Trend)
               </h3>
-              <p className="text-[10px] font-mono-data text-[#A1A1AA]">
+              <p className="text-[10px] font-mono-data text-[var(--text-muted-hex)]">
                 Live telemetry: Daily Ad Spend vs Gross Return
               </p>
             </div>
@@ -88,11 +88,11 @@ export function CommandCenterTelemetry({
           <div className="flex items-center gap-3 text-[11px] font-mono-data">
             <div className="flex items-center gap-1.5">
               <span className="h-2 w-2 rounded-full bg-[#E5252A]" />
-              <span className="text-[#A1A1AA]">Ad Spend (${totalSpend.toLocaleString()})</span>
+              <span className="text-[var(--text-muted-hex)]">Ad Spend (${totalSpend.toLocaleString()})</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-full bg-[#FFFFFF]" />
-              <span className="text-[#A1A1AA]">Gross Return (${totalRevenue.toLocaleString()})</span>
+              <span className="h-2 w-2 rounded-full bg-[var(--text-primary-hex)]" />
+              <span className="text-[var(--text-muted-hex)]">Gross Return (${totalRevenue.toLocaleString()})</span>
             </div>
           </div>
         </div>
@@ -106,41 +106,41 @@ export function CommandCenterTelemetry({
                   <stop offset="95%" stopColor="#E5252A" stopOpacity={0.0} />
                 </linearGradient>
                 <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#FFFFFF" stopOpacity={0.2} />
-                  <stop offset="95%" stopColor="#FFFFFF" stopOpacity={0.0} />
+                  <stop offset="5%" stopColor="var(--text-primary-hex)" stopOpacity={0.2} />
+                  <stop offset="95%" stopColor="var(--text-primary-hex)" stopOpacity={0.0} />
                 </linearGradient>
               </defs>
               <XAxis
                 dataKey="day"
-                stroke="#54524A"
+                stroke="var(--chart-grid-hex)"
                 fontSize={10}
                 tickLine={false}
-                axisLine={{ stroke: '#27272A' }}
+                axisLine={{ stroke: 'var(--border-hairline)' }}
                 fontFamily="var(--font-mono)"
               />
               <YAxis
-                stroke="#54524A"
+                stroke="var(--chart-grid-hex)"
                 fontSize={10}
                 tickLine={false}
-                axisLine={{ stroke: '#27272A' }}
+                axisLine={{ stroke: 'var(--border-hairline)' }}
                 tickFormatter={(v) => `$${v}`}
                 fontFamily="var(--font-mono)"
               />
               <Tooltip
                 contentStyle={{
-                  backgroundColor: '#121215',
-                  borderColor: '#27272A',
+                  backgroundColor: 'var(--surface-base)',
+                  borderColor: 'var(--border-hairline)',
                   borderRadius: '4px',
                   fontSize: '11px',
                   fontFamily: 'var(--font-mono)',
-                  color: '#F4F4F6',
+                  color: 'var(--text-primary-hex)',
                 }}
                 formatter={(value: any) => [`$${Number(value).toLocaleString()}`, '']}
               />
               <Area
                 type="monotone"
                 dataKey="revenue"
-                stroke="#FFFFFF"
+                stroke="var(--text-primary-hex)"
                 strokeWidth={2}
                 fillOpacity={1}
                 fill="url(#revenueGradient)"
@@ -159,11 +159,11 @@ export function CommandCenterTelemetry({
           </ResponsiveContainer>
 
           {!hasGenuineSpend && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#121215]/60 backdrop-blur-[1px] rounded">
-              <p className="text-xs text-[#F4F4F6] font-medium mb-1">
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-[var(--surface-base)]/60 backdrop-blur-[1px] rounded">
+              <p className="text-xs text-[var(--text-primary-hex)] font-medium mb-1">
                 No active ad spend telemetry recorded yet
               </p>
-              <p className="text-[11px] text-[#A1A1AA] max-w-sm text-center mb-3">
+              <p className="text-[11px] text-[var(--text-muted-hex)] max-w-sm text-center mb-3">
                 Connect your genuine Meta Ads or Google Ads account to start streaming daily live spend and return metrics.
               </p>
               <Link
@@ -179,16 +179,16 @@ export function CommandCenterTelemetry({
 
       {/* Multi-Channel Spend Allocation Donut */}
       <div className="terminal-card p-4 space-y-3 flex flex-col justify-between">
-        <div className="flex items-center justify-between border-b border-[#27272A] pb-3">
+        <div className="flex items-center justify-between border-b border-[var(--border-hairline)] pb-3">
           <div className="flex items-center gap-2">
-            <div className="flex h-6 w-6 items-center justify-center rounded bg-[#27272A] text-[#A1A1AA]">
+            <div className="flex h-6 w-6 items-center justify-center rounded bg-[var(--border-hairline)] text-[var(--text-muted-hex)]">
               <PieIcon className="h-3.5 w-3.5" />
             </div>
             <div>
-              <h3 className="text-xs font-display font-semibold uppercase tracking-wider text-[#FFFFFF]">
+              <h3 className="text-xs font-display font-semibold uppercase tracking-wider text-[var(--text-primary-hex)]">
                 Channel Mix
               </h3>
-              <p className="text-[10px] font-mono-data text-[#A1A1AA]">
+              <p className="text-[10px] font-mono-data text-[var(--text-muted-hex)]">
                 Multi-platform budget weighting
               </p>
             </div>
@@ -208,7 +208,7 @@ export function CommandCenterTelemetry({
                   outerRadius={58}
                   paddingAngle={4}
                   dataKey="value"
-                  stroke="#121215"
+                  stroke="var(--surface-base)"
                   strokeWidth={2}
                 >
                   {displayChannelMix.map((entry, index) => (
@@ -217,12 +217,12 @@ export function CommandCenterTelemetry({
                 </Pie>
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: '#121215',
-                    borderColor: '#27272A',
+                    backgroundColor: 'var(--surface-base)',
+                    borderColor: 'var(--border-hairline)',
                     borderRadius: '4px',
                     fontSize: '11px',
                     fontFamily: 'var(--font-mono)',
-                    color: '#F4F4F6',
+                    color: 'var(--text-primary-hex)',
                   }}
                   formatter={(val: any) => [`${val}%`, 'Allocation']}
                 />
@@ -230,23 +230,23 @@ export function CommandCenterTelemetry({
             </ResponsiveContainer>
           ) : (
             <div className="text-center p-4">
-              <div className="h-16 w-16 mx-auto rounded-full border-2 border-dashed border-[#27272A] flex items-center justify-center text-[10px] font-mono-data text-[#A1A1AA] mb-2">
+              <div className="h-16 w-16 mx-auto rounded-full border-2 border-dashed border-[var(--border-hairline)] flex items-center justify-center text-[10px] font-mono-data text-[var(--text-muted-hex)] mb-2">
                 0%
               </div>
-              <p className="text-xs text-[#A1A1AA]">No ad platform spend allocated yet</p>
+              <p className="text-xs text-[var(--text-muted-hex)]">No ad platform spend allocated yet</p>
             </div>
           )}
         </div>
 
         {/* Legend Breakdown */}
-        <div className="grid grid-cols-2 gap-2 pt-2 border-t border-[#27272A]">
+        <div className="grid grid-cols-2 gap-2 pt-2 border-t border-[var(--border-hairline)]">
           {displayChannelMix.map((channel) => (
             <div key={channel.name} className="flex items-center justify-between text-[11px] font-mono-data">
               <div className="flex items-center gap-1.5 truncate">
                 <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: channel.color }} />
-                <span className="text-[#A1A1AA] truncate">{channel.name}</span>
+                <span className="text-[var(--text-muted-hex)] truncate">{channel.name}</span>
               </div>
-              <span className="text-[#F4F4F6] font-semibold ml-1">{channel.value}%</span>
+              <span className="text-[var(--text-primary-hex)] font-semibold ml-1">{channel.value}%</span>
             </div>
           ))}
         </div>

@@ -47,9 +47,17 @@ const NAV_ITEMS: Array<{ href: string; label: string; icon: LucideIcon; badge?: 
 export function DashboardNav() {
   const pathname = usePathname()
 
+  // Mobile drawer (src/app/dashboard/layout.tsx's checkbox toggle) should
+  // close after navigating - a plain CSS peer-checkbox has no notion of
+  // "route changed," so uncheck it explicitly on click.
+  function closeMobileDrawer() {
+    const toggle = document.getElementById('mobile-nav-toggle') as HTMLInputElement | null
+    if (toggle) toggle.checked = false
+  }
+
   return (
     <nav className="flex flex-1 flex-col gap-0.5 px-3 py-2">
-      <div className="px-3 py-1.5 text-[11px] font-mono-data font-semibold uppercase tracking-wider text-[#A1A1AA]">
+      <div className="px-3 py-1.5 text-[11px] font-mono-data font-semibold uppercase tracking-wider text-[var(--text-muted-hex)]">
         Core Operations
       </div>
       {NAV_ITEMS.map((item) => {
@@ -59,17 +67,18 @@ export function DashboardNav() {
           <Link
             key={item.href}
             href={item.href}
+            onClick={closeMobileDrawer}
             className={cn(
               'group flex items-center gap-2.5 rounded px-3 py-2 text-[13px] font-medium transition-all duration-150 relative',
               active
-                ? 'bg-[#18181C] text-[#FFFFFF] font-semibold shadow-sm border-l-2 border-[#E5252A]'
-                : 'text-[#D4D4D8] hover:bg-[#18181C] hover:text-[#FFFFFF]',
+                ? 'bg-[var(--surface-subtle)] text-[var(--text-primary-hex)] font-semibold shadow-sm border-l-2 border-[#E5252A]'
+                : 'text-[var(--text-secondary-hex)] hover:bg-[var(--surface-subtle)] hover:text-[var(--text-primary-hex)]',
             )}
           >
             <Icon
               className={cn(
                 'h-4 w-4 shrink-0 transition-colors',
-                active ? 'text-[#E5252A]' : 'text-[#8E8E98] group-hover:text-[#FFFFFF]'
+                active ? 'text-[#E5252A]' : 'text-[var(--text-dim-hex)] group-hover:text-[var(--text-primary-hex)]'
               )}
               strokeWidth={active ? 2.2 : 1.8}
             />
@@ -79,8 +88,8 @@ export function DashboardNav() {
                 className={cn(
                   'rounded px-1.5 py-0.5 text-[10px] font-mono-data font-bold uppercase tracking-wider',
                   item.isAlert
-                    ? 'bg-[#E5252A]/20 text-[#FF4D4F] border border-[#E5252A]/40'
-                    : 'bg-[#222226] text-[#D4D4D8] border border-[#3F3F46]'
+                    ? 'bg-[#E5252A]/20 text-[var(--danger-text-hex)] border border-[#E5252A]/40'
+                    : 'bg-[var(--surface-badge-neutral)] text-[var(--text-secondary-hex)] border border-[var(--border-badge-neutral)]'
                 )}
               >
                 {item.badge}
