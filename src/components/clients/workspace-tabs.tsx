@@ -10,6 +10,7 @@ const TABS = [
   { href: '/brand', label: 'Brand' },
   { href: '/audience', label: 'Audience' },
   { href: '/marketing', label: 'Marketing' },
+  { href: '/connections', label: 'Connections' },
   { href: '/integrations', label: 'Integrations' },
   { href: '/settings', label: 'Settings' },
 ]

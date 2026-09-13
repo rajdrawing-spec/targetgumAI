@@ -1,11 +1,13 @@
 'use server'
 
+import type { IntegrationProvider } from '@prisma/client'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { getCurrentAuthContext } from '@/lib/auth/current-context'
 import { rejectApproval } from '@/lib/approvals/approvals'
 import { addClientCompetitor, updateClientPolicy } from '@/lib/clients/brain'
 import { createClient } from '@/lib/clients/create'
+import { PROVIDER_LABEL } from '@/components/clients/labels'
 import {
   approveContentCalendarItem,
   cancelContentCalendarItem,
@@ -22,6 +24,7 @@ import {
   submitCreativeForReview,
 } from '@/lib/creative/persist'
 import { connectClientToCanvaAccount } from '@/lib/integrations/canva/connect'
+import { connectClientToPlaceholderAccount, disconnectClientFromProvider } from '@/lib/integrations/connections'
 import { connectClientToGoogleAdsAccount } from '@/lib/integrations/google-ads/connect'
 import { connectClientToMetaAdsAccount } from '@/lib/integrations/meta-ads/connect'
 import { syncMetaAdAccountTelemetry } from '@/lib/integrations/meta-ads/sync'
@@ -328,6 +331,46 @@ export async function syncClientMetaAdsAction(clientId: string, connectionId: st
 
 export async function connectCanvaAccountAction(clientId: string, _prev: ActionResult, formData: FormData): Promise<ActionResult> {
   return connectAction('connect-canva', clientId, formData, 'externalAccountId', (ctx, id, label) => connectClientToCanvaAccount(ctx, clientId, id, label), 'Canva brand connected.')
+}
+
+// ---------------------------------------------------------------- client Connections tab (structure-first social/web platforms)
+
+/**
+ * One generic connect action, parameterized by provider and bound per
+ * platform card from the Connections tab (`connectClientConnectionAction
+ * .bind(null, clientId, 'FACEBOOK')` etc.) - avoids eleven near-identical
+ * wrapper functions for what's the same call with a different enum value.
+ * See src/lib/integrations/connections.ts for why this never touches
+ * providers with a real connect flow elsewhere (Metricool/Canva/Google
+ * Ads/Meta Ads/GA4/GSC).
+ */
+export async function connectClientConnectionAction(
+  clientId: string,
+  provider: IntegrationProvider,
+  _prev: ActionResult,
+  formData: FormData,
+): Promise<ActionResult> {
+  return runAction('connect-client-connection', async () => {
+    const ctx = await requireCtx()
+    const label = formString(formData, 'label') ?? ''
+    await connectClientToPlaceholderAccount(ctx, clientId, provider, label)
+    revalidateClient(clientId)
+    return actionOk(`${PROVIDER_LABEL[provider]} connected.`)
+  })
+}
+
+export async function disconnectClientConnectionAction(
+  clientId: string,
+  provider: IntegrationProvider,
+  _prev: ActionResult,
+  _formData: FormData,
+): Promise<ActionResult> {
+  return runAction('disconnect-client-connection', async () => {
+    const ctx = await requireCtx()
+    await disconnectClientFromProvider(ctx, clientId, provider)
+    revalidateClient(clientId)
+    return actionOk(`${PROVIDER_LABEL[provider]} disconnected.`)
+  })
 }
 
 // ---------------------------------------------------------------- content calendar

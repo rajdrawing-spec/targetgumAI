@@ -502,6 +502,22 @@ enum IntegrationProvider {
   AMAZON_ADS
   TIKTOK_ADS
   LINKEDIN
+
+  // Social/web presence connections (Client Workspace "Connections" tab,
+  // structure-first per docs/DECISIONS.md - no live provider behind these
+  // yet, same "mock/placeholder before real API" sequencing as every other
+  // provider in this enum originally had).
+  WEB
+  BLOG
+  FACEBOOK
+  INSTAGRAM
+  THREADS
+  TWITTER_X
+  BLUESKY
+  PINTEREST
+  TIKTOK_PERSONAL
+  TIKTOK_BUSINESS
+  GOOGLE_BUSINESS_PROFILE
 }
 
 model Integration {

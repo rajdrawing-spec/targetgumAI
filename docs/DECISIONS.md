@@ -5,6 +5,52 @@ Newest entries at the top.
 
 ---
 
+## 2026-09-13 — Client Workspace "Connections" tab: structure before API (explicit user request)
+
+**Decision:** New `/dashboard/clients/[clientId]/connections` tab listing
+every social/web platform a client might be on - Web, Blog, Facebook,
+Instagram, Threads, X, Bluesky, LinkedIn, Pinterest, TikTok (personal +
+business), Google Business Profile - plus a read-only view of the existing
+ad platforms (Meta Ads, Google Ads, Amazon Ads, TikTok Ads). Connecting a
+social/web platform today just records a handle/page name as a label - no
+real API or OAuth behind any of them yet, exactly as asked ("later i will
+do api things, first build the structure"). Reuses the existing
+`Integration`/`IntegrationAccount`/`IntegrationConnection` tables (11 new
+`IntegrationProvider` enum values; `LINKEDIN` already existed and is
+reused) rather than a parallel schema - same tenant scoping, health
+tracking, and RBAC gate (`integrations.manage`) as every other provider.
+
+**Ad platforms are read-only here, not connectable.** Meta Ads and Google
+Ads already have real connect flows on the Integrations tab
+(`connectClientToMetaAdsAccount` etc. - live-verified in an earlier
+session). `src/lib/integrations/connections.ts`'s `assertConnectable`
+refuses METRICOOL/CANVA/GA4/GOOGLE_SEARCH_CONSOLE/GOOGLE_ADS/META_ADS
+outright - this new simpler "just a label" path can never touch a
+provider with a real credentialed connection elsewhere, so there is no way
+for the new tab to silently clobber a working connection. The Connections
+tab links to the Integrations tab for those instead of duplicating a
+second, weaker connect form for the same provider.
+
+**Placement:** a new tab (not folded into the existing Integrations tab)
+per explicit user choice - Integrations stays scoped to business-tool
+integrations (Metricool/Google Ads/Meta Ads/Canva); Connections is the
+client's platform/account inventory, modeled after Metricool's own
+"Connections" settings screen the user referenced directly.
+
+**Trade-off accepted:** a connected placeholder proves nothing - no
+verification is possible without a real provider behind it, so `CONNECTED`
+here means "someone recorded this account exists," not "we can read or
+post to it." Acceptable because this is explicitly step one of two the
+user asked for.
+
+**Revisit if:** a real provider is added for any of these platforms - swap
+that platform's card to the same explicit-connect-function pattern
+Meta Ads/Google Ads already use (verify + `recordIntegrationSuccess`/
+`recordIntegrationFailure`), and add it to `assertConnectable`'s refusal
+list at the same time so the placeholder path can no longer touch it.
+
+---
+
 ## 2026-09-13 — Staff dashboard report view gets its own renderer for the Ad Performance Audit shape
 
 **Decision:** `src/app/dashboard/reports/[reportId]/page.tsx` gained a

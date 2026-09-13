@@ -10,6 +10,17 @@ export const PROVIDER_LABEL: Record<IntegrationProvider, string> = {
   AMAZON_ADS: 'Amazon Ads',
   TIKTOK_ADS: 'TikTok Ads',
   LINKEDIN: 'LinkedIn',
+  WEB: 'Web page',
+  BLOG: 'Blog',
+  FACEBOOK: 'Facebook',
+  INSTAGRAM: 'Instagram',
+  THREADS: 'Threads',
+  TWITTER_X: 'X (Twitter)',
+  BLUESKY: 'Bluesky',
+  PINTEREST: 'Pinterest',
+  TIKTOK_PERSONAL: 'TikTok personal',
+  TIKTOK_BUSINESS: 'TikTok business',
+  GOOGLE_BUSINESS_PROFILE: 'Google Business Profile',
 }
 
 /** Dot color per health state - the raw palette swatches, text-safe variants are used for labels. */
