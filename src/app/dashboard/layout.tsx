@@ -7,6 +7,7 @@ import { signOut } from '@/lib/auth'
 import { DashboardNav } from '@/components/dashboard-nav'
 import { ToastProvider } from '@/components/ui/toast'
 import { ThemeToggle } from '@/components/theme-toggle'
+import { UniversalSearch } from '@/components/universal-search'
 
 /**
  * The dashboard shell (BRD-PRD Section 42). This layout is staff-only. A
@@ -121,8 +122,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
         {/* Main Content Area */}
         <div className="flex min-w-0 flex-1 flex-col">
-          <header className="flex h-16 shrink-0 items-center justify-between gap-3 border-b border-[var(--border-hairline)] bg-[var(--surface-base)]/85 px-4 backdrop-blur-md sm:px-6">
-            <div className="flex min-w-0 items-center gap-3">
+          <header className="flex h-16 shrink-0 items-center gap-3 border-b border-[var(--border-hairline)] bg-[var(--surface-base)]/85 px-4 backdrop-blur-md sm:px-6">
+            <div className="flex min-w-0 shrink-0 items-center gap-3">
               <label
                 htmlFor="mobile-nav-toggle"
                 aria-label="Open menu"
@@ -136,13 +137,17 @@ export default async function DashboardLayout({ children }: { children: React.Re
               >
                 TargetGum Agency Terminal
               </Link>
-              <div className="hidden items-center gap-1.5 rounded-full border border-[#E5252A]/30 bg-[#E5252A]/10 px-2.5 py-0.5 text-[11px] font-mono-data font-medium text-[var(--danger-text-hex)] sm:flex">
+              <div className="hidden items-center gap-1.5 rounded-full border border-[#E5252A]/30 bg-[#E5252A]/10 px-2.5 py-0.5 text-[11px] font-mono-data font-medium text-[var(--danger-text-hex)] xl:flex">
                 <span className="h-1.5 w-1.5 rounded-full bg-[#E5252A] animate-pulse" />
                 <span>AI ENGINE ONLINE</span>
               </div>
             </div>
 
-            <div className="flex shrink-0 items-center gap-3">
+            <div className="hidden min-w-0 flex-1 justify-center px-2 md:flex">
+              <UniversalSearch className="max-w-md" />
+            </div>
+
+            <div className="ml-auto flex shrink-0 items-center gap-3">
               <span className="hidden text-xs font-mono-data uppercase tracking-wider text-[var(--text-faint-hex)] sm:inline">
                 {ROLE_LABEL[ctx.roleKey] ?? ctx.roleKey}
               </span>

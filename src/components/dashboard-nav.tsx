@@ -23,7 +23,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-const NAV_ITEMS: Array<{ href: string; label: string; icon: LucideIcon; badge?: string; isAlert?: boolean }> = [
+export const NAV_ITEMS: Array<{ href: string; label: string; icon: LucideIcon; badge?: string; isAlert?: boolean }> = [
   { href: '/dashboard', label: 'Command Center', icon: LayoutDashboard },
   { href: '/dashboard/clients', label: 'Client Workspaces', icon: Users },
   { href: '/dashboard/ads', label: 'AI Ad Campaigns', icon: Megaphone, badge: 'STUDIO' },
