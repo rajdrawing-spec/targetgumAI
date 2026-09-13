@@ -5,6 +5,61 @@ Newest entries at the top.
 
 ---
 
+## 2026-09-13 — AI Gateway reverted from Gemini back to Claude
+
+**Decision:** `src/lib/ai/{client,gateway,models,errors}.ts` now call Claude
+via `@anthropic-ai/sdk` again - `getAnthropicClient()` (lazy singleton,
+`ANTHROPIC_API_KEY`), `client.messages.parse()` with native structured
+outputs (`output_config: { format: zodOutputFormat(schema) }` from
+`@anthropic-ai/sdk/helpers/zod`, response on `.parsed_output`), and the
+original three model tiers restored to their Claude IDs: `fast` = Claude
+Haiku 4.5 (`claude-haiku-4-5-20251001`), `default` = Claude Sonnet 5
+(`claude-sonnet-5`, override `ANTHROPIC_DEFAULT_MODEL`), `reasoning` =
+Claude Opus 5 (`claude-opus-5`) - with real (non-free) per-tier pricing for
+`estimateCostCents`. `@google/generative-ai` removed from `package.json`
+(zero remaining imports). This undoes the "Gemini AI swap" recorded in the
+2026-09-10 entry below (merged in from a separate branch of UI/feature work
+pushed directly to `origin`, not through this session).
+
+**Rationale:** BRD-PRD Section 113 ("Important Claude Rule") states plainly:
+"Claude is the primary AI model for MVP. Do not add GPT/Gemini/Grok/etc.
+simply for the sake of multiple models" - the Gemini swap was never an
+approved deviation from BRD-PRD, just an unreviewed change that landed via
+a direct push. The user now holds a working Anthropic API key, which
+removes whatever practical constraint motivated the swap, so this restores
+the spec rather than introduces a new one.
+
+**Verification note:** every consuming test (`tests/integration/ai-gateway
+.test.ts`, `analyze-client-workflow`, `creative-workflow`, `seo-workflow`,
+`weekly-intelligence`, `competitor-workflow`, `client-portal-permissions`,
+most of `analytics-agent`) turned out to have been left mocking the
+Anthropic shape (`setAnthropicClientForTests`/`resetAnthropicClientForTests`,
+`{ messages: { parse } }`, `Anthropic.RateLimitError`/`BadRequestError`)
+the entire time - only `src/lib/ai/{client,gateway,models}.ts` themselves
+and two unit test files (`tests/unit/ai-client.test.ts`,
+`tests/unit/ai-models.test.ts`, both added new during the Gemini swap) were
+actually Gemini-shaped. Restoring the gateway to match fixed roughly twenty
+previously-failing tests that had nothing else wrong with them - they were
+failing on `GOOGLE_GENERATIVE_AI_API_KEY not configured` in an environment
+that only ever had `ANTHROPIC_API_KEY`.
+
+**Known pre-existing, unrelated gap left as-is:** three assertions in
+`tests/integration/analytics-agent.test.ts` (the agent's registered tool
+allowlist, and two `dataGaps`-count checks derived from it) fail because
+the Analytics Agent's tool registration now includes `meta_ads.get_campaigns`
+/ `meta_ads.get_campaign_performance`, added by the same direct-push Meta
+Ads integration work and never reconciled with this test. Unrelated to the
+AI provider - left for whoever owns that decision (should the test's
+expected list grow, or should Analytics Agent not hold those two tools).
+
+**Trade-off accepted:** none functionally - this is a straight revert to
+the originally-designed, BRD-mandated provider. `zodOutputFormat()` still
+requires schemas built from `zod/v4` (see the 2026-09-10 entry below);
+unchanged, since `runStructuredAiTask`'s public signature never moved to
+Gemini's schema shape at any call site.
+
+---
+
 ## 2026-09-13 — Invite links: `appUrl()` validates `APP_URL`, fails loudly in production instead of sending a broken link
 
 **Decision:** `appUrl()` (`src/lib/users/invitations.ts`, now exported for

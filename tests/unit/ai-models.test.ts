@@ -9,20 +9,29 @@ describe('AI model selection & cost estimation', () => {
   })
 
   it('estimates cost proportionally to tokens for the reasoning tier', () => {
-    // reasoning tier: $1.25/$10.00 per 1M input/output tokens
+    // reasoning tier (Claude Opus 5): $5.00/$25.00 per 1M input/output tokens
     const cents = estimateCostCents('reasoning', 1_000_000, 1_000_000)
-    expect(cents).toBe(1125) // $1.25 + $10.00 = $11.25 = 1125 cents
+    expect(cents).toBe(3000) // $5.00 + $25.00 = $30.00 = 3000 cents
   })
 
-  it('default and fast tiers are free (0 cents)', () => {
-    expect(estimateCostCents('default', 1_000_000, 1_000_000)).toBe(0)
-    expect(estimateCostCents('fast', 1_000_000, 1_000_000)).toBe(0)
+  it('estimates cost proportionally to tokens for the fast tier', () => {
+    // fast tier (Claude Haiku 4.5): $1.00/$5.00 per 1M input/output tokens
+    const cents = estimateCostCents('fast', 1_000_000, 1_000_000)
+    expect(cents).toBe(600) // $1.00 + $5.00 = $6.00 = 600 cents
   })
 
   it('the reasoning tier costs more than the fast tier for identical usage', () => {
     const fastCost = estimateCostCents('fast', 100_000, 50_000)!
     const reasoningCost = estimateCostCents('reasoning', 100_000, 50_000)!
     expect(reasoningCost).toBeGreaterThan(fastCost)
+  })
+
+  it('the default tier sits between fast and reasoning for identical usage', () => {
+    const fastCost = estimateCostCents('fast', 100_000, 50_000)!
+    const defaultCost = estimateCostCents('default', 100_000, 50_000)!
+    const reasoningCost = estimateCostCents('reasoning', 100_000, 50_000)!
+    expect(defaultCost).toBeGreaterThan(fastCost)
+    expect(defaultCost).toBeLessThan(reasoningCost)
   })
 
   it('returns 0 (not null) for zero token usage', () => {

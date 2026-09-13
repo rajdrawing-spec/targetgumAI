@@ -6,7 +6,7 @@ export class AiGatewayError extends Error {
   }
 }
 
-/** Gemini's response didn't validate against the requested schema, even after retry. */
+/** Claude's response didn't validate against the requested schema, even after retry. */
 export class InvalidAiOutputError extends AiGatewayError {
   constructor(message = 'AI response did not match the requested output schema.') {
     super(message)
