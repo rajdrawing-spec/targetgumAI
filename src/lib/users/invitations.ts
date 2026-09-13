@@ -36,8 +36,36 @@ function hashToken(token: string): string {
   return createHash('sha256').update(token).digest('hex')
 }
 
-function appUrl(): string {
-  return process.env.APP_URL ?? 'http://localhost:3000'
+/**
+ * Resolves the base URL invite links are built against. `??` alone isn't
+ * enough here - an `APP_URL` env var that's *set but blank* (a value left
+ * empty in a host's dashboard, e.g. Vercel) or set to a scheme with no host
+ * (`"http://"`) both pass a plain truthiness/`??` check yet produce a
+ * broken, host-less link (`/accept-invite/<token>` or `http:///accept-invite/
+ * <token>`) that silently fails for the invitee with no error anywhere in
+ * this flow - see docs/DECISIONS.md, 2026-09-13. Validated with `URL` so a
+ * misconfiguration like that fails loudly in production instead.
+ */
+export function appUrl(): string {
+  const raw = process.env.APP_URL?.trim()
+  if (raw) {
+    try {
+      const parsed = new URL(raw)
+      if (parsed.host) return raw.replace(/\/+$/, '')
+    } catch {
+      // falls through to the error/fallback below
+    }
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error(
+        `APP_URL is set but is not a valid absolute URL ("${raw}") - invite links would be broken. Set it to your deployment's full URL, e.g. https://your-app.vercel.app (no trailing slash).`,
+      )
+    }
+  } else if (process.env.NODE_ENV === 'production') {
+    throw new Error(
+      "APP_URL is not configured - invite links would be broken. Set it to this deployment's full URL, e.g. https://your-app.vercel.app.",
+    )
+  }
+  return 'http://localhost:3000'
 }
 
 const inviteSchema = z.object({

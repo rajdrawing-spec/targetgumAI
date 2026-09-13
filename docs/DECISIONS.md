@@ -5,6 +5,40 @@ Newest entries at the top.
 
 ---
 
+## 2026-09-13 — Invite links: `appUrl()` validates `APP_URL`, fails loudly in production instead of sending a broken link
+
+**Decision:** `appUrl()` (`src/lib/users/invitations.ts`, now exported for
+testing) no longer just does `process.env.APP_URL ?? 'http://localhost:3000'`.
+It trims the value, parses it with `URL` to confirm it's absolute *and has a
+host*, and strips any trailing slash. In production, an `APP_URL` that's
+unset, blank, or host-less (e.g. `APP_URL="http://"` - a scheme with nothing
+after it) now throws a clear error instead of silently building a broken
+link. Outside production it still falls back to `http://localhost:3000` for
+local-dev convenience.
+
+**Rationale:** A real deployment hit this: `APP_URL` was set but blank/
+host-less in Vercel, so invite emails went out with `http:///accept-invite/
+<token>` (three slashes, no host) - Gmail flagged it as an invalid URL and
+no invitee could ever accept an invitation, with nothing in the app's logs
+or UI indicating anything was wrong (the Super Admin saw "Invite sent"). The
+old `??` check only catches `null`/`undefined`, not a present-but-empty or
+malformed string - exactly the shape a host dashboard's env var UI produces
+when a value is left blank or copy-pasted wrong. This is the same class of
+problem CLAUDE.md rule 5 exists for ("never fabricate external data... surface
+'integration unavailable'") - a broken link silently handed to a real user is
+its own kind of fabrication, so this now fails the invite outright in
+production rather than degrading invisibly. Covered by
+`tests/unit/invite-app-url.test.ts`.
+
+**Trade-off accepted:** `createInvitation` now hard-fails (no invitation
+email attempt at all) if `APP_URL` is misconfigured in production, rather
+than degrading to "email not sent, here's the raw link" the way a missing
+`EMAIL_SERVER_HOST` does - deliberate, since a URL built from a bad
+`APP_URL` is broken *even in the raw-link fallback UI*, so there's no
+useful degraded mode to fall back to here.
+
+---
+
 ## 2026-09-13 — Meta Ads sync: an hourly cron, run per-connection instead of per-client
 
 **Decision:** Added `GET /api/cron/meta-ads-sync` (registered in `vercel.json`,
