@@ -166,8 +166,73 @@ export async function fetchMetaCampaigns(adAccountId: string, token: string): Pr
   }))
 }
 
+function parseInsightRow(row: any, fallbackCampaignId?: string, fallbackCampaignName?: string): MetaDailyInsight {
+  const spend = row.spend ? parseFloat(row.spend) : 0
+  const impressions = row.impressions ? parseInt(row.impressions, 10) : 0
+  const clicks = row.clicks ? parseInt(row.clicks, 10) : 0
+  const ctr = row.ctr ? parseFloat(row.ctr) : impressions > 0 ? (clicks / impressions) * 100 : 0
+  const cpc = row.cpc ? parseFloat(row.cpc) : clicks > 0 ? spend / clicks : 0
+  const cpm = row.cpm ? parseFloat(row.cpm) : impressions > 0 ? (spend / impressions) * 1000 : 0
+
+  // Extract conversions from actions
+  let conversions = 0
+  if (row.actions) {
+    for (const a of row.actions) {
+      if (
+        a.action_type === 'omni_purchase' ||
+        a.action_type === 'purchase' ||
+        a.action_type === 'lead' ||
+        a.action_type === 'offsite_conversion.fb_pixel_purchase'
+      ) {
+        conversions += parseInt(a.value, 10) || 0
+      }
+    }
+  }
+
+  // Extract revenue from action_values
+  let revenue = 0
+  if (row.action_values) {
+    for (const av of row.action_values) {
+      if (
+        av.action_type === 'omni_purchase' ||
+        av.action_type === 'purchase' ||
+        av.action_type === 'offsite_conversion.fb_pixel_purchase'
+      ) {
+        revenue += parseFloat(av.value) || 0
+      }
+    }
+  }
+
+  // Calculate ROAS
+  let roas = 0
+  if (row.purchase_roas && row.purchase_roas.length > 0) {
+    roas = parseFloat(row.purchase_roas[0]?.value || '0') || 0
+  } else if (spend > 0 && revenue > 0) {
+    roas = Number((revenue / spend).toFixed(2))
+  }
+
+  return {
+    campaignId: row.campaign_id || fallbackCampaignId || '',
+    campaignName: row.campaign_name || fallbackCampaignName || '',
+    date: row.date_start || new Date().toISOString().slice(0, 10),
+    impressions,
+    clicks,
+    spend: Number(spend.toFixed(2)),
+    ctr: Number(ctr.toFixed(2)),
+    cpc: Number(cpc.toFixed(2)),
+    cpm: Number(cpm.toFixed(2)),
+    reach: row.reach ? parseInt(row.reach, 10) : impressions,
+    frequency: row.frequency ? parseFloat(row.frequency) : 1,
+    conversions,
+    revenue: Number(revenue.toFixed(2)),
+    roas: Number(roas.toFixed(2)),
+    raw: row as unknown as Record<string, unknown>,
+  }
+}
+
 /**
  * Fetches real daily performance insights for a Meta Ad Account.
+ * Crucially specifies level=campaign so Meta returns per-campaign insights with campaign_id.
  */
 export async function fetchMetaDailyInsights(
   adAccountId: string,
@@ -180,7 +245,8 @@ export async function fetchMetaDailyInsights(
       ? `time_range={"since":"${options.fromDate}","until":"${options.toDate}"}`
       : `date_preset=${options.datePreset || 'last_30d'}`
 
-  const url = `/${actId}/insights?fields=campaign_id,campaign_name,impressions,clicks,spend,cpc,cpm,ctr,reach,frequency,actions,action_values,purchase_roas,date_start,date_stop&time_increment=1&${dateParam}&limit=100`
+  // level=campaign is mandatory for Meta to group insights by campaign and return campaign_id
+  const url = `/${actId}/insights?level=campaign&fields=campaign_id,campaign_name,impressions,clicks,spend,cpc,cpm,ctr,reach,frequency,actions,action_values,purchase_roas,date_start,date_stop&time_increment=1&${dateParam}&limit=500`
 
   const response = await metaFetch<{
     data: Array<{
@@ -202,69 +268,36 @@ export async function fetchMetaDailyInsights(
     }>
   }>(url, token.trim())
 
-  return (response.data || []).map((row) => {
-    const spend = row.spend ? parseFloat(row.spend) : 0
-    const impressions = row.impressions ? parseInt(row.impressions, 10) : 0
-    const clicks = row.clicks ? parseInt(row.clicks, 10) : 0
-    const ctr = row.ctr ? parseFloat(row.ctr) : impressions > 0 ? (clicks / impressions) * 100 : 0
-    const cpc = row.cpc ? parseFloat(row.cpc) : clicks > 0 ? spend / clicks : 0
-    const cpm = row.cpm ? parseFloat(row.cpm) : impressions > 0 ? (spend / impressions) * 1000 : 0
+  return (response.data || []).map((row) => parseInsightRow(row))
+}
 
-    // Extract conversions from actions
-    let conversions = 0
-    if (row.actions) {
-      for (const a of row.actions) {
-        if (
-          a.action_type === 'omni_purchase' ||
-          a.action_type === 'purchase' ||
-          a.action_type === 'lead' ||
-          a.action_type === 'offsite_conversion.fb_pixel_purchase'
-        ) {
-          conversions += parseInt(a.value, 10) || 0
-        }
-      }
-    }
+/**
+ * Fetches insights directly for a specific Meta Campaign.
+ * Supports querying lifetime summary (timeIncrement undefined) or daily series (timeIncrement=1).
+ */
+export async function fetchCampaignInsights(
+  campaignId: string,
+  token: string,
+  options: { fromDate?: string; toDate?: string; datePreset?: string; timeIncrement?: number } = {},
+): Promise<MetaDailyInsight[]> {
+  const dateParam =
+    options.fromDate && options.toDate
+      ? `time_range={"since":"${options.fromDate}","until":"${options.toDate}"}`
+      : `date_preset=${options.datePreset || 'maximum'}`
 
-    // Extract revenue from action_values
-    let revenue = 0
-    if (row.action_values) {
-      for (const av of row.action_values) {
-        if (
-          av.action_type === 'omni_purchase' ||
-          av.action_type === 'purchase' ||
-          av.action_type === 'offsite_conversion.fb_pixel_purchase'
-        ) {
-          revenue += parseFloat(av.value) || 0
-        }
-      }
-    }
+  const timeIncParam = options.timeIncrement !== undefined ? `&time_increment=${options.timeIncrement}` : ''
+  const url = `/${campaignId}/insights?fields=campaign_id,campaign_name,impressions,clicks,spend,cpc,cpm,ctr,reach,frequency,actions,action_values,purchase_roas,date_start,date_stop${timeIncParam}&${dateParam}&limit=100`
 
-    // Calculate ROAS
-    let roas = 0
-    if (row.purchase_roas && row.purchase_roas.length > 0) {
-      roas = parseFloat(row.purchase_roas[0]?.value || '0') || 0
-    } else if (spend > 0 && revenue > 0) {
-      roas = Number((revenue / spend).toFixed(2))
-    }
+  try {
+    const response = await metaFetch<{
+      data: Array<any>
+    }>(url, token.trim())
 
-    return {
-      campaignId: row.campaign_id,
-      campaignName: row.campaign_name,
-      date: row.date_start,
-      impressions,
-      clicks,
-      spend: Number(spend.toFixed(2)),
-      ctr: Number(ctr.toFixed(2)),
-      cpc: Number(cpc.toFixed(2)),
-      cpm: Number(cpm.toFixed(2)),
-      reach: row.reach ? parseInt(row.reach, 10) : impressions,
-      frequency: row.frequency ? parseFloat(row.frequency) : 1,
-      conversions,
-      revenue: Number(revenue.toFixed(2)),
-      roas: Number(roas.toFixed(2)),
-      raw: row as unknown as Record<string, unknown>,
-    }
-  })
+    return (response.data || []).map((row) => parseInsightRow(row, campaignId))
+  } catch (error) {
+    console.warn(`[Meta API] Failed to fetch direct insights for campaign ${campaignId}:`, error)
+    return []
+  }
 }
 
 /**

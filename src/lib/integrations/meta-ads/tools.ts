@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { AdCampaignPerformanceSchema, AdCampaignRecordSchema, AdGroupRecordSchema, AdRecordSchema } from '@/lib/integrations/ads-schemas'
-import { withIntegrationHealthTracking } from '@/lib/integrations/health'
+import { withIntegrationHealthTracking, loadProviderCredentials } from '@/lib/integrations/health'
 import { registerTool } from '@/lib/tools/registry'
 import type { ToolContext } from '@/lib/tools/types'
 import { resolveMetaAdsProvider } from './index'
@@ -21,6 +21,16 @@ function requireClientId(ctx: ToolContext): string {
   return ctx.clientId
 }
 
+function resolveTokenForConnection(connection: { encryptedCredentials?: string | null }): string | undefined {
+  if (connection.encryptedCredentials) {
+    try {
+      const creds = loadProviderCredentials<{ accessToken?: string }>(connection as any)
+      if (creds?.accessToken) return creds.accessToken
+    } catch {}
+  }
+  return process.env.META_ACCESS_TOKEN || process.env.META_SYSTEM_ACCESS_TOKEN
+}
+
 const CHANNEL = 'meta_ads'
 
 export async function registerMetaAdsTools(): Promise<void> {
@@ -36,7 +46,7 @@ export async function registerMetaAdsTools(): Promise<void> {
     execute: async (_input, ctx) => {
       const clientId = requireClientId(ctx)
       return withIntegrationHealthTracking(clientId, 'META_ADS', (connection) =>
-        resolveMetaAdsProvider().getCampaigns(connection.integrationAccount.externalAccountId, CHANNEL),
+        resolveMetaAdsProvider(resolveTokenForConnection(connection)).getCampaigns(connection.integrationAccount.externalAccountId, CHANNEL),
       )
     },
   })
@@ -53,7 +63,7 @@ export async function registerMetaAdsTools(): Promise<void> {
     execute: async (input, ctx) => {
       const clientId = requireClientId(ctx)
       return withIntegrationHealthTracking(clientId, 'META_ADS', (connection) =>
-        resolveMetaAdsProvider().getCampaignPerformance(connection.integrationAccount.externalAccountId, CHANNEL, input),
+        resolveMetaAdsProvider(resolveTokenForConnection(connection)).getCampaignPerformance(connection.integrationAccount.externalAccountId, CHANNEL, input),
       )
     },
   })
@@ -70,7 +80,7 @@ export async function registerMetaAdsTools(): Promise<void> {
     execute: async (input, ctx) => {
       const clientId = requireClientId(ctx)
       return withIntegrationHealthTracking(clientId, 'META_ADS', (connection) =>
-        resolveMetaAdsProvider().getAdGroups(connection.integrationAccount.externalAccountId, input.providerCampaignId),
+        resolveMetaAdsProvider(resolveTokenForConnection(connection)).getAdGroups(connection.integrationAccount.externalAccountId, input.providerCampaignId),
       )
     },
   })
@@ -87,7 +97,7 @@ export async function registerMetaAdsTools(): Promise<void> {
     execute: async (input, ctx) => {
       const clientId = requireClientId(ctx)
       return withIntegrationHealthTracking(clientId, 'META_ADS', (connection) =>
-        resolveMetaAdsProvider().getAds(connection.integrationAccount.externalAccountId, input.providerAdGroupId),
+        resolveMetaAdsProvider(resolveTokenForConnection(connection)).getAds(connection.integrationAccount.externalAccountId, input.providerAdGroupId),
       )
     },
   })
@@ -104,7 +114,7 @@ export async function registerMetaAdsTools(): Promise<void> {
     execute: async (input, ctx) => {
       const clientId = requireClientId(ctx)
       return withIntegrationHealthTracking(clientId, 'META_ADS', (connection) =>
-        resolveMetaAdsProvider().createCampaign(connection.integrationAccount.externalAccountId, input),
+        resolveMetaAdsProvider(resolveTokenForConnection(connection)).createCampaign(connection.integrationAccount.externalAccountId, input),
       )
     },
   })
@@ -120,8 +130,8 @@ export async function registerMetaAdsTools(): Promise<void> {
     outputSchema: z.null(),
     execute: async (input, ctx) => {
       const clientId = requireClientId(ctx)
-      return withIntegrationHealthTracking(clientId, 'META_ADS', async () => {
-        await resolveMetaAdsProvider().pauseCampaign(input.providerCampaignId)
+      return withIntegrationHealthTracking(clientId, 'META_ADS', async (connection) => {
+        await resolveMetaAdsProvider(resolveTokenForConnection(connection)).pauseCampaign(input.providerCampaignId)
         return null
       })
     },
@@ -147,8 +157,8 @@ export async function registerMetaAdsTools(): Promise<void> {
     execute: async (input, ctx) => {
       const clientId = requireClientId(ctx)
       const { providerCampaignId, ...changes } = input
-      return withIntegrationHealthTracking(clientId, 'META_ADS', () =>
-        resolveMetaAdsProvider().updateCampaign(providerCampaignId, changes),
+      return withIntegrationHealthTracking(clientId, 'META_ADS', (connection) =>
+        resolveMetaAdsProvider(resolveTokenForConnection(connection)).updateCampaign(providerCampaignId, changes),
       )
     },
   })
@@ -164,8 +174,8 @@ export async function registerMetaAdsTools(): Promise<void> {
     outputSchema: z.null(),
     execute: async (input, ctx) => {
       const clientId = requireClientId(ctx)
-      return withIntegrationHealthTracking(clientId, 'META_ADS', async () => {
-        await resolveMetaAdsProvider().updateBudget(input.providerCampaignId, input.budget)
+      return withIntegrationHealthTracking(clientId, 'META_ADS', async (connection) => {
+        await resolveMetaAdsProvider(resolveTokenForConnection(connection)).updateBudget(input.providerCampaignId, input.budget)
         return null
       })
     },
@@ -182,8 +192,8 @@ export async function registerMetaAdsTools(): Promise<void> {
     outputSchema: z.null(),
     execute: async (input, ctx) => {
       const clientId = requireClientId(ctx)
-      return withIntegrationHealthTracking(clientId, 'META_ADS', async () => {
-        await resolveMetaAdsProvider().updateBid(input.providerAdId, input.bid)
+      return withIntegrationHealthTracking(clientId, 'META_ADS', async (connection) => {
+        await resolveMetaAdsProvider(resolveTokenForConnection(connection)).updateBid(input.providerAdId, input.bid)
         return null
       })
     },

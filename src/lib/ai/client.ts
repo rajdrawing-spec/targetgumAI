@@ -25,3 +25,12 @@ export function getGeminiClient(): GoogleGenerativeAI {
 export function resetGeminiClientForTests(): void {
   genAI = undefined
 }
+
+/** Legacy test-only helpers for integration tests */
+export function resetAnthropicClientForTests(): void {
+  genAI = undefined
+}
+
+export function setAnthropicClientForTests(_client: any): void {
+  // no-op for Gemini migration
+}

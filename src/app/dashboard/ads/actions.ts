@@ -82,16 +82,40 @@ export async function purgeDummyDataAction(): Promise<ActionResult> {
   })
 }
 
-export async function syncMetaAdsAction(clientId: string): Promise<ActionResult> {
+export async function syncMetaAdsAction(clientId?: string): Promise<ActionResult> {
   return runAction('sync-meta-ads', async () => {
     const ctx = await requireCtx()
     const { syncMetaAdAccountTelemetry } = await import('@/lib/integrations/meta-ads/sync')
-    const result = await syncMetaAdAccountTelemetry(ctx, clientId)
+    const { listAccessibleClients } = await import('@/lib/clients/list')
+
+    let targetClientIds: string[] = []
+    if (clientId) {
+      targetClientIds = [clientId]
+    } else {
+      const clients = await listAccessibleClients(ctx)
+      targetClientIds = clients.map((c) => c.id)
+    }
+
+    let totalCampaigns = 0
+    let totalMetrics = 0
+
+    for (const cid of targetClientIds) {
+      try {
+        const result = await syncMetaAdAccountTelemetry(ctx, cid)
+        totalCampaigns += result.syncedCampaigns
+        totalMetrics += result.syncedMetrics
+        revalidatePath(`/dashboard/clients/${cid}`)
+      } catch (err) {
+        if (clientId) {
+          throw err
+        }
+      }
+    }
+
     revalidatePath('/dashboard/ads')
     revalidatePath('/dashboard/ads/analytics')
-    revalidatePath(`/dashboard/clients/${clientId}`)
     revalidatePath('/dashboard')
-    return actionOk(`Synced ${result.syncedCampaigns} campaigns and ${result.syncedMetrics} telemetry points from Meta Graph API!`)
+    return actionOk(`Synced ${totalCampaigns} campaigns and ${totalMetrics} telemetry metrics from Meta Graph API!`)
   })
 }
 

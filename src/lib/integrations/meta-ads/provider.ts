@@ -6,8 +6,8 @@ import {
   updateMetaCampaignBudget,
 } from './meta-client'
 
-function getAccessToken(): string {
-  const token = process.env.META_ACCESS_TOKEN || process.env.META_SYSTEM_ACCESS_TOKEN
+function getAccessToken(explicitToken?: string): string {
+  const token = explicitToken || process.env.META_ACCESS_TOKEN || process.env.META_SYSTEM_ACCESS_TOKEN
   if (!token) {
     throw new Error('Meta Ads API Access Token not configured (META_ACCESS_TOKEN).')
   }
@@ -17,11 +17,13 @@ function getAccessToken(): string {
 /**
  * Production Meta Ads adapter communicating directly with Meta Graph API (v20.0).
  */
-export function createMetaAdsProvider(): AdsProvider {
+export function createMetaAdsProvider(explicitToken?: string): AdsProvider {
+  const token = () => getAccessToken(explicitToken)
+
   return {
     async getCampaigns(adAccountId: string, channel: string): Promise<AdCampaignRecord[]> {
-      const token = getAccessToken()
-      const campaigns = await fetchMetaCampaigns(adAccountId, token)
+      const activeToken = token()
+      const campaigns = await fetchMetaCampaigns(adAccountId, activeToken)
       return campaigns.map((c) => ({
         providerCampaignId: c.id,
         name: c.name,
@@ -38,8 +40,8 @@ export function createMetaAdsProvider(): AdsProvider {
       channel: string,
       range: { from: string; to: string },
     ): Promise<AdCampaignPerformance[]> {
-      const token = getAccessToken()
-      const insights = await fetchMetaDailyInsights(adAccountId, token, {
+      const activeToken = token()
+      const insights = await fetchMetaDailyInsights(adAccountId, activeToken, {
         fromDate: range.from,
         toDate: range.to,
       })
@@ -80,12 +82,12 @@ export function createMetaAdsProvider(): AdsProvider {
     },
 
     async updateCampaign(providerCampaignId: string, input: Partial<AdCampaignRecord>): Promise<AdCampaignRecord> {
-      const token = getAccessToken()
+      const activeToken = token()
       if (input.status === 'PAUSED') {
-        await pauseMetaCampaign(providerCampaignId, token)
+        await pauseMetaCampaign(providerCampaignId, activeToken)
       }
       if (input.budget !== undefined) {
-        await updateMetaCampaignBudget(providerCampaignId, input.budget, token)
+        await updateMetaCampaignBudget(providerCampaignId, input.budget, activeToken)
       }
       return {
         providerCampaignId,
@@ -97,13 +99,13 @@ export function createMetaAdsProvider(): AdsProvider {
     },
 
     async pauseCampaign(providerCampaignId: string): Promise<void> {
-      const token = getAccessToken()
-      await pauseMetaCampaign(providerCampaignId, token)
+      const activeToken = token()
+      await pauseMetaCampaign(providerCampaignId, activeToken)
     },
 
     async updateBudget(providerCampaignId: string, budget: number): Promise<void> {
-      const token = getAccessToken()
-      await updateMetaCampaignBudget(providerCampaignId, budget, token)
+      const activeToken = token()
+      await updateMetaCampaignBudget(providerCampaignId, budget, activeToken)
     },
 
     async updateBid(): Promise<void> {

@@ -11,6 +11,7 @@ import {
   Percent,
   Sparkles,
   ShoppingBag,
+  RefreshCw,
 } from 'lucide-react'
 import { getCurrentAuthContext } from '@/lib/auth/current-context'
 import { listCampaigns } from '@/lib/ads/service'
@@ -18,7 +19,7 @@ import { listAccessibleClients } from '@/lib/clients/list'
 import { EmptyState } from '@/components/ui/empty-state'
 import { ActionForm, SubmitButton } from '@/components/ui/action-form'
 import { AIAdCreatorStudio } from '@/components/ads/ai-ad-creator-studio'
-import { toggleCampaignStatusAction } from './actions'
+import { toggleCampaignStatusAction, syncMetaAdsAction } from './actions'
 import { cn } from '@/lib/utils'
 
 const PROVIDER_BADGE: Record<string, { label: string; className: string }> = {
@@ -108,6 +109,16 @@ export default async function AdsPage({
 
           {canManageAds && (
             <>
+              <ActionForm action={syncMetaAdsAction.bind(null, sp.clientId)}>
+                <SubmitButton
+                  variant="outline"
+                  size="sm"
+                  pendingLabel="Syncing..."
+                  className="btn-outline-hairline inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white hover:border-[#E5252A]/50"
+                >
+                  <RefreshCw className="h-3.5 w-3.5 text-[#E5252A]" /> Sync Meta Telemetry
+                </SubmitButton>
+              </ActionForm>
               <Link
                 href="/dashboard/ads/new?platform=AMAZON_ADS"
                 className="inline-flex items-center gap-1.5 rounded border border-amber-500/40 bg-amber-500/10 px-3 py-1.5 text-xs font-semibold text-amber-300 hover:bg-amber-500/20 transition-colors"

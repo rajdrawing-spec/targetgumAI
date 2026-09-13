@@ -8,10 +8,15 @@ describe('AI model selection & cost estimation', () => {
     expect(MODEL_IDS.reasoning).toBeTruthy()
   })
 
-  it('estimates cost proportionally to tokens for the default tier', () => {
-    // default tier: $2.00/$10.00 per 1M input/output tokens
-    const cents = estimateCostCents('default', 1_000_000, 1_000_000)
-    expect(cents).toBe(1200) // $2 + $10 = $12.00 = 1200 cents
+  it('estimates cost proportionally to tokens for the reasoning tier', () => {
+    // reasoning tier: $1.25/$10.00 per 1M input/output tokens
+    const cents = estimateCostCents('reasoning', 1_000_000, 1_000_000)
+    expect(cents).toBe(1125) // $1.25 + $10.00 = $11.25 = 1125 cents
+  })
+
+  it('default and fast tiers are free (0 cents)', () => {
+    expect(estimateCostCents('default', 1_000_000, 1_000_000)).toBe(0)
+    expect(estimateCostCents('fast', 1_000_000, 1_000_000)).toBe(0)
   })
 
   it('the reasoning tier costs more than the fast tier for identical usage', () => {

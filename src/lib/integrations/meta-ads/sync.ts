@@ -10,6 +10,7 @@ import {
   saveProviderCredentials,
 } from '@/lib/integrations/health'
 import {
+  fetchCampaignInsights,
   fetchMetaCampaigns,
   fetchMetaDailyInsights,
   verifyMetaCredentials,
@@ -33,19 +34,26 @@ export async function resolveMetaCredentials(
   const connection = await getProviderConnection(clientId, 'META_ADS')
 
   if (connection?.encryptedCredentials) {
-    const creds = loadProviderCredentials<MetaCredentialsPayload>(connection)
-    if (creds?.accessToken && creds?.adAccountId) {
-      return creds
+    try {
+      const creds = loadProviderCredentials<MetaCredentialsPayload>(connection)
+      if (creds?.accessToken && creds?.adAccountId) {
+        return creds
+      }
+    } catch (err) {
+      console.warn(
+        `[Meta Ads] Stored credentials for client ${clientId} could not be decrypted (encryption key changed):`,
+        err instanceof Error ? err.message : err,
+      )
     }
   }
 
   // Fallback to environment variables
   const envToken = process.env.META_ACCESS_TOKEN || process.env.META_SYSTEM_ACCESS_TOKEN
   const envAdAccount = process.env.META_AD_ACCOUNT_ID
-  if (envToken && (envAdAccount || connection?.integrationAccount.externalAccountId)) {
+  if (envToken && (envAdAccount || connection?.integrationAccount?.externalAccountId)) {
     return {
       accessToken: envToken,
-      adAccountId: (envAdAccount || connection?.integrationAccount.externalAccountId)!,
+      adAccountId: (envAdAccount || connection?.integrationAccount?.externalAccountId)!,
       appId: process.env.META_APP_ID,
       appSecret: process.env.META_APP_SECRET,
     }
@@ -133,18 +141,32 @@ export async function syncMetaAdAccountTelemetry(
     syncedCampaigns++
   }
 
-  // 4. Fetch daily performance insights from Meta Graph API
-  const metaInsights = await fetchMetaDailyInsights(adAccountId, accessToken, {
-    datePreset: 'last_30d',
-  })
+  // 4. Fetch performance insights from Meta Graph API
+  // Query with level=campaign and datePreset: 'maximum' to capture historical and current insights
+  let metaInsights: any[] = []
+  try {
+    metaInsights = await fetchMetaDailyInsights(adAccountId, accessToken, {
+      datePreset: 'maximum',
+    })
+  } catch (err) {
+    console.warn(`[Meta Ads] fetchMetaDailyInsights with datePreset maximum failed, trying last_90d:`, err)
+    try {
+      metaInsights = await fetchMetaDailyInsights(adAccountId, accessToken, {
+        datePreset: 'last_90d',
+      })
+    } catch (e2) {
+      console.warn(`[Meta Ads] fetchMetaDailyInsights last_90d failed:`, e2)
+    }
+  }
 
   let syncedMetrics = 0
+  const campaignsWithMetrics = new Set<string>()
+
   for (const insight of metaInsights) {
     const localCampaignId = campaignMap.get(insight.campaignId)
     if (!localCampaignId) continue
 
     const insightDate = new Date(insight.date)
-    // Check if metric already exists for this day & campaign
     const existingMetric = await db.campaignMetric.findFirst({
       where: {
         organizationId: ctx.organizationId,
@@ -192,7 +214,72 @@ export async function syncMetaAdAccountTelemetry(
         },
       })
     }
+    campaignsWithMetrics.add(localCampaignId)
     syncedMetrics++
+  }
+
+  // 4b. Direct campaign fallback: For any campaign that got 0 daily metrics, fetch direct campaign insights
+  for (const c of metaCampaigns) {
+    const localCampaignId = campaignMap.get(c.id)
+    if (!localCampaignId) continue
+
+    if (!campaignsWithMetrics.has(localCampaignId)) {
+      const directInsights = await fetchCampaignInsights(c.id, accessToken, {
+        datePreset: 'maximum',
+      })
+
+      for (const dInsight of directInsights) {
+        const metricDate = new Date(dInsight.date)
+        const existingMetric = await db.campaignMetric.findFirst({
+          where: {
+            organizationId: ctx.organizationId,
+            clientId: client.id,
+            campaignId: localCampaignId,
+            date: metricDate,
+          },
+        })
+
+        if (existingMetric) {
+          await db.campaignMetric.update({
+            where: { id: existingMetric.id },
+            data: {
+              impressions: dInsight.impressions,
+              clicks: dInsight.clicks,
+              spend: dInsight.spend,
+              ctr: dInsight.ctr,
+              cpc: dInsight.cpc,
+              conversions: dInsight.conversions,
+              revenue: dInsight.revenue,
+              roas: dInsight.roas,
+              retrievedAt: new Date(),
+              raw: dInsight.raw as any,
+            },
+          })
+        } else {
+          await db.campaignMetric.create({
+            data: {
+              organizationId: ctx.organizationId,
+              clientId: client.id,
+              campaignId: localCampaignId,
+              date: metricDate,
+              source: 'META_ADS',
+              retrievedAt: new Date(),
+              period: 'maximum',
+              impressions: dInsight.impressions,
+              clicks: dInsight.clicks,
+              spend: dInsight.spend,
+              ctr: dInsight.ctr,
+              cpc: dInsight.cpc,
+              conversions: dInsight.conversions,
+              revenue: dInsight.revenue,
+              roas: dInsight.roas,
+              raw: dInsight.raw as any,
+            },
+          })
+        }
+        syncedMetrics++
+      }
+    }
   }
 
   // 5. Update connection health
