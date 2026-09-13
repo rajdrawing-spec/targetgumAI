@@ -27,14 +27,20 @@ yet, not just here - `mfaEnabled` is shown read-only); and an admin-side
 "edit another employee's details" on the Team page (a separate,
 larger feature - this pass is self-service only).
 
-**Found while building, fixed narrowly:** `<Badge variant="accent">`
-renders invisible text everywhere it's used (`bg-accent` and
-`text-accent-foreground` both resolve to the same red -
+**Found while building, fixed as a follow-up the same day:** `<Badge
+variant="accent">` rendered invisible text everywhere it was used
+(`bg-accent` and `text-accent-foreground` both resolved to the same red -
 `--primary-tint === --primary` in `src/app/globals.css`, in both the
-light and dark blocks - not an actual tint). This page uses `neutral`/
-`success` instead rather than fixing the shared token, since the token
-bug is app-wide (it also affects `src/app/dashboard/team/page.tsx`'s
-role badges) and out of scope for this change.
+light and dark blocks - not an actual tint), affecting this page's own
+role badge, the Team page's role/client badges, the client-initial
+avatars (`dashboard/clients/page.tsx`, `dashboard/clients/[clientId]/
+layout.tsx`), and the "Primary contact" tag (`clients/[clientId]/
+settings/page.tsx`). Fixed by giving `--primary-tint` an actual tint value
+in both themes - matching the already-correct `--blush-tint` (same brand-
+red hue, `359deg`), which this reuses verbatim (`359 85% 96%` light,
+`359 79% 14%` dark) rather than inventing new numbers. `--primary`/
+`--primary-hover` themselves are untouched (used directly as the solid
+brand color everywhere else - no reason to touch that).
 
 **Trade-off accepted:** sessions are JWT-based (see the 2026-09-10 "Session
 strategy: JWT, not database" entry below) - changing a password here

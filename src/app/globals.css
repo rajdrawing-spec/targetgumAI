@@ -38,7 +38,13 @@
     /* TargetGum Brand Crimson (#E5252A) - unchanged across themes, brand identity */
     --primary: 359 79% 52%;
     --primary-hover: 359 81% 45%;
-    --primary-tint: 359 79% 52%;
+    /* A genuine light tint, not --primary itself - matches --blush-tint below
+       (same hue). Badge's "accent" variant pairs this as the background with
+       --primary as the text (bg-accent/text-accent-foreground in
+       tailwind.config.ts); the two used to be identical, making that text
+       invisible everywhere it was used (Team page role/client badges, the
+       client-initial avatars, the "Primary contact" tag) - see docs/DECISIONS.md. */
+    --primary-tint: 359 85% 96%;
 
     /* Status Tokens (hue held constant with dark mode; lightness/tint retuned for a white page) */
     --sage: 160 84% 32%;
@@ -104,7 +110,7 @@
 
     --primary: 359 79% 52%;
     --primary-hover: 359 81% 45%;
-    --primary-tint: 359 79% 52%;
+    --primary-tint: 359 79% 14%; /* dark tint, matches --blush-tint below - see the light-mode comment above */
 
     --sage: 160 84% 39%;
     --dusty-blue: 217 91% 60%;

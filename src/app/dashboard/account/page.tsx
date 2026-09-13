@@ -41,11 +41,7 @@ export default async function AccountPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex flex-wrap items-center gap-2 text-xs text-caption">
-            {/* variant="neutral", not "accent" - the accent Badge variant is
-                currently unreadable app-wide (bg-accent and text-accent-foreground
-                resolve to the identical red, --primary-tint === --primary in
-                globals.css - a pre-existing bug, not something to fix here). */}
-            <Badge variant="neutral">{ROLE_LABEL[ctx.roleKey] ?? ctx.roleKey}</Badge>
+            <Badge variant="accent">{ROLE_LABEL[ctx.roleKey] ?? ctx.roleKey}</Badge>
             <span>Member since {formatDateTime(profile.createdAt)}</span>
           </div>
 
