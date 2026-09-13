@@ -39,7 +39,7 @@ describe('security: cross-client access must be denied', () => {
     const employee = await createTestUser()
     employeeId = employee.id
     const membership = await testDb.organizationUser.create({
-      data: { organizationId: orgId, userId: employeeId, roleId: roles.get('marketing_employee')!.id },
+      data: { organizationId: orgId, userId: employeeId, roleId: roles.get('employee')!.id },
     })
     await testDb.clientAssignment.create({
       data: { clientId: clientAId, organizationUserId: membership.id },

@@ -47,7 +47,7 @@ describe('security: resolveDefaultAuthContext matches the two-step resolution', 
     const user = await createTestUser()
     userIds.push(user.id)
     const membership = await testDb.organizationUser.create({
-      data: { organizationId: orgId, userId: user.id, roleId: roles.get('marketing_employee')!.id },
+      data: { organizationId: orgId, userId: user.id, roleId: roles.get('employee')!.id },
     })
     await testDb.clientAssignment.create({ data: { clientId: clientAId, organizationUserId: membership.id } })
 
@@ -82,7 +82,7 @@ describe('security: resolveDefaultAuthContext matches the two-step resolution', 
     const ctx = await resolveDefaultAuthContext(testDb, user.id)
     expect(ctx).not.toBeNull()
     expect(ctx!.isClientUser).toBe(true)
-    expect(ctx!.roleKey).toBe('client_user')
+    expect(ctx!.roleKey).toBe('client')
     expect(ctx!.clientAccess.kind === 'SET' && ctx!.clientAccess.clientIds.has(clientAId)).toBe(true)
     expect(ctx!.clientAccess.kind === 'SET' && ctx!.clientAccess.clientIds.has(clientBId)).toBe(false)
   })

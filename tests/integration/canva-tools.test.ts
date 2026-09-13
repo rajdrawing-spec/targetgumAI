@@ -9,11 +9,10 @@ import { executeTool } from '@/lib/tools/execute'
 import { cleanupOrg, createSystemRoles, createTestClient, createTestOrg, createTestUser, testDb } from '../helpers/factory'
 
 /**
- * Canva Tool Registry entries (Phase 2, BRD Section 17/85). Unlike native
- * Ads (`ads.manage`, `account_manager` only), `creative.manage` is granted
- * to both `account_manager` and `marketing_employee` (BRD 4.3 explicitly
- * lists "Generate creative briefs" for Marketing Employee) - see
- * docs/DECISIONS.md.
+ * Canva Tool Registry entries (Phase 2, BRD Section 17/85). `creative.manage`
+ * is granted to every `employee` (BRD 4.2/4.3, merged 2026-09-13 - see
+ * docs/DECISIONS.md), unlike a `client`, who has neither `creative.manage`
+ * nor `ads.manage`.
  */
 describe('Canva tools end-to-end (Tool Registry + creative.manage)', () => {
   let orgId: string
@@ -43,7 +42,7 @@ describe('Canva tools end-to-end (Tool Registry + creative.manage)', () => {
     const marketingEmployee = await createTestUser()
     marketingEmployeeId = marketingEmployee.id
     const meMembership = await testDb.organizationUser.create({
-      data: { organizationId: orgId, userId: marketingEmployeeId, roleId: roles.get('marketing_employee')!.id },
+      data: { organizationId: orgId, userId: marketingEmployeeId, roleId: roles.get('employee')!.id },
     })
     await testDb.clientAssignment.create({ data: { clientId, organizationUserId: meMembership.id } })
 
@@ -67,7 +66,7 @@ describe('Canva tools end-to-end (Tool Registry + creative.manage)', () => {
     expect(connection?.status).toBe('CONNECTED')
   })
 
-  it('canva.create_design (MEDIUM) executes directly for marketing_employee (creative.manage, unlike ads.manage, is granted to this role)', async () => {
+  it('canva.create_design (MEDIUM) executes directly for an employee (creative.manage, unlike ads.manage, is granted to this role)', async () => {
     const ctx = await resolveAuthContext(testDb, marketingEmployeeId, orgId)
     const design = (await executeTool({
       ctx: ctx!,
@@ -78,7 +77,7 @@ describe('Canva tools end-to-end (Tool Registry + creative.manage)', () => {
     expect(design.designUrl).toContain('canva.com')
   })
 
-  it('canva.create_design/edit_design/export_design are denied for client_user (no creative.manage)', async () => {
+  it('canva.create_design/edit_design/export_design are denied for a client (no creative.manage)', async () => {
     const ctx = await resolveAuthContext(testDb, clientUserId, orgId)
     await expect(
       executeTool({ ctx: ctx!, toolKey: 'canva.create_design', input: { title: 't', concept: 'c', platform: 'instagram' }, clientId }),
@@ -91,7 +90,7 @@ describe('Canva tools end-to-end (Tool Registry + creative.manage)', () => {
     ).rejects.toThrow(ForbiddenError)
   })
 
-  it('canva.search_designs/search_assets (LOW) work for any role holding clients.read - even client_user', async () => {
+  it('canva.search_designs/search_assets (LOW) work for any role holding clients.read - even a client', async () => {
     const ctx = await resolveAuthContext(testDb, clientUserId, orgId)
     const designs = await executeTool({ ctx: ctx!, toolKey: 'canva.search_designs', input: { query: '' }, clientId })
     expect(Array.isArray(designs)).toBe(true)

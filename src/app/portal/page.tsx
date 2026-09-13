@@ -7,7 +7,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/empty-state'
 
 /**
- * A `client_user` is normally linked to exactly one client - go straight
+ * A `client` is normally linked to exactly one client - go straight
  * there. The rare multi-client case (one contact representing two brands,
  * `ClientUser` has no unique-per-user constraint) gets a picker instead of
  * guessing.

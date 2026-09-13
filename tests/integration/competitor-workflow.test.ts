@@ -152,7 +152,7 @@ describe('Competitor Agent + "Run competitor analysis" workflow (Phase 2, BRD Se
     expect(report.type).toBe('INTERNAL')
   })
 
-  it('a client_user cannot trigger a competitor analysis themselves (same analysis.trigger gate as every other analysis)', async () => {
+  it('a client cannot trigger a competitor analysis themselves (same analysis.trigger gate as every other analysis)', async () => {
     const clientCtx = await resolveAuthContext(testDb, clientUserId, orgId)
     await expect(runCompetitorAnalysisWorkflow({ ctx: clientCtx!, clientId })).rejects.toThrow(ForbiddenError)
   })

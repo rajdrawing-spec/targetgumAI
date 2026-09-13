@@ -48,7 +48,7 @@ describe('Content calendar (Phase 2, BRD Section 66/48)', () => {
     const marketingEmployee = await createTestUser()
     marketingEmployeeId = marketingEmployee.id
     const meMembership = await testDb.organizationUser.create({
-      data: { organizationId: orgId, userId: marketingEmployeeId, roleId: roles.get('marketing_employee')!.id },
+      data: { organizationId: orgId, userId: marketingEmployeeId, roleId: roles.get('employee')!.id },
     })
     await testDb.clientAssignment.create({ data: { clientId, organizationUserId: meMembership.id } })
     await testDb.clientAssignment.create({ data: { clientId: disconnectedClientId, organizationUserId: meMembership.id } })
@@ -56,7 +56,7 @@ describe('Content calendar (Phase 2, BRD Section 66/48)', () => {
     const accountManager = await createTestUser()
     accountManagerId = accountManager.id
     const amMembership = await testDb.organizationUser.create({
-      data: { organizationId: orgId, userId: accountManagerId, roleId: roles.get('account_manager')!.id },
+      data: { organizationId: orgId, userId: accountManagerId, roleId: roles.get('employee')!.id },
     })
     await testDb.clientAssignment.create({ data: { clientId, organizationUserId: amMembership.id } })
 
@@ -84,7 +84,7 @@ describe('Content calendar (Phase 2, BRD Section 66/48)', () => {
     vi.restoreAllMocks()
   })
 
-  it('a marketing_employee can create, submit, and (once an account_manager approves) schedule a post through the full lifecycle', async () => {
+  it('an employee can create, submit, and (once another employee approves) schedule a post through the full lifecycle', async () => {
     const meCtx = await resolveAuthContext(testDb, marketingEmployeeId, orgId)
     const item = await createContentCalendarItem(meCtx!, clientId, {
       platform: 'instagram',
@@ -123,7 +123,7 @@ describe('Content calendar (Phase 2, BRD Section 66/48)', () => {
       publishDate: new Date('2026-04-03T10:00:00Z'),
     })
     await submitContentForReview(meCtx!, item.id)
-    await approveContentCalendarItem(meCtx!, item.id) // marketing_employee holds content.manage too, can approve their own for this disconnected-client test
+    await approveContentCalendarItem(meCtx!, item.id) // content.manage covers the whole lifecycle, can approve their own for this disconnected-client test
 
     await expect(scheduleContentCalendarItem(meCtx!, item.id, { networks: ['instagram'] })).rejects.toThrow(
       IntegrationUnavailableError,
@@ -134,7 +134,7 @@ describe('Content calendar (Phase 2, BRD Section 66/48)', () => {
     expect(reloaded?.providerPostId).toBeNull()
   })
 
-  it('a client_user cannot create, submit, approve, cancel, or schedule content (content.manage not granted, BRD 4.4 is view-only)', async () => {
+  it('a client cannot create, submit, approve, cancel, or schedule content (content.manage not granted, BRD 4.4 is view-only)', async () => {
     const meCtx = await resolveAuthContext(testDb, marketingEmployeeId, orgId)
     const item = await createContentCalendarItem(meCtx!, clientId, {
       platform: 'facebook',
@@ -149,7 +149,7 @@ describe('Content calendar (Phase 2, BRD Section 66/48)', () => {
     await expect(cancelContentCalendarItem(clientCtx!, item.id)).rejects.toThrow(ForbiddenError)
   })
 
-  it('a client_user CAN read the content calendar for their own client (BRD 4.4 "View content/creative", via the existing clients.read grant)', async () => {
+  it('a client CAN read the content calendar for their own client (BRD 4.4 "View content/creative", via the existing clients.read grant)', async () => {
     const meCtx = await resolveAuthContext(testDb, marketingEmployeeId, orgId)
     await createContentCalendarItem(meCtx!, clientId, {
       platform: 'linkedin',
@@ -162,7 +162,7 @@ describe('Content calendar (Phase 2, BRD Section 66/48)', () => {
     expect(items.some((i) => i.caption === 'Client-visible post')).toBe(true)
   })
 
-  it('a marketing_employee cannot touch content belonging to a client they are not assigned to', async () => {
+  it('an employee cannot touch content belonging to a client they are not assigned to', async () => {
     const otherItem = await db.contentCalendarItem.create({
       data: {
         organizationId: orgId,

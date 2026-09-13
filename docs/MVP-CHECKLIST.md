@@ -50,14 +50,22 @@ Update this file whenever a step completes or scope changes.
 - [x] **Manually verified live** (not just automated tests): unauthenticated
       `/dashboard` redirects to `/sign-in`; a wrong password redirects with
       `error=CredentialsSignin&code=invalid_credentials`; a super_admin login
-      sees both seeded clients; a marketing_employee login sees only the one
-      client they're assigned to — real proof tenant isolation holds, not
-      just in test doubles
+      sees both seeded clients; a scoped-access employee login (originally
+      `marketing_employee`, since merged into `employee` -
+      docs/DECISIONS.md) sees only the one client they're assigned to —
+      real proof tenant isolation holds, not just in test doubles
 
 **Known gaps to close before this is production-ready** (not blocking Day 4):
 recovery-code persistence/UI, rate limiting on the credentials endpoint,
-CSRF-protected server actions for anything beyond Auth.js's own routes, and
-a real sign-up/user-invitation flow (dev users are seed-script-only so far).
+CSRF-protected server actions for anything beyond Auth.js's own routes.
+
+- [x] **2026-09-13**: real email-invitation flow closing the
+      "sign-up/user-invitation" gap above (docs/DECISIONS.md) -
+      `src/lib/users/invitations.ts` + `/dashboard/team` (Super Admin only,
+      `users.manage`). A Super Admin invites by email and picks one of two
+      roles (`employee` or `client` - `INVITABLE_ROLES`); nothing is
+      granted until the invitee accepts and sets a password. Dev/seed users
+      remain for local development only.
 
 ### Day 4 — Claude integration, AI Gateway, structured outputs, AI run tracking ✅ DONE
 

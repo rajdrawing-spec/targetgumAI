@@ -72,17 +72,21 @@ describe('Weekly automated intelligence (Phase 2, BRD Section 65/85)', () => {
       data: { organizationId: orgId, userId: superAdminId, roleId: roles.get('super_admin')!.id },
     })
 
+    // Two separately-assigned employees (account_manager/marketing_employee
+    // merged into one `employee` role, docs/DECISIONS.md 2026-09-13) -
+    // created in this order so "the earliest-assigned employee" below has a
+    // deterministic answer.
     const accountManager = await createTestUser()
     accountManagerId = accountManager.id
     const amMembership = await testDb.organizationUser.create({
-      data: { organizationId: orgId, userId: accountManagerId, roleId: roles.get('account_manager')!.id },
+      data: { organizationId: orgId, userId: accountManagerId, roleId: roles.get('employee')!.id },
     })
     await testDb.clientAssignment.create({ data: { clientId, organizationUserId: amMembership.id } })
 
     const marketingEmployee = await createTestUser()
     marketingEmployeeId = marketingEmployee.id
     const meMembership = await testDb.organizationUser.create({
-      data: { organizationId: orgId, userId: marketingEmployeeId, roleId: roles.get('marketing_employee')!.id },
+      data: { organizationId: orgId, userId: marketingEmployeeId, roleId: roles.get('employee')!.id },
     })
     await testDb.clientAssignment.create({ data: { clientId, organizationUserId: meMembership.id } })
   })
@@ -101,12 +105,12 @@ describe('Weekly automated intelligence (Phase 2, BRD Section 65/85)', () => {
   })
 
   describe('resolveAutomationActor', () => {
-    it('prefers an assigned account_manager over a marketing_employee', async () => {
+    it('picks the earliest-assigned eligible employee when more than one is assigned', async () => {
       const ctx = await resolveAutomationActor(orgId, clientId)
       expect(ctx?.userId).toBe(accountManagerId)
     })
 
-    it('falls back to marketing_employee when no account_manager is assigned', async () => {
+    it('resolves to whichever single employee is assigned', async () => {
       const soloClient = await createTestClient(orgId, 'Solo Employee Client')
       const meMembership = await testDb.organizationUser.findFirstOrThrow({ where: { userId: marketingEmployeeId } })
       await testDb.clientAssignment.create({ data: { clientId: soloClient.id, organizationUserId: meMembership.id } })
@@ -176,7 +180,7 @@ describe('Weekly automated intelligence (Phase 2, BRD Section 65/85)', () => {
   })
 
   describe('processWeeklyIntelligenceJob', () => {
-    it('runs the analysis as the resolved account_manager, producing a real WorkflowRun/AiRun', async () => {
+    it('runs the analysis as the resolved employee, producing a real WorkflowRun/AiRun', async () => {
       const parse = mockClaudeParse()
       parse.mockResolvedValueOnce({ parsed_output: VALID_ANALYSIS_OUTPUT, usage: fakeUsage() })
 

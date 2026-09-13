@@ -54,11 +54,11 @@ export const clientProfileSchema = z.object({
 
 export type ClientProfileInput = z.input<typeof clientProfileSchema>
 
-/** Members of the caller's organization who can be designated as account manager (Super Admin or Account Manager role). */
+/** Members of the caller's organization who can be designated as account manager (Super Admin or Employee role). */
 export async function listAccountManagerCandidates(ctx: AuthContext) {
   assertPermission(ctx, 'clients.read')
   const members = await db.organizationUser.findMany({
-    where: { organizationId: ctx.organizationId, status: 'ACTIVE', role: { key: { in: ['super_admin', 'account_manager'] } } },
+    where: { organizationId: ctx.organizationId, status: 'ACTIVE', role: { key: { in: ['super_admin', 'employee'] } } },
     select: { id: true, role: { select: { key: true, name: true } }, user: { select: { name: true, email: true } } },
     orderBy: { createdAt: 'asc' },
   })

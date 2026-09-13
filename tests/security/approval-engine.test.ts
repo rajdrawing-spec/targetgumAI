@@ -19,8 +19,9 @@ import {
 /**
  * The Approval Engine (Day 10) - replaces the Day 5 hard block. Covers the
  * full lifecycle: HIGH-risk tool call -> PENDING approval -> approve/reject
- * (Account Manager+ only, per BRD Section 4.2/4.3) -> executeApprovedTool
- * actually runs the tool and marks the approval EXECUTED (or FAILED).
+ * (Employee+ only, per BRD Section 4.2/4.3 as merged 2026-09-13 - see
+ * docs/DECISIONS.md) -> executeApprovedTool actually runs the tool and
+ * marks the approval EXECUTED (or FAILED).
  */
 
 const PassthroughInput = z.object({ value: z.string(), shouldFail: z.boolean().optional() })
@@ -32,7 +33,7 @@ describe('security: Approval Engine', () => {
   let otherClientId: string
   let superAdminId: string
   let accountManagerId: string
-  let employeeId: string // marketing_employee - lacks approvals.approve
+  let clientUserId: string // `client` role - lacks approvals.request entirely
 
   beforeAll(async () => {
     await registerTool({
@@ -67,26 +68,21 @@ describe('security: Approval Engine', () => {
     const accountManager = await createTestUser()
     accountManagerId = accountManager.id
     const amMembership = await testDb.organizationUser.create({
-      data: { organizationId: orgId, userId: accountManagerId, roleId: roles.get('account_manager')!.id },
+      data: { organizationId: orgId, userId: accountManagerId, roleId: roles.get('employee')!.id },
     })
     await testDb.clientAssignment.create({
       data: { clientId, organizationUserId: amMembership.id },
     })
 
-    const employee = await createTestUser()
-    employeeId = employee.id
-    const empMembership = await testDb.organizationUser.create({
-      data: { organizationId: orgId, userId: employeeId, roleId: roles.get('marketing_employee')!.id },
-    })
-    await testDb.clientAssignment.create({
-      data: { clientId, organizationUserId: empMembership.id },
-    })
+    const clientUser = await createTestUser()
+    clientUserId = clientUser.id
+    await testDb.clientUser.create({ data: { clientId, userId: clientUserId } })
   })
 
   afterAll(async () => {
     await db.toolExecution.deleteMany({ where: { tool: { key: 'test.approval_gated' } } })
     await db.approval.deleteMany({ where: { organizationId: orgId } })
-    await cleanupOrg(orgId, [superAdminId, accountManagerId, employeeId])
+    await cleanupOrg(orgId, [superAdminId, accountManagerId, clientUserId])
     await db.tool.deleteMany({ where: { key: 'test.approval_gated' } })
   })
 
@@ -110,7 +106,11 @@ describe('security: Approval Engine', () => {
     expect(executions).toHaveLength(0)
   })
 
-  it('marketing_employee cannot approve or reject (lacks approvals.approve), but can list pending approvals', async () => {
+  // Every employee holds both approvals.request and approvals.approve now
+  // (account_manager/marketing_employee merged, docs/DECISIONS.md
+  // 2026-09-13) - the remaining role that cannot touch approvals at all is
+  // `client`, which lacks approvals.request entirely.
+  it('a client cannot list, approve, or reject approvals (lacks approvals.request/approve)', async () => {
     const ctx = await resolveAuthContext(testDb, superAdminId, orgId)
     let approvalId = ''
     try {
@@ -119,12 +119,10 @@ describe('security: Approval Engine', () => {
       approvalId = (error as ApprovalRequiredError).approvalId
     }
 
-    const employeeCtx = await resolveAuthContext(testDb, employeeId, orgId)
-    await expect(approveApproval(employeeCtx!, approvalId)).rejects.toThrow(ForbiddenError)
-    await expect(rejectApproval(employeeCtx!, approvalId, 'no')).rejects.toThrow(ForbiddenError)
-
-    const listed = await listApprovals(employeeCtx!, { clientId })
-    expect(listed.some((a) => a.id === approvalId)).toBe(true)
+    const clientCtx = await resolveAuthContext(testDb, clientUserId, orgId)
+    await expect(listApprovals(clientCtx!, { clientId })).rejects.toThrow(ForbiddenError)
+    await expect(approveApproval(clientCtx!, approvalId)).rejects.toThrow(ForbiddenError)
+    await expect(rejectApproval(clientCtx!, approvalId, 'no')).rejects.toThrow(ForbiddenError)
   })
 
   it('denies approval access for a client the approver is not assigned to', async () => {
@@ -141,7 +139,7 @@ describe('security: Approval Engine', () => {
     await expect(approveApproval(amCtx!, approvalId)).rejects.toThrow(ForbiddenError)
   })
 
-  it('account_manager approves, and executeApprovedTool actually runs the tool and marks it EXECUTED', async () => {
+  it('an employee approves, and executeApprovedTool actually runs the tool and marks it EXECUTED', async () => {
     const superCtx = await resolveAuthContext(testDb, superAdminId, orgId)
     let approvalId = ''
     try {

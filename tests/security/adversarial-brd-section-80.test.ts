@@ -56,7 +56,7 @@ describe('BRD Section 80 — adversarial scenarios without prior dedicated cover
   let clientBId: string
   let superAdminId: string
   let accountManagerId: string
-  let employeeId: string // marketing_employee, no integrations.manage, not assigned to any client here
+  let employeeId: string // employee, no integrations.manage, not assigned to any client here
 
   beforeAll(async () => {
     await registerTool({
@@ -103,14 +103,14 @@ describe('BRD Section 80 — adversarial scenarios without prior dedicated cover
     const accountManager = await createTestUser()
     accountManagerId = accountManager.id
     const amMembership = await testDb.organizationUser.create({
-      data: { organizationId: orgId, userId: accountManagerId, roleId: roles.get('account_manager')!.id },
+      data: { organizationId: orgId, userId: accountManagerId, roleId: roles.get('employee')!.id },
     })
     await testDb.clientAssignment.create({ data: { clientId: clientAId, organizationUserId: amMembership.id } })
 
     const employee = await createTestUser()
     employeeId = employee.id
     await testDb.organizationUser.create({
-      data: { organizationId: orgId, userId: employeeId, roleId: roles.get('marketing_employee')!.id },
+      data: { organizationId: orgId, userId: employeeId, roleId: roles.get('employee')!.id },
     })
   })
 
@@ -215,7 +215,7 @@ describe('BRD Section 80 — adversarial scenarios without prior dedicated cover
   // --- Scenario 5: User attempts unauthorized budget change ----------------
 
   it('scenario 5: a role without integrations.manage cannot even reach the risk gate for a budget-change tool', async () => {
-    const ctx = await resolveAuthContext(testDb, employeeId, orgId) // marketing_employee lacks integrations.manage
+    const ctx = await resolveAuthContext(testDb, employeeId, orgId) // employee lacks integrations.manage
     await expect(
       executeTool({
         ctx: ctx!,

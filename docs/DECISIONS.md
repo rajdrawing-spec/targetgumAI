@@ -2110,6 +2110,87 @@ gains enough nested relations to be worth the same treatment.
 
 ---
 
+## 2026-09-13 — Role model simplified to Super Admin / Employee / Client, with email invitations replacing seed-only accounts
+
+**Decision:** Collapsed the four seeded system roles (`super_admin`,
+`account_manager`, `marketing_employee`, `client_user`) to three
+(`super_admin`, `employee`, `client` - `src/lib/rbac/permissions.ts`).
+`employee` is the union of the former `account_manager` +
+`marketing_employee` permission sets (in practice, exactly
+`account_manager`'s old list, since `marketing_employee` was already a
+strict subset); nothing in this codebase enforced the two as separate
+security boundaries - both were `SCOPED_CLIENT_ACCESS_ROLES`, accessing
+clients identically via `ClientAssignment`. `client` is `client_user`
+renamed, same semantics. A data migration
+(`prisma/migrations/20260913060145_role_model_simplification_and_invitations`)
+renames/merges existing `Role` rows and reassigns any `OrganizationUser`
+memberships; it is safe to run even where an org never had a distinct
+`account_manager` role.
+
+The only way anyone gets access to the app is now an email invitation
+(`src/lib/users/invitations.ts`, new `Invitation` model): a Super Admin
+(the only role with `users.manage`) invites someone by email and picks
+`employee` (optionally assigning clients) or `client` (tied to exactly
+one client). Nothing is granted until the invitee follows the emailed
+link and sets a password - no `OrganizationUser`/`ClientUser` row exists
+before that, so a revoked or expired invite has granted literally
+nothing. The raw token is never stored, only its SHA-256 hash. Email
+delivery reuses `src/lib/email/mailer.ts` (extracted from
+`src/lib/auth/config.ts`'s magic-link `sendVerificationRequest`, now
+shared); when `EMAIL_SERVER_HOST` isn't configured, the invite still
+exists and the raw link is handed back to the Super Admin in the Team
+page UI (`/dashboard/team`) to send manually, rather than failing the
+whole invite the way the magic-link flow does (which has no UI to fall
+back to).
+
+While integrating this with a separate branch of UI/feature work merged
+from `origin` the same day (Meta Ads live integration, Gemini AI swap,
+ads studio, content calendar rework), a `RoleSwitcher` component +
+`switchRoleAction` server action were found and removed
+(`src/components/role-switcher.tsx`, `src/app/actions/switch-role.ts`).
+It re-signed the current browser in as one of three hardcoded seeded
+accounts using their known dev password (`DevPassword!23`), one click,
+for *any* already-authenticated user regardless of their real role - a
+live privilege-escalation hole (a `client` in the portal could click
+"Super Admin" and become one) once real accounts exist via the
+invitation system above. There is no safe way to keep a "switch role"
+shortcut once roles are backed by real, separately-authenticated
+accounts; switching who you're signed in as now means signing out and
+back in as that account, same as any real user.
+
+**Rationale:** The four-role split added permission-set granularity
+(`clients.edit`, `approvals.approve`, `ads.manage`) nobody had asked to
+keep distinct once agency staff are just "employees" from the product's
+point of view; simplifying to exactly the two roles a Super Admin hands
+out removes a distinction that only ever existed in seed data and
+comments, not in any enforced boundary. Deriving access exclusively from
+email invitations (never a fabricated/self-granted role) is
+docs/SECURITY.md's own invariant - "Claude/agents never decide their own
+access" applies equally to "a user should never decide their own
+access."
+
+**Alternative(s) considered:** Keeping `account_manager` as a
+super-admin-assignable "senior employee" tier with `clients.manage`-lite
+privileges - rejected for now as unrequested scope; reintroduce as a
+second invitable role later if a real narrower-than-`employee` tier is
+needed. Eagerly creating `OrganizationUser`/`ClientUser` rows at invite
+time (status `INVITED`, reusing the already-defined but unused
+`MembershipStatus.INVITED`) instead of a new `Invitation` model -
+rejected: `ClientUser` has no equivalent pending-state column, and a
+single explicit `Invitation` row (email + role + target client(s) + token
++ expiry) is simpler to reason about and revoke than partially-created
+membership rows.
+
+**Revisit if:** A narrower staff tier (view-only, no ads/approvals) is
+requested - add it as a new invitable role, not by re-splitting
+`employee`. If the Super Admin role itself ever needs to be invitable
+(a second Super Admin), extend `INVITABLE_ROLES` deliberately rather than
+folding it into the general invite flow's assumptions (client-scoping
+logic currently assumes every invitee is either org-wide-employee or
+single-client).
+
+---
+
 ## Template for future entries
 
 ```text

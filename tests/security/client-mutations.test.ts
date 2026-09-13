@@ -17,6 +17,7 @@ import { cleanupOrg, createSystemRoles, createTestClient, createTestOrg, createT
  *   - archive / unarchive / delete: `clients.manage` (Super Admin)
  *   - a Super Admin of ANOTHER organization is denied everywhere
  *   - the account manager must be a member of the same organization
+ *   - a `client` (portal) user has neither `clients.edit` nor `clients.manage`
  */
 describe('security: client mutations respect role, permission, assignment and organization', () => {
   let orgId: string
@@ -24,7 +25,7 @@ describe('security: client mutations respect role, permission, assignment and or
   let superAdminId: string
   let otherSuperAdminId: string
   let managerId: string
-  let employeeId: string
+  let clientPortalUserId: string
   let clientAId: string
   let clientBId: string
   let foreignClientId: string
@@ -42,15 +43,16 @@ describe('security: client mutations respect role, permission, assignment and or
 
     managerId = (await createTestUser()).id
     const managerMembership = await testDb.organizationUser.create({
-      data: { organizationId: orgId, userId: managerId, roleId: roles.get('account_manager')!.id },
+      data: { organizationId: orgId, userId: managerId, roleId: roles.get('employee')!.id },
     })
     await testDb.clientAssignment.create({ data: { clientId: clientAId, organizationUserId: managerMembership.id } })
 
-    employeeId = (await createTestUser()).id
-    const employeeMembership = await testDb.organizationUser.create({
-      data: { organizationId: orgId, userId: employeeId, roleId: roles.get('marketing_employee')!.id },
-    })
-    await testDb.clientAssignment.create({ data: { clientId: clientAId, organizationUserId: employeeMembership.id } })
+    // A client-portal user, scoped to Client A only, with none of the
+    // employee permissions above - the remaining "cannot edit" boundary
+    // now that account_manager/marketing_employee have merged into one
+    // `employee` role (docs/DECISIONS.md, 2026-09-13).
+    clientPortalUserId = (await createTestUser()).id
+    await testDb.clientUser.create({ data: { clientId: clientAId, userId: clientPortalUserId } })
 
     const otherOrg = await createTestOrg()
     otherOrgId = otherOrg.id
@@ -63,18 +65,18 @@ describe('security: client mutations respect role, permission, assignment and or
   })
 
   afterAll(async () => {
-    await cleanupOrg(orgId, [superAdminId, managerId, employeeId])
+    await cleanupOrg(orgId, [superAdminId, managerId, clientPortalUserId])
     await cleanupOrg(otherOrgId, [otherSuperAdminId])
   })
 
-  it('marketing_employee (no clients.edit) cannot update a client it is assigned to', async () => {
-    const ctx = (await resolveAuthContext(testDb, employeeId, orgId))!
+  it('a client (portal user, no clients.edit) cannot update its own client', async () => {
+    const ctx = (await resolveAuthContext(testDb, clientPortalUserId, orgId))!
     await expect(updateClientProfile(ctx, clientAId, { name: 'Mut Client A', industry: 'X' })).rejects.toThrow(ForbiddenError)
     await expect(addClientContact(ctx, clientAId, { name: 'Nope' })).rejects.toThrow(ForbiddenError)
     expect((await db.client.findUniqueOrThrow({ where: { id: clientAId } })).industry).toBeNull()
   })
 
-  it('account_manager can edit its assigned client but not an unassigned one in the same org', async () => {
+  it('an employee can edit its assigned client but not an unassigned one in the same org', async () => {
     const ctx = (await resolveAuthContext(testDb, managerId, orgId))!
     const updated = await updateClientProfile(ctx, clientAId, { name: 'Mut Client A', industry: 'Retail' })
     expect(updated.industry).toBe('Retail')
@@ -82,7 +84,7 @@ describe('security: client mutations respect role, permission, assignment and or
     await expect(addClientContact(ctx, clientBId, { name: 'Nope' })).rejects.toThrow(ForbiddenError)
   })
 
-  it('archive / unarchive / delete need clients.manage - account_manager is denied even on its own client', async () => {
+  it('archive / unarchive / delete need clients.manage - an employee is denied even on its own client', async () => {
     const ctx = (await resolveAuthContext(testDb, managerId, orgId))!
     await expect(archiveClient(ctx, clientAId)).rejects.toThrow(ForbiddenError)
     await expect(unarchiveClient(ctx, clientAId)).rejects.toThrow(ForbiddenError)

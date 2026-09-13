@@ -44,7 +44,7 @@ export async function runCompetitorAnalysisWorkflow(
   const { ctx, clientId } = input
 
   // Same gate as every other "run an analysis" trigger - staff-only (BRD
-  // Section 4.2-4.3); a client_user reviews what it produces
+  // Section 4.2-4.3); a client reviews what it produces
   // (recommendations.review) but doesn't spend on running one.
   assertPermission(ctx, 'analysis.trigger')
   await getAuthorizedClient(ctx, clientId)

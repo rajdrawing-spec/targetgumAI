@@ -50,7 +50,7 @@ export async function runAnalyzeClientWorkflow(
   const { ctx, clientId, range } = input
 
   // Client resolution + Authorization (BRD Section 46, steps 1-2).
-  // `analysis.trigger` is staff-only (BRD Section 4.2-4.3) - a client_user
+  // `analysis.trigger` is staff-only (BRD Section 4.2-4.3) - a client
   // can review/approve what an analysis produces, but not spend on running
   // a fresh one themselves (Section 4.4 lists no such capability).
   assertPermission(ctx, 'analysis.trigger')

@@ -31,7 +31,7 @@ describe('security: privilege escalation must be denied', () => {
     const employee = await createTestUser()
     employeeId = employee.id
     await testDb.organizationUser.create({
-      data: { organizationId: orgId, userId: employeeId, roleId: roles.get('marketing_employee')!.id },
+      data: { organizationId: orgId, userId: employeeId, roleId: roles.get('employee')!.id },
     })
 
     const superAdmin = await createTestUser()
@@ -50,7 +50,7 @@ describe('security: privilege escalation must be denied', () => {
     await cleanupOrg(orgId, [employeeId, superAdminId, clientUserId])
   })
 
-  it('denies a marketing_employee an organization-admin action', async () => {
+  it('denies an employee an organization-admin action', async () => {
     const ctx = await resolveAuthContext(testDb, employeeId, orgId)
     expect(() => assertPermission(ctx!, 'organizations.manage')).toThrow(ForbiddenError)
     expect(() => assertPermission(ctx!, 'users.manage')).toThrow(ForbiddenError)
@@ -58,17 +58,16 @@ describe('security: privilege escalation must be denied', () => {
     expect(() => assertPermission(ctx!, 'integrations.manage')).toThrow(ForbiddenError)
   })
 
-  it('denies a marketing_employee approval authority (approvals.approve is Account Manager+)', async () => {
-    const ctx = await resolveAuthContext(testDb, employeeId, orgId)
-    expect(() => assertPermission(ctx!, 'approvals.approve')).toThrow(ForbiddenError)
-  })
+  // approvals.approve is held by every employee since the 2026-09-13
+  // account_manager/marketing_employee merge (docs/DECISIONS.md) - the
+  // 'confines a client...' test below is the remaining negative case.
 
   it('grants the same organization-admin action to super_admin', async () => {
     const ctx = await resolveAuthContext(testDb, superAdminId, orgId)
     expect(() => assertPermission(ctx!, 'organizations.manage')).not.toThrow()
   })
 
-  it('confines a client_user to its narrow, non-admin permission set', async () => {
+  it('confines a client to its narrow, non-admin permission set', async () => {
     const ctx = await resolveAuthContext(testDb, clientUserId, orgId)
     expect(ctx?.isClientUser).toBe(true)
     expect(() => assertPermission(ctx!, 'clients.read')).not.toThrow()

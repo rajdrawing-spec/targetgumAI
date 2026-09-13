@@ -56,6 +56,7 @@ model Organization {
   workflows         Workflow[]
   auditEvents       AuditEvent[]
   notifications     Notification[]
+  invitations       Invitation[]
 
   @@map("organizations")
 }
@@ -137,8 +138,11 @@ model VerificationToken {
 }
 
 /// A role is org-scoped (custom roles later) or global/system (organizationId
-/// null) for the four seeded roles: Super Admin, Account Manager, Marketing
-/// Employee, Client User (docs/BRD-PRD.md Section 4).
+/// null) for the three seeded roles: Super Admin, Employee, Client
+/// (src/lib/rbac/permissions.ts - a 2026-09-13 simplification of BRD-PRD
+/// Section 4's four-role list; see docs/DECISIONS.md). Super Admin is the
+/// seeded root account, never invited; Employee and Client are the two
+/// roles a Super Admin can hand out via `Invitation`.
 model Role {
   id             String   @id @default(cuid())
   organizationId String?
@@ -203,6 +207,52 @@ enum MembershipStatus {
   INVITED
   ACTIVE
   DISABLED
+}
+
+/// A pending email invitation created by a Super Admin (`users.manage`
+/// permission, src/lib/users/invitations.ts). Nothing is granted until the
+/// invitee follows the emailed link and sets a password - no OrganizationUser
+/// or ClientUser row exists for them before that (so an invite that's never
+/// accepted grants nothing at all, and there is nothing to revoke besides
+/// this row). `tokenHash` is the only copy of the token this app ever
+/// stores - the raw token exists only in the emailed link and the
+/// invitee's browser, never logged or persisted in plaintext
+/// (docs/SECURITY.md - never expose secrets).
+model Invitation {
+  id     String @id @default(cuid())
+  organizationId String
+  email  String
+  /// One of INVITABLE_ROLES ('employee' | 'client') - src/lib/rbac/permissions.ts.
+  /// A plain string, not a DB enum, matching Role.key's own pattern.
+  role   String
+  /// Employee invites only: clients to assign (ClientAssignment) once
+  /// accepted. May be empty - a Super Admin can invite an employee before
+  /// deciding which clients they work on, and assign clients later from
+  /// the client's own Team tab.
+  clientIds String[] @default([])
+  /// Client invites only: the single client this portal user belongs to
+  /// (BRD Section 4.4 - never implicitly multi-client).
+  clientId  String?
+  tokenHash String   @unique
+  status    InvitationStatus @default(PENDING)
+  invitedByUserId String
+  expiresAt DateTime
+  acceptedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, status])
+  @@index([email, status])
+  @@map("invitations")
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  REVOKED
+  EXPIRED
 }
 
 // ============================================================================

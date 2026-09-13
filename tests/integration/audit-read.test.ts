@@ -33,7 +33,7 @@ describe('audit log read access (BRD-PRD Section 4.1: viewing audit logs is Supe
     const employee = await createTestUser()
     employeeId = employee.id
     await testDb.organizationUser.create({
-      data: { organizationId: orgId, userId: employeeId, roleId: roles.get('marketing_employee')!.id },
+      data: { organizationId: orgId, userId: employeeId, roleId: roles.get('employee')!.id },
     })
 
     await recordAuditEvent({

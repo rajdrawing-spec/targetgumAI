@@ -24,7 +24,7 @@ confirmed unavailable via Metricool.
   connect-and-verify (Metricool's shape, not GA4/GSC's unwired OAuth flow -
   see the file's own doc comment for why).
 
-`ads.manage` is the new permission (`src/lib/rbac/permissions.ts`) gating
-every write tool above - `account_manager` only, not `marketing_employee`
-(BRD 4.3 lists "Analyze campaigns", read-only, for that role). Reads use
-the existing `clients.read` everyone already holds.
+`ads.manage` is the permission (`src/lib/rbac/permissions.ts`) gating
+every write tool above - `employee` (and `super_admin`), not `client`
+(BRD 4.3/4.4 only lists "Analyze campaigns"/read-only for client-side
+roles). Reads use the existing `clients.read` everyone already holds.

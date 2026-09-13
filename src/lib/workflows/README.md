@@ -15,7 +15,7 @@ infrastructure with no second caller yet.
 - `analyze-client-workflow.ts` — `runAnalyzeClientWorkflow`
   (`ANALYZE_CLIENT_WORKFLOW_KEY`): the "Analyze Client A" workflow (BRD
   Section 46). Gated by `analysis.trigger` (Phase 2 - staff-only:
-  `account_manager`/`marketing_employee`/`super_admin`, not `client_user` -
+  `employee`/`super_admin`, not `client` -
   a client can review what an analysis produces but not spend on running a
   fresh one themselves; see docs/DECISIONS.md). Wires client resolution/
   authorization → the Marketing Analytics Agent (`src/lib/agents/

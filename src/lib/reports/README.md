@@ -15,11 +15,11 @@ Report generation (BRD-PRD Section 41, 68).
   `generateClientReportFromInternal` (Day 14) derives a `CLIENT` report from
   an already-generated `INTERNAL` one by redacting its *persisted* content —
   still never a fresh AI call, since no `AnalysisResult` is re-derived.
-  **Phase 2**: `getReport` refuses any non-`CLIENT` report to a `client_user`,
+  **Phase 2**: `getReport` refuses any non-`CLIENT` report to a `client`,
   even by direct id (not just via the redacted `buildContent` shape) - a
-  `client_user` guessing/being handed an `INTERNAL` report's id must never
+  `client` guessing/being handed an `INTERNAL` report's id must never
   reach its evidence/confidence/dataGaps. `listReports`/`listReportsForOrg`
-  force their effective type filter to `CLIENT` for a `client_user`
+  force their effective type filter to `CLIENT` for a `client`
   regardless of what's requested, so an unfiltered list call can't even
   surface an `INTERNAL` report's title.
 

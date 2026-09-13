@@ -4,6 +4,7 @@ import Credentials from 'next-auth/providers/credentials'
 import Nodemailer from 'next-auth/providers/nodemailer'
 import { z } from 'zod'
 import { db } from '@/lib/db/client'
+import { isEmailConfigured, sendMail } from '@/lib/email/mailer'
 import { verifyMfaToken } from './mfa'
 import { verifyPassword } from './password'
 
@@ -42,44 +43,13 @@ class InvalidMfaError extends CredentialsSignin {
  * The Nodemailer provider unconditionally requires a truthy `server` at
  * construction time even though we override `sendVerificationRequest`
  * ourselves below and never call `createTransport(provider.server)` - so
- * when SMTP isn't configured we still return a placeholder value here (it's
- * never actually connected to) and let `isEmailConfigured()` gate the real
- * fallback behavior in `sendVerificationRequest`.
+ * when SMTP isn't configured we still pass a placeholder value (never
+ * actually connected to) and let `sendMail` (`src/lib/email/mailer.ts`)
+ * gate the real fallback behavior.
  */
-function isEmailConfigured(): boolean {
-  return Boolean(process.env.EMAIL_SERVER_HOST)
-}
-
-function buildEmailServer() {
-  if (!isEmailConfigured()) {
-    return { host: 'localhost', port: 25 }
-  }
-  return {
-    host: process.env.EMAIL_SERVER_HOST,
-    port: Number(process.env.EMAIL_SERVER_PORT ?? 587),
-    auth: {
-      user: process.env.EMAIL_SERVER_USER,
-      pass: process.env.EMAIL_SERVER_PASSWORD,
-    },
-  }
-}
-
 async function sendVerificationRequest(params: { identifier: string; url: string }) {
-  if (!isEmailConfigured()) {
-    // Local/dev fallback when no SMTP is configured (.env.example) - never
-    // do this in production.
-    if (process.env.NODE_ENV === 'production') {
-      throw new Error('EMAIL_SERVER_HOST is not configured - cannot send magic link email.')
-    }
-    console.warn(`[dev magic link] ${params.identifier} -> ${params.url}`)
-    return
-  }
-
-  const nodemailer = await import('nodemailer')
-  const transport = nodemailer.createTransport(buildEmailServer())
-  await transport.sendMail({
+  await sendMail({
     to: params.identifier,
-    from: process.env.EMAIL_FROM,
     subject: 'Sign in to TargetGum AI Marketing OS',
     text: `Sign in: ${params.url}`,
     html: `<p><a href="${params.url}">Sign in to TargetGum AI Marketing OS</a></p>`,
@@ -132,7 +102,11 @@ export const authConfig: NextAuthConfig = {
       },
     }),
     Nodemailer({
-      server: buildEmailServer(),
+      // Placeholder - never actually connected to. We override
+      // sendVerificationRequest below, which goes through
+      // src/lib/email/mailer.ts's own SMTP config instead; the provider
+      // just requires a truthy `server` at construction time.
+      server: { host: 'localhost', port: 25 },
       from: process.env.EMAIL_FROM,
       sendVerificationRequest,
     }),

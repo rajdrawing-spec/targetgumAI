@@ -7,7 +7,7 @@ import { ToastProvider } from '@/components/ui/toast'
 
 /**
  * The Client Portal (BRD-PRD Section 4.4, Phase 2's "Client approval
- * portal" - `docs/BRD-PRD.md` Section 85). A `client_user`'s capability
+ * portal" - `docs/BRD-PRD.md` Section 85). A `client`'s capability
  * list is deliberately narrower than staff's `/dashboard`: View own
  * dashboard, View reports, Review recommendations, Approve allowed
  * actions, Provide feedback, View content/creative, Never access another
@@ -17,9 +17,11 @@ import { ToastProvider } from '@/components/ui/toast'
  * to see.
  *
  * Staff never land here - `/dashboard/layout.tsx` is the mirror image,
- * redirecting a `client_user` to `/portal` instead.
+ * redirecting a `client` to `/portal` instead.
+ *
+ * Deliberately no role-switcher here (removed 2026-09-13, docs/DECISIONS.md)
+ * - see `/dashboard/layout.tsx`'s doc comment for why.
  */
-import { RoleSwitcher } from '@/components/role-switcher'
 
 export default async function PortalLayout({ children }: { children: React.ReactNode }) {
   const ctx = await getCurrentAuthContext()
@@ -47,7 +49,6 @@ export default async function PortalLayout({ children }: { children: React.React
           </div>
 
           <div className="flex items-center gap-4">
-            <RoleSwitcher currentRole={ctx.roleKey} userName={ctx.userId} />
             <form
               action={async () => {
                 'use server'

@@ -122,7 +122,7 @@ export async function generateReport(
 }
 
 /**
- * A client_user's `filter.type` is never trusted to open this up - INTERNAL
+ * A client's `filter.type` is never trusted to open this up - INTERNAL
  * reports carry evidence/confidence/dataGaps that BRD Section 41/102 says
  * must never reach a client, so their effective filter is always forced to
  * `CLIENT`, overriding whatever (if anything) was requested.
@@ -156,7 +156,7 @@ export async function listReportsForOrg(ctx: AuthContext, filter: { type?: Repor
 }
 
 /**
- * Never returns an INTERNAL report to a client_user, even by direct id -
+ * Never returns an INTERNAL report to a client, even by direct id -
  * BRD Section 41/102's "no internal AI reasoning to the client" has to hold
  * for a guessed/shared URL too, not just the list views that normally
  * filter it out (`effectiveReportTypeFilter` above).

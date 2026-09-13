@@ -14,10 +14,9 @@ import { resolveCanvaProvider } from './index'
  * 21's MEDIUM examples list "Generate creative" explicitly, distinct from
  * "Publish content" (HIGH) - a Canva design is never customer-facing by
  * itself, it's a draft asset a human reviews before it goes anywhere.
- * Gated on the new `creative.manage` permission (granted to
- * `account_manager` and `marketing_employee`, matching BRD 4.2/4.3's
- * "Generate creative briefs"/"Generate content" - see
- * `src/lib/rbac/permissions.ts`).
+ * Gated on the `creative.manage` permission (granted to `employee`,
+ * matching BRD 4.2/4.3's "Generate creative briefs"/"Generate content" -
+ * see `src/lib/rbac/permissions.ts`).
  *
  * Every tool resolves its target client's connected Canva brand id via
  * `withIntegrationHealthTracking(ctx.clientId, 'CANVA', ...)` - never

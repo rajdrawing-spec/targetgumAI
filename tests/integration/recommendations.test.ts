@@ -100,7 +100,7 @@ describe('Recommendations: persistence, lifecycle, task creation, routing (BRD S
     expect(feedback?.content).toContain('already tried')
   })
 
-  it('a client_user cannot create a task from a recommendation (tasks.create is staff-only, BRD Section 4.2-4.4)', async () => {
+  it('a client cannot create a task from a recommendation (tasks.create is staff-only, BRD Section 4.2-4.4)', async () => {
     const ctx = await resolveAuthContext(testDb, superAdminId, orgId)
     const aiRun = await db.aiRun.create({
       data: { organizationId: orgId, clientId, model: 'test-model', promptVersion: 'analytics/v1', status: 'SUCCEEDED' },

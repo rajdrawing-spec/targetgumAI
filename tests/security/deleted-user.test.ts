@@ -80,7 +80,7 @@ describe('security: disabled/deleted user access must be denied', () => {
       data: {
         organizationId: org.id,
         userId: user.id,
-        roleId: roles.get('marketing_employee')!.id,
+        roleId: roles.get('employee')!.id,
         status: 'DISABLED',
       },
     })

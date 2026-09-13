@@ -142,8 +142,8 @@ export async function rejectRecommendation(ctx: AuthContext, recommendationId: s
         category: 'REJECTED_PATTERN',
         content: `Recommendation rejected: "${rec.recommendation}" (area: ${rec.area}). Reason: ${reason}`,
         // Correctly attributes the feedback source - previously always
-        // hardcoded ACCOUNT_MANAGER even when a client_user rejected it,
-        // once client_user could reach this function at all.
+        // hardcoded ACCOUNT_MANAGER even when a client rejected it,
+        // once client could reach this function at all.
         source: ctx.isClientUser ? 'CLIENT' : 'ACCOUNT_MANAGER',
         createdBy: ctx.userId,
       },

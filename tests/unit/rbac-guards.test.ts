@@ -7,7 +7,7 @@ function makeCtx(overrides: Partial<AuthContext> = {}): AuthContext {
   return {
     userId: 'u1',
     organizationId: 'org1',
-    roleKey: 'marketing_employee',
+    roleKey: 'employee',
     permissions: new Set(['clients.read']),
     clientAccess: { kind: 'SET', clientIds: new Set(['client-a']) },
     isClientUser: false,

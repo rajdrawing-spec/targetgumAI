@@ -3,25 +3,30 @@
  * both the app (src/lib/rbac/context.ts) and prisma/seed.ts, so the seeded
  * data and the code that interprets it never drift apart.
  *
- * This is a starter set (BRD-PRD Section 4) - expanded as each module lands
- * (e.g. tool-execution and budget-change permissions arrive with the Tool
- * Registry in Day 5).
+ * Three system roles only (2026-09-13 role-model simplification - see
+ * docs/DECISIONS.md; deviates from BRD-PRD Section 4's four-role list,
+ * which is left as-is since it's the frozen source document): `super_admin`
+ * (the one seeded root account per organization - not self-service, not
+ * invitable by anyone else), and exactly two invitable roles a Super Admin
+ * can hand out by email - `employee` (internal staff; merges the former
+ * `account_manager` + `marketing_employee` distinction into one role, since
+ * nothing in this app enforces that split as a security boundary - see
+ * ROLE_PERMISSIONS below) and `client` (client-portal access, formerly
+ * `client_user` - same semantics, renamed only). Custom/org-defined roles
+ * are still a later extension point (Role.organizationId), not built yet.
  */
 
-export const SYSTEM_ROLE_KEYS = [
-  'super_admin',
-  'account_manager',
-  'marketing_employee',
-  'client_user',
-] as const
+export const SYSTEM_ROLE_KEYS = ['super_admin', 'employee', 'client'] as const
 
 export type SystemRoleKey = (typeof SYSTEM_ROLE_KEYS)[number]
 
+/** The subset of SYSTEM_ROLE_KEYS a Super Admin can assign when inviting someone by email. Super Admin itself is never invited - see INVITABLE_ROLES's own doc comment. */
+export const INVITABLE_ROLES: readonly SystemRoleKey[] = ['employee', 'client']
+
 export const SYSTEM_ROLES: ReadonlyArray<{ key: SystemRoleKey; name: string }> = [
   { key: 'super_admin', name: 'Super Admin' },
-  { key: 'account_manager', name: 'Account Manager' },
-  { key: 'marketing_employee', name: 'Marketing Employee' },
-  { key: 'client_user', name: 'Client User' },
+  { key: 'employee', name: 'Employee' },
+  { key: 'client', name: 'Client' },
 ]
 
 export const PERMISSIONS = [
@@ -53,49 +58,36 @@ export type Permission = (typeof PERMISSIONS)[number]
  * (`src/lib/clients/create.ts`), Super Admin only per BRD Section 4.1's
  * unscoped "Manage clients". `.edit` is narrower - update an
  * *already-accessible* client's Brain/Policy/brand assets/competitors
- * (`src/lib/clients/brain.ts`) - matches Account Manager's "manage
- * assigned clients" (Section 4.2): they can edit clients already assigned
- * to them (still enforced by `assertClientAccess`, not by this permission
- * alone), but not create new ones org-wide.
+ * (`src/lib/clients/brain.ts`) - matches assigned-client staff editing
+ * clients already assigned to them (still enforced by `assertClientAccess`,
+ * not by this permission alone), but not create new ones org-wide.
  *
- * `content.manage` (Phase 2 social content calendar, BRD Section 66/48/85):
- * covers the whole staff-side `ContentCalendarItem` lifecycle - create,
- * edit while draft, submit for review, approve, schedule (draft-only via
- * Metricool, never a real publish - `src/lib/integrations/metricool/
- * provider.ts`'s safety rule), cancel. Granted to `account_manager` and
- * `marketing_employee` both, deliberately not split into a separate
- * "approve" permission the way Approvals are: BRD 4.3 explicitly gives
- * Marketing Employee "Create/schedule social posts" (they can carry an item
- * through the whole lifecycle themselves), while 4.2's "Approve selected
- * actions" already covers Account Manager doing the same for someone
- * else's draft - one permission serves both without inventing a
- * restriction neither role list asks for. `client_user` gets none of this -
- * BRD 4.4 lists only "View content/creative" (read-only), served by the
- * existing `clients.read` grant everyone already has, same as reports.
+ * `employee` (2026-09-13 role-model simplification, see docs/DECISIONS.md)
+ * is the union of the former `account_manager` + `marketing_employee`
+ * permission sets - in practice, exactly `account_manager`'s old list,
+ * since `marketing_employee` was already a strict subset of it. Nothing in
+ * this codebase enforced the two as separate security boundaries (both
+ * were `SCOPED_CLIENT_ACCESS_ROLES`, both accessed clients the same way via
+ * ClientAssignment); the only difference was permission breadth
+ * (`clients.edit`, `approvals.approve`, `ads.manage`), which every employee
+ * now has. If a narrower "can view but not manage ads/approvals" staff tier
+ * is needed later, reintroduce it as a second invitable role rather than
+ * re-splitting this one.
  *
- * `ads.manage` (Phase 2 native Google Ads/Meta Ads integration, BRD Section
- * 51/85): covers the `AdsProvider` write surface - create (draft/paused)
- * campaign, pause, and the HIGH-risk budget/bid/campaign changes gated by
- * the Approval Engine. Deliberately granted to `account_manager` only, NOT
- * `marketing_employee` - unlike `content.manage`, BRD 4.3's Marketing
- * Employee capability list stops at "Analyze campaigns" (read), while 4.2's
- * Account Manager gets the broader "Manage assigned clients". Reads
- * (`google_ads.get_campaigns` etc.) need no new permission at all - gated
- * on the existing `clients.read` every role already holds, same pattern as
- * Metricool's own `metricool.get_ad_campaigns`/`get_ad_performance`.
- *
- * `creative.manage` (Phase 2 Canva creative workflow, BRD Section
- * 17/47/85): covers the whole `CreativeAsset` lifecycle - triggering
- * concept generation, generating/editing/exporting the actual Canva
- * design, submit-for-review, approve, reject. Granted to
- * `account_manager` AND `marketing_employee` - unlike `ads.manage`, BRD
- * 4.3 explicitly lists "Generate creative briefs"/"Generate content" for
- * Marketing Employee, so this follows `content.manage`'s broader grant
- * shape, not `ads.manage`'s narrower one.
+ * `client` (renamed from `client_user`, same semantics, BRD Section 4.4):
+ * "View own dashboard, View reports, Review recommendations, Approve
+ * allowed actions, Provide feedback, View content/creative, Never access
+ * another client." Deliberately narrower than staff: no `clients.edit`
+ * (can't rewrite their own Brain/policy), no `analysis.trigger` (can't
+ * spend on a fresh AI run themselves), no `approvals.*` (the formal
+ * Approval Engine gate for HIGH/CRITICAL tool execution stays
+ * employee-only - "approve allowed actions" means recommendations, via
+ * `recommendations.review`, not that gate) and no `tasks.create`
+ * (internal-only).
  */
 export const ROLE_PERMISSIONS: Record<SystemRoleKey, readonly Permission[]> = {
   super_admin: PERMISSIONS,
-  account_manager: [
+  employee: [
     'clients.read',
     'clients.edit',
     'approvals.approve',
@@ -109,36 +101,13 @@ export const ROLE_PERMISSIONS: Record<SystemRoleKey, readonly Permission[]> = {
     'ads.manage',
     'creative.manage',
   ],
-  marketing_employee: [
-    'clients.read',
-    'approvals.request',
-    'tasks.create',
-    'reports.read',
-    'recommendations.review',
-    'analysis.trigger',
-    'content.manage',
-    'creative.manage',
-  ],
-  // Client User (BRD Section 4.4): "View own dashboard, View reports,
-  // Review recommendations, Approve allowed actions, Provide feedback,
-  // View content/creative, Never access another client." Deliberately
-  // narrower than staff: no `clients.edit` (can't rewrite their own Brain/
-  // policy), no `analysis.trigger` (can't spend on a fresh AI run
-  // themselves), no `approvals.*` (the formal Approval Engine gate for
-  // HIGH/CRITICAL tool execution stays Account Manager+ per Section
-  // 4.2/4.3 - "approve allowed actions" means recommendations, via
-  // `recommendations.review`, not that gate) and no `tasks.create`
-  // (internal-only, Section 4.2/4.3).
-  client_user: ['clients.read', 'reports.read', 'recommendations.review', 'feedback.create'],
+  client: ['clients.read', 'reports.read', 'recommendations.review', 'feedback.create'],
 }
 
 /**
  * Roles whose client access is limited to their explicit ClientAssignment
  * rows, rather than every client in the organization. super_admin is
- * intentionally absent here (org-wide access, BRD Section 4.1); client_user
- * is handled separately (access via ClientUser rows, not ClientAssignment).
+ * intentionally absent here (org-wide access, BRD Section 4.1); `client` is
+ * handled separately (access via ClientUser rows, not ClientAssignment).
  */
-export const SCOPED_CLIENT_ACCESS_ROLES: readonly SystemRoleKey[] = [
-  'account_manager',
-  'marketing_employee',
-]
+export const SCOPED_CLIENT_ACCESS_ROLES: readonly SystemRoleKey[] = ['employee']

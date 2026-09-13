@@ -53,17 +53,21 @@ describe('Automated social scheduling: metricool.publish_post + approveAndExecut
     const client = await createTestClient(orgId, 'Publish Workflow Client')
     clientId = client.id
 
+    // Two separately-assigned employees - account_manager/marketing_employee
+    // merged into one `employee` role (docs/DECISIONS.md, 2026-09-13), so
+    // both hold identical permissions; kept as two users below so requesting
+    // and approving can still be exercised as two different people.
     const accountManager = await createTestUser()
     accountManagerId = accountManager.id
     const amMembership = await testDb.organizationUser.create({
-      data: { organizationId: orgId, userId: accountManagerId, roleId: roles.get('account_manager')!.id },
+      data: { organizationId: orgId, userId: accountManagerId, roleId: roles.get('employee')!.id },
     })
     await testDb.clientAssignment.create({ data: { clientId, organizationUserId: amMembership.id } })
 
     const marketingEmployee = await createTestUser()
     marketingEmployeeId = marketingEmployee.id
     const meMembership = await testDb.organizationUser.create({
-      data: { organizationId: orgId, userId: marketingEmployeeId, roleId: roles.get('marketing_employee')!.id },
+      data: { organizationId: orgId, userId: marketingEmployeeId, roleId: roles.get('employee')!.id },
     })
     await testDb.clientAssignment.create({ data: { clientId, organizationUserId: meMembership.id } })
 
@@ -121,7 +125,7 @@ describe('Automated social scheduling: metricool.publish_post + approveAndExecut
     const requested = await publishContentCalendarItem(employeeCtx!, item.id)
     const approvalId = requested.approvalId!
 
-    // account_manager approves - marketing_employee has no approvals.approve.
+    // A second employee approves.
     const amCtx = await resolveAuthContext(testDb, accountManagerId, orgId)
     const executed = await approveAndExecuteApproval(amCtx!, approvalId)
     expect(executed.status).toBe('EXECUTED')
@@ -178,14 +182,15 @@ describe('Automated social scheduling: metricool.publish_post + approveAndExecut
     expect(result.status).toBe('APPROVED') // never EXECUTED - nothing to execute
   })
 
-  it('a marketing_employee can request a publish but cannot approve it themselves (no approvals.approve)', async () => {
+  it('an employee can both request a publish and approve it themselves (approvals.approve is granted to every employee, docs/DECISIONS.md 2026-09-13)', async () => {
     const item = await scheduledItemFor(marketingEmployeeId)
     const employeeCtx = await resolveAuthContext(testDb, marketingEmployeeId, orgId)
     const requested = await publishContentCalendarItem(employeeCtx!, item.id)
-    await expect(approveAndExecuteApproval(employeeCtx!, requested.approvalId!)).rejects.toThrow(ForbiddenError)
+    const executed = await approveAndExecuteApproval(employeeCtx!, requested.approvalId!)
+    expect(executed.status).toBe('EXECUTED')
   })
 
-  it('a client_user cannot request a publish at all (no content.manage)', async () => {
+  it('a client cannot request a publish at all (no content.manage)', async () => {
     const item = await scheduledItemFor(marketingEmployeeId)
     const clientCtx = await resolveAuthContext(testDb, clientUserId, orgId)
     await expect(publishContentCalendarItem(clientCtx!, item.id)).rejects.toThrow(ForbiddenError)

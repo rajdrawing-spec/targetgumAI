@@ -7,7 +7,7 @@ The Approval Engine (BRD-PRD Section 21-22) — `approvals.ts`:
 `approvals.approve` (Account Manager+, per BRD Section 4.2) gates approve/reject;
 `approvals.request` (Account Manager + Marketing Employee, Section 4.2-4.3) gates
 read/list/cancel-own. Every function is tenant-scoped via `assertClientAccess`, same
-as everywhere else. Neither permission is held by `client_user` - the formal
+as everywhere else. Neither permission is held by `client` - the formal
 Approval Engine (HIGH/CRITICAL tool-execution gating) stays staff-only. A client
 reviewing/accepting a *recommendation* (a different, lighter-weight thing - BRD
 Section 4.4) goes through `recommendations.review` instead

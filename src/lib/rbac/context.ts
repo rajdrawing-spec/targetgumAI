@@ -67,7 +67,7 @@ export async function resolveAuthContext(
 
   if (clientUserRows.length > 0) {
     const clientRole = await db.role.findUnique({
-      where: { organizationId_key: { organizationId, key: 'client_user' } },
+      where: { organizationId_key: { organizationId, key: 'client' } },
       include: { rolePermissions: { include: { permission: true } } },
     })
     const permissions = new Set(
@@ -77,7 +77,7 @@ export async function resolveAuthContext(
     return {
       userId,
       organizationId,
-      roleKey: 'client_user',
+      roleKey: 'client',
       permissions,
       clientAccess: { kind: 'SET', clientIds: new Set(clientUserRows.map((c) => c.clientId)) },
       isClientUser: true,

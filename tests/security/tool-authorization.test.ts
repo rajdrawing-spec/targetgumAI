@@ -30,7 +30,7 @@ describe('security: tool execution authorization', () => {
   let orgId: string
   let clientAId: string
   let clientBId: string
-  let employeeId: string // marketing_employee, assigned to Client A only, lacks integrations.manage
+  let employeeId: string // employee, assigned to Client A only, lacks integrations.manage
   let superAdminId: string
 
   beforeAll(async () => {
@@ -95,7 +95,7 @@ describe('security: tool execution authorization', () => {
     const employee = await createTestUser()
     employeeId = employee.id
     const membership = await testDb.organizationUser.create({
-      data: { organizationId: orgId, userId: employeeId, roleId: roles.get('marketing_employee')!.id },
+      data: { organizationId: orgId, userId: employeeId, roleId: roles.get('employee')!.id },
     })
     await testDb.clientAssignment.create({
       data: { clientId: clientAId, organizationUserId: membership.id },

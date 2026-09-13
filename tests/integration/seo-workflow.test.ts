@@ -172,7 +172,7 @@ describe('SEO Agent + "Run SEO analysis" workflow (Phase 2, BRD Section 25/85)',
     expect(report.type).toBe('INTERNAL')
   })
 
-  it('a client_user cannot trigger an SEO analysis themselves (same analysis.trigger gate as "Analyze this client")', async () => {
+  it('a client cannot trigger an SEO analysis themselves (same analysis.trigger gate as "Analyze this client")', async () => {
     const clientCtx = await resolveAuthContext(testDb, clientUserId, orgId)
     await expect(
       runSeoAnalysisWorkflow({ ctx: clientCtx!, clientId, range: { from: '2026-01-01', to: '2026-01-31' } }),

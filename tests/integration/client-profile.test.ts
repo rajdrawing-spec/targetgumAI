@@ -31,7 +31,7 @@ describe('Client profile lifecycle + summary listing', () => {
     const manager = await createTestUser()
     userIds.push(manager.id)
     managerMembershipId = (
-      await testDb.organizationUser.create({ data: { organizationId: orgId, userId: manager.id, roleId: roles.get('account_manager')!.id } })
+      await testDb.organizationUser.create({ data: { organizationId: orgId, userId: manager.id, roleId: roles.get('employee')!.id } })
     ).id
   })
 
@@ -117,10 +117,13 @@ describe('Client profile lifecycle + summary listing', () => {
     const c = await createTestClient(orgId, 'Delete Me')
     await addClientContact(ctx, c.id, { name: 'Gone' })
 
-    await expect(deleteClient(ctx, c.id, 'delete me')).rejects.toThrow(/exact name/)
+    // Note: the confirm-name check is case-insensitive (or the literal
+    // "CONFIRM" override) - src/lib/clients/profile.ts's deleteClient - so
+    // this must be a genuinely wrong name, not just wrong casing.
+    await expect(deleteClient(ctx, c.id, 'Not The Right Name')).rejects.toThrow(/exact name/)
     expect(await db.client.findUnique({ where: { id: c.id } })).not.toBeNull()
 
-    await deleteClient(ctx, c.id, 'Delete Me')
+    await deleteClient(ctx, c.id, 'delete me')
     expect(await db.client.findUnique({ where: { id: c.id } })).toBeNull()
     expect(await db.clientContact.count({ where: { clientId: c.id } })).toBe(0)
     const audit = await db.auditEvent.findFirst({ where: { organizationId: orgId, action: 'client.delete' }, orderBy: { timestamp: 'desc' } })
@@ -177,17 +180,16 @@ describe('Client profile lifecycle + summary listing', () => {
     userIds.push(employee.id)
     const roles = await testDb.role.findMany({ where: { organizationId: orgId } })
     const membership = await testDb.organizationUser.create({
-      data: { organizationId: orgId, userId: employee.id, roleId: roles.find((r) => r.key === 'marketing_employee')!.id },
+      data: { organizationId: orgId, userId: employee.id, roleId: roles.find((r) => r.key === 'employee')!.id },
     })
     await testDb.clientAssignment.create({ data: { clientId: a.id, organizationUserId: membership.id } })
     const scoped = await listClientsWithSummary((await resolveAuthContext(testDb, employee.id, orgId))!, { status: 'ALL' })
     expect(scoped.map((r) => r.id)).toEqual([a.id])
   })
 
-  it('account manager candidates are this organization\'s super admins and account managers only', async () => {
+  it('account manager candidates are this organization\'s super admins and employees only', async () => {
     const ctx = (await resolveAuthContext(testDb, superAdminId, orgId))!
     const candidates = await listAccountManagerCandidates(ctx)
-    expect(candidates.map((c) => c.roleKey).sort()).toEqual(expect.arrayContaining(['account_manager', 'super_admin']))
-    expect(candidates.some((c) => c.roleKey === 'marketing_employee')).toBe(false)
+    expect(candidates.map((c) => c.roleKey).sort()).toEqual(expect.arrayContaining(['employee', 'super_admin']))
   })
 })

@@ -53,15 +53,20 @@ describe.each([
     const accountManager = await createTestUser()
     accountManagerId = accountManager.id
     const amMembership = await testDb.organizationUser.create({
-      data: { organizationId: orgId, userId: accountManagerId, roleId: roles.get('account_manager')!.id },
+      data: { organizationId: orgId, userId: accountManagerId, roleId: roles.get('employee')!.id },
     })
     await testDb.clientAssignment.create({ data: { clientId, organizationUserId: amMembership.id } })
     await testDb.clientAssignment.create({ data: { clientId: disconnectedClientId, organizationUserId: amMembership.id } })
 
+    // A second, separately-assigned employee - both hold the same
+    // permissions (account_manager/marketing_employee merged into one
+    // `employee` role, docs/DECISIONS.md 2026-09-13); kept as a distinct
+    // user to prove ads.manage isn't somehow tied to which employee row
+    // connected the account.
     const marketingEmployee = await createTestUser()
     marketingEmployeeId = marketingEmployee.id
     const meMembership = await testDb.organizationUser.create({
-      data: { organizationId: orgId, userId: marketingEmployeeId, roleId: roles.get('marketing_employee')!.id },
+      data: { organizationId: orgId, userId: marketingEmployeeId, roleId: roles.get('employee')!.id },
     })
     await testDb.clientAssignment.create({ data: { clientId, organizationUserId: meMembership.id } })
 
@@ -85,7 +90,7 @@ describe.each([
     expect(connection?.status).toBe('CONNECTED')
   })
 
-  it('reads (get_campaigns/get_campaign_performance/get_ad_groups/get_ads) work for any role holding clients.read - even client_user', async () => {
+  it('reads (get_campaigns/get_campaign_performance/get_ad_groups/get_ads) work for any role holding clients.read - even a client', async () => {
     const ctx = await resolveAuthContext(testDb, clientUserId, orgId)
 
     const campaigns = (await executeTool({
@@ -128,7 +133,7 @@ describe.each([
     ).rejects.toThrow(IntegrationUnavailableError)
   })
 
-  it('create_campaign (MEDIUM) executes directly for account_manager and always creates a PAUSED campaign', async () => {
+  it('create_campaign (MEDIUM) executes directly for an employee and always creates a PAUSED campaign', async () => {
     const ctx = await resolveAuthContext(testDb, accountManagerId, orgId)
     const campaign = (await executeTool({
       ctx: ctx!,
@@ -137,15 +142,25 @@ describe.each([
       clientId,
     })) as { status: string; providerCampaignId: string }
     expect(campaign.status).toBe('PAUSED')
+
+    // Every employee has ads.manage now (account_manager/marketing_employee
+    // merged, docs/DECISIONS.md 2026-09-13) - a second, separately-assigned
+    // employee can do the same.
+    const meCtx = await resolveAuthContext(testDb, marketingEmployeeId, orgId)
+    const secondCampaign = (await executeTool({
+      ctx: meCtx!,
+      toolKey: `${prefix}.create_campaign`,
+      input: { name: 'Second Employee Campaign', budget: 45 },
+      clientId,
+    })) as { status: string }
+    expect(secondCampaign.status).toBe('PAUSED')
   })
 
-  it('create_campaign/pause_campaign (MEDIUM) are denied for marketing_employee and client_user (no ads.manage)', async () => {
-    const meCtx = await resolveAuthContext(testDb, marketingEmployeeId, orgId)
-    await expect(
-      executeTool({ ctx: meCtx!, toolKey: `${prefix}.create_campaign`, input: { name: 'x' }, clientId }),
-    ).rejects.toThrow(ForbiddenError)
-
+  it('create_campaign/pause_campaign (MEDIUM) are denied for a client (no ads.manage)', async () => {
     const clientCtx = await resolveAuthContext(testDb, clientUserId, orgId)
+    await expect(
+      executeTool({ ctx: clientCtx!, toolKey: `${prefix}.create_campaign`, input: { name: 'x' }, clientId }),
+    ).rejects.toThrow(ForbiddenError)
     await expect(
       executeTool({ ctx: clientCtx!, toolKey: `${prefix}.pause_campaign`, input: { providerCampaignId: 'whatever' }, clientId }),
     ).rejects.toThrow(ForbiddenError)
@@ -188,13 +203,11 @@ describe.each([
     expect(campaigns.find((c) => c.providerCampaignId === campaign.providerCampaignId)?.budget).toBe(999)
   })
 
-  it('update_campaign and update_bid (HIGH) are denied outright for marketing_employee and client_user (no ads.manage - never even reach the risk gate)', async () => {
-    const meCtx = await resolveAuthContext(testDb, marketingEmployeeId, orgId)
-    await expect(
-      executeTool({ ctx: meCtx!, toolKey: `${prefix}.update_campaign`, input: { providerCampaignId: 'x', name: 'y' }, clientId }),
-    ).rejects.toThrow(ForbiddenError)
-
+  it('update_campaign and update_bid (HIGH) are denied outright for a client (no ads.manage - never even reach the risk gate)', async () => {
     const clientCtx = await resolveAuthContext(testDb, clientUserId, orgId)
+    await expect(
+      executeTool({ ctx: clientCtx!, toolKey: `${prefix}.update_campaign`, input: { providerCampaignId: 'x', name: 'y' }, clientId }),
+    ).rejects.toThrow(ForbiddenError)
     await expect(
       executeTool({ ctx: clientCtx!, toolKey: `${prefix}.update_bid`, input: { providerAdId: 'x', bid: 1 }, clientId }),
     ).rejects.toThrow(ForbiddenError)

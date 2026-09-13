@@ -28,7 +28,8 @@ describe('Client Brain CRUD (BRD Section 6) - tenant + permission enforced throu
   let clientAId: string
   let clientBId: string
   let superAdminId: string
-  let employeeId: string // marketing_employee, assigned to Client A only
+  let employeeId: string // employee, assigned to Client A only
+  let clientPortalUserId: string // `client` role - lacks clients.edit entirely
 
   beforeAll(async () => {
     const org = await createTestOrg()
@@ -49,15 +50,19 @@ describe('Client Brain CRUD (BRD Section 6) - tenant + permission enforced throu
     const employee = await createTestUser()
     employeeId = employee.id
     const membership = await testDb.organizationUser.create({
-      data: { organizationId: orgId, userId: employeeId, roleId: roles.get('marketing_employee')!.id },
+      data: { organizationId: orgId, userId: employeeId, roleId: roles.get('employee')!.id },
     })
     await testDb.clientAssignment.create({
       data: { clientId: clientAId, organizationUserId: membership.id },
     })
+
+    const clientPortalUser = await createTestUser()
+    clientPortalUserId = clientPortalUser.id
+    await testDb.clientUser.create({ data: { clientId: clientAId, userId: clientPortalUserId } })
   })
 
   afterAll(async () => {
-    await cleanupOrg(orgId, [superAdminId, employeeId])
+    await cleanupOrg(orgId, [superAdminId, employeeId, clientPortalUserId])
   })
 
   it('updateClientBrainSection validates input and writes only the targeted section', async () => {
@@ -86,9 +91,11 @@ describe('Client Brain CRUD (BRD Section 6) - tenant + permission enforced throu
     ).rejects.toThrow(z.ZodError)
   })
 
-  it('denies a client_user-adjacent role without clients.manage from writing the brain', async () => {
-    // marketing_employee lacks clients.manage in the seeded permission set.
-    const ctx = await resolveAuthContext(testDb, employeeId, orgId)
+  // Every employee holds clients.edit (account_manager/marketing_employee
+  // merged, docs/DECISIONS.md 2026-09-13); a `client` (portal user) is the
+  // one who lacks it.
+  it('denies a client (lacks clients.edit) from writing the brain', async () => {
+    const ctx = await resolveAuthContext(testDb, clientPortalUserId, orgId)
     await expect(
       updateClientBrainSection(ctx!, clientAId, 'business', { companyName: 'Should not save' }),
     ).rejects.toThrow(ForbiddenError)

@@ -40,7 +40,7 @@ export async function processWeeklyIntelligenceJob(data: WeeklyIntelligenceJobDa
       clientId,
       action: 'workflow.weekly_intelligence.skipped',
       result: 'DENIED',
-      error: 'No active account_manager or marketing_employee assigned to this client - nobody to run the automation as.',
+      error: 'No active employee assigned to this client - nobody to run the automation as.',
     })
     return
   }

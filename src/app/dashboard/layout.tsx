@@ -1,17 +1,30 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { redirect } from 'next/navigation'
-import { LogOut, Activity } from 'lucide-react'
+import { LogOut } from 'lucide-react'
 import { getCurrentAuthContext } from '@/lib/auth/current-context'
 import { signOut } from '@/lib/auth'
 import { DashboardNav } from '@/components/dashboard-nav'
 import { ToastProvider } from '@/components/ui/toast'
-import { RoleSwitcher } from '@/components/role-switcher'
 
+/**
+ * The dashboard shell (BRD-PRD Section 42). This layout is staff-only. A
+ * `client` gets a distinct, narrower experience at `/portal` (BRD Section
+ * 4.4 - "View own dashboard" reads as *their own*, not the internal one) -
+ * see `src/app/portal/`.
+ *
+ * Deliberately no role-switcher here (removed 2026-09-13, docs/DECISIONS.md):
+ * the one that briefly existed re-signed-in as one of three hardcoded
+ * seeded accounts using their known dev password, one click, for *any*
+ * already-authenticated user regardless of their real role - a live
+ * privilege-escalation hole once real accounts exist via the invitation
+ * system (`src/lib/users/invitations.ts`). Switching who you're signed in
+ * as now means signing out and back in as that account, same as any real
+ * user.
+ */
 const ROLE_LABEL: Record<string, string> = {
   super_admin: 'Super Admin',
-  account_manager: 'Account Manager',
-  marketing_employee: 'Marketing Specialist',
+  employee: 'Employee',
 }
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -98,7 +111,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
               </div>
             </div>
 
-            <RoleSwitcher currentRole={ctx.roleKey} userName={ctx.userId} />
+            <span className="text-xs font-mono-data uppercase tracking-wider text-[#71717A]">
+              {ROLE_LABEL[ctx.roleKey] ?? ctx.roleKey}
+            </span>
           </header>
 
           <main className="flex-1 overflow-y-auto px-4 py-6 sm:px-6 lg:px-8 lg:py-8 bg-[#09090B]">

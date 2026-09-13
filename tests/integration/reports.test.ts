@@ -38,7 +38,7 @@ describe('Reports (BRD Section 41, 68) - built from structured AnalysisResult, n
   let clientId: string
   let otherClientId: string
   let userId: string
-  let scopedEmployeeId: string // marketing_employee, assigned to clientId only
+  let scopedEmployeeId: string // employee, assigned to clientId only
 
   beforeAll(async () => {
     const org = await createTestOrg()
@@ -57,7 +57,7 @@ describe('Reports (BRD Section 41, 68) - built from structured AnalysisResult, n
     const employee = await createTestUser()
     scopedEmployeeId = employee.id
     const membership = await testDb.organizationUser.create({
-      data: { organizationId: orgId, userId: scopedEmployeeId, roleId: roles.get('marketing_employee')!.id },
+      data: { organizationId: orgId, userId: scopedEmployeeId, roleId: roles.get('employee')!.id },
     })
     await testDb.clientAssignment.create({ data: { clientId, organizationUserId: membership.id } })
   })

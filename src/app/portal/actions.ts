@@ -52,7 +52,7 @@ const feedbackSchema = z.object({
 /**
  * `source` is never taken from the form - always 'CLIENT' here, regardless
  * of what a request body claims, since this action is only reachable by a
- * signed-in client_user in the first place.
+ * signed-in client in the first place.
  */
 export async function submitFeedbackAction(clientId: string, _prev: ActionResult, formData: FormData): Promise<ActionResult> {
   return runAction('portal-feedback', async () => {

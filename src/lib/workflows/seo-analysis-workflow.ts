@@ -43,7 +43,7 @@ export async function runSeoAnalysisWorkflow(
   const { ctx, clientId, range } = input
 
   // Same gate as "Analyze this client" - triggering any AI analysis is
-  // staff-only (BRD Section 4.2-4.3); a client_user reviews what it
+  // staff-only (BRD Section 4.2-4.3); a client reviews what it
   // produces (recommendations.review) but doesn't spend on running one.
   assertPermission(ctx, 'analysis.trigger')
   await getAuthorizedClient(ctx, clientId)

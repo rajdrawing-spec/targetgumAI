@@ -28,7 +28,7 @@ describe('Dashboard org-wide read helpers - tenant scoping', () => {
   let clientAId: string
   let clientBId: string
   let superAdminId: string
-  let employeeId: string // marketing_employee, assigned to Client A only
+  let employeeId: string // employee, assigned to Client A only
 
   beforeAll(async () => {
     const org = await createTestOrg()
@@ -49,7 +49,7 @@ describe('Dashboard org-wide read helpers - tenant scoping', () => {
     const employee = await createTestUser()
     employeeId = employee.id
     const membership = await testDb.organizationUser.create({
-      data: { organizationId: orgId, userId: employeeId, roleId: roles.get('marketing_employee')!.id },
+      data: { organizationId: orgId, userId: employeeId, roleId: roles.get('employee')!.id },
     })
     await testDb.clientAssignment.create({ data: { clientId: clientAId, organizationUserId: membership.id } })
 
@@ -94,7 +94,7 @@ describe('Dashboard org-wide read helpers - tenant scoping', () => {
     await cleanupOrg(orgId, [superAdminId, employeeId])
   })
 
-  it('listAccessibleClients: super_admin sees both clients, marketing_employee sees only Client A', async () => {
+  it('listAccessibleClients: super_admin sees both clients, employee sees only Client A', async () => {
     const superCtx = await resolveAuthContext(testDb, superAdminId, orgId)
     const allClients = await listAccessibleClients(superCtx!)
     expect(allClients.map((c) => c.id).sort()).toEqual([clientAId, clientBId].sort())

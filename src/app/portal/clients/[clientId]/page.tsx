@@ -25,8 +25,10 @@ import { RejectWithReason } from '@/components/ui/reject-with-reason'
 /**
  * The Client Portal's main view for one client (BRD Section 4.4): review
  * and accept/decline recommendations, see CLIENT-facing reports
- * (`listReports` already redacts to CLIENT-type only for a client_user),
- * view planned content (read-only), view ad performance telemetry, and leave feedback.
+ * (`listReports` already redacts to CLIENT-type only for a client),
+ * view planned content (read-only), view ad performance telemetry, and
+ * leave feedback. No tasks, no Approval-Engine approvals, no AI runs, no
+ * integration detail - none of that is a client capability per Section 4.4.
  */
 
 /**

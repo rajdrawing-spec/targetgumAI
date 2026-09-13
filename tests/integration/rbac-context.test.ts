@@ -39,7 +39,7 @@ describe('resolveAuthContext (against a real database)', () => {
       data: {
         organizationId: orgId,
         userId: employeeId,
-        roleId: roles.get('marketing_employee')!.id,
+        roleId: roles.get('employee')!.id,
       },
     })
     await testDb.clientAssignment.create({
@@ -62,9 +62,9 @@ describe('resolveAuthContext (against a real database)', () => {
     expect(ctx?.permissions.has('organizations.manage')).toBe(true)
   })
 
-  it('scopes marketing_employee access to their ClientAssignment rows only', async () => {
+  it('scopes employee access to their ClientAssignment rows only', async () => {
     const ctx = await resolveAuthContext(testDb, employeeId, orgId)
-    expect(ctx?.roleKey).toBe('marketing_employee')
+    expect(ctx?.roleKey).toBe('employee')
     expect(ctx?.clientAccess.kind).toBe('SET')
     if (ctx?.clientAccess.kind === 'SET') {
       expect(ctx.clientAccess.clientIds.has(clientAId)).toBe(true)
@@ -76,7 +76,7 @@ describe('resolveAuthContext (against a real database)', () => {
   it('resolves a client-portal user to their ClientUser rows, marked isClientUser', async () => {
     const ctx = await resolveAuthContext(testDb, clientUserId, orgId)
     expect(ctx?.isClientUser).toBe(true)
-    expect(ctx?.roleKey).toBe('client_user')
+    expect(ctx?.roleKey).toBe('client')
     if (ctx?.clientAccess.kind === 'SET') {
       expect(ctx.clientAccess.clientIds.has(clientAId)).toBe(true)
       expect(ctx.clientAccess.clientIds.size).toBe(1)

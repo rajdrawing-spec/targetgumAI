@@ -1,8 +1,9 @@
 /**
- * Dev-only seed script. Creates a sample organization, the four system
- * roles (BRD-PRD Section 4), a starter permission set, one sample client,
- * and one dev-login user per role - enough to exercise auth/RBAC manually
- * or in tests without hand-crafting rows in psql.
+ * Dev-only seed script. Creates a sample organization, the three system
+ * roles (super_admin, employee, client - see src/lib/rbac/permissions.ts),
+ * a starter permission set, one sample client, and one dev-login user per
+ * role - enough to exercise auth/RBAC manually or in tests without
+ * hand-crafting rows in psql.
  *
  * Never run against staging/production data. Idempotent (safe to re-run).
  * Seeded passwords are dev-only and printed to the console, never meant to
@@ -87,7 +88,7 @@ async function main() {
   const employeeUser = await prisma.user.upsert({
     where: { email: 'employee@targetgum.dev' },
     update: {},
-    create: { email: 'employee@targetgum.dev', name: 'Dev Marketing Employee', passwordHash },
+    create: { email: 'employee@targetgum.dev', name: 'Dev Employee', passwordHash },
   })
   await prisma.organizationUser.upsert({
     where: { organizationId_userId: { organizationId: org.id, userId: employeeUser.id } },
@@ -95,14 +96,19 @@ async function main() {
     create: {
       organizationId: org.id,
       userId: employeeUser.id,
-      roleId: roleByKey.get('marketing_employee')!.id,
+      roleId: roleByKey.get('employee')!.id,
     },
   })
 
+  // No seeded "client" (portal) user or demo clients (docs/DECISIONS.md,
+  // 2026-09-13 "eliminate dummy data") - a client-role account only makes
+  // sense tied to a real client, and this script deliberately seeds zero
+  // of those. Create one for real via the Team page's invite flow
+  // (`src/lib/users/invitations.ts`) once a real client exists.
   console.warn(`Seeded organization "${org.name}" with zero dummy clients.`)
   console.warn(`Dev users (password: ${DEV_PASSWORD}):`)
   console.warn(`  super-admin@targetgum.dev    - super_admin, full agency access`)
-  console.warn(`  employee@targetgum.dev       - marketing_employee`)
+  console.warn(`  employee@targetgum.dev       - employee`)
 }
 
 main()

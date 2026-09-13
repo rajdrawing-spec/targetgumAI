@@ -24,7 +24,7 @@ export async function createTestOrg() {
   })
 }
 
-/** Seeds the four system roles + starter permission set for one org. */
+/** Seeds the three system roles + starter permission set for one org. */
 export async function createSystemRoles(
   organizationId: string,
 ): Promise<Map<SystemRoleKey, { id: string }>> {

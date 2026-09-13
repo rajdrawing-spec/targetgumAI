@@ -12,14 +12,11 @@ import type { AuthContext } from '@/lib/rbac/types'
  *
  * Rather than inventing a new service-account concept (a new User row
  * with no login capability, a new role, a new migration), this resolves
- * the client's own assigned staff: prefer an assigned `account_manager`
- * (BRD 4.2 - "Manage assigned clients" makes them the natural owner of
- * that relationship's automation) over a `marketing_employee` (who also
- * holds `analysis.trigger` - see `src/lib/rbac/permissions.ts`) if no
- * account manager is assigned. This keeps every automated `AiRun`/
- * `WorkflowRun` attributed to a real, already-permissioned staff member -
- * fully auditable, and reuses the authorization system exactly as-is
- * rather than adding a parallel one.
+ * the client's own assigned staff: the earliest-assigned active `employee`
+ * (holds `analysis.trigger` - see `src/lib/rbac/permissions.ts`). This
+ * keeps every automated `AiRun`/`WorkflowRun` attributed to a real,
+ * already-permissioned staff member - fully auditable, and reuses the
+ * authorization system exactly as-is rather than adding a parallel one.
  *
  * Returns `null` (never a fabricated/fallback actor) when no eligible
  * staff is assigned to the client - the caller must skip that client
@@ -36,12 +33,9 @@ export async function resolveAutomationActor(organizationId: string, clientId: s
     (a) =>
       a.organizationUser.status === 'ACTIVE' &&
       a.organizationUser.user.status === 'ACTIVE' &&
-      (a.organizationUser.role.key === 'account_manager' || a.organizationUser.role.key === 'marketing_employee'),
+      a.organizationUser.role.key === 'employee',
   )
   if (eligible.length === 0) return null
 
-  const preferred =
-    eligible.find((a) => a.organizationUser.role.key === 'account_manager') ?? eligible[0]!
-
-  return resolveAuthContext(db, preferred.organizationUser.userId, organizationId)
+  return resolveAuthContext(db, eligible[0]!.organizationUser.userId, organizationId)
 }

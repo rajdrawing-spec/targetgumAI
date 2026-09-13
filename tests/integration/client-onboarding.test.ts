@@ -25,7 +25,7 @@ function textResult(data: unknown) {
 describe('Client onboarding (Day 15) - createClient + connectClientToMetricoolBrand', () => {
   let orgId: string
   let superAdminId: string
-  let employeeId: string // marketing_employee: lacks clients.manage and integrations.manage
+  let employeeId: string // employee: lacks clients.manage and integrations.manage
 
   beforeAll(async () => {
     const org = await createTestOrg()
@@ -41,7 +41,7 @@ describe('Client onboarding (Day 15) - createClient + connectClientToMetricoolBr
     const employee = await createTestUser()
     employeeId = employee.id
     await testDb.organizationUser.create({
-      data: { organizationId: orgId, userId: employeeId, roleId: roles.get('marketing_employee')!.id },
+      data: { organizationId: orgId, userId: employeeId, roleId: roles.get('employee')!.id },
     })
   })
 
@@ -56,7 +56,7 @@ describe('Client onboarding (Day 15) - createClient + connectClientToMetricoolBr
   })
 
   describe('createClient', () => {
-    it('denies a role without clients.manage (marketing_employee)', async () => {
+    it('denies a role without clients.manage (employee)', async () => {
       const ctx = await resolveAuthContext(testDb, employeeId, orgId)
       await expect(createClient(ctx!, { name: 'Should Not Exist' })).rejects.toThrow(ForbiddenError)
     })

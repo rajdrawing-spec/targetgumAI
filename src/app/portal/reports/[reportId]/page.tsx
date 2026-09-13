@@ -11,7 +11,7 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { TrendList } from '@/components/ui/trend-list'
 
 /**
- * `getReport` already refuses an INTERNAL report to a client_user
+ * `getReport` already refuses an INTERNAL report to a client
  * (`src/lib/reports/generate.ts`) - this view only ever renders the
  * CLIENT-redacted shape (no evidence/confidence/dataGaps fields exist on
  * it at all, so there's nothing here that could leak them even by

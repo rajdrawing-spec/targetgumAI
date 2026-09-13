@@ -10,6 +10,7 @@ import {
   CalendarDays,
   Image as ImageIcon,
   Search,
+  UserCog,
   Lightbulb,
   CheckSquare,
   ShieldCheck,
@@ -38,6 +39,9 @@ const NAV_ITEMS: Array<{ href: string; label: string; icon: LucideIcon; badge?: 
   { href: '/dashboard/reports', label: 'Performance Reports', icon: FileText },
   { href: '/dashboard/integrations', label: 'Integrations', icon: Plug },
   { href: '/dashboard/audit', label: 'Ledger & Audit', icon: ScrollText },
+  // Visible to everyone, same as Audit above - users.manage (Super Admin
+  // only) is enforced by the page itself via the shared error boundary.
+  { href: '/dashboard/team', label: 'Team', icon: UserCog },
 ]
 
 export function DashboardNav() {

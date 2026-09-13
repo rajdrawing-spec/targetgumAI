@@ -98,7 +98,7 @@ describe('Creative Agent + "Generate creative concepts" workflow (Phase 2, BRD S
     const marketingEmployee = await createTestUser()
     marketingEmployeeId = marketingEmployee.id
     const meMembership = await testDb.organizationUser.create({
-      data: { organizationId: orgId, userId: marketingEmployeeId, roleId: roles.get('marketing_employee')!.id },
+      data: { organizationId: orgId, userId: marketingEmployeeId, roleId: roles.get('employee')!.id },
     })
     await testDb.clientAssignment.create({ data: { clientId, organizationUserId: meMembership.id } })
 
@@ -176,7 +176,7 @@ describe('Creative Agent + "Generate creative concepts" workflow (Phase 2, BRD S
     expect(assets.some((a) => a.copy?.includes('Spring Refresh'))).toBe(true)
   })
 
-  it('a client_user cannot trigger creative concept generation themselves (same analysis.trigger gate as every other workflow)', async () => {
+  it('a client cannot trigger creative concept generation themselves (same analysis.trigger gate as every other workflow)', async () => {
     const clientCtx = await resolveAuthContext(testDb, clientUserId, orgId)
     await expect(
       runCreativeWorkflow({ ctx: clientCtx!, clientId, platform: 'instagram', count: 1, campaignBrief: 'x' }),
@@ -214,7 +214,7 @@ describe('Creative Agent + "Generate creative concepts" workflow (Phase 2, BRD S
       return result.creativeAssetIds[0]!
     }
 
-    it('marketing_employee (creative.manage) can submit, then approve - the full DRAFT -> IN_REVIEW -> APPROVED path', async () => {
+    it('an employee (creative.manage) can submit, then approve - the full DRAFT -> IN_REVIEW -> APPROVED path', async () => {
       const assetId = await createDraftAsset()
       const meCtx = await resolveAuthContext(testDb, marketingEmployeeId, orgId)
 
@@ -225,7 +225,7 @@ describe('Creative Agent + "Generate creative concepts" workflow (Phase 2, BRD S
       expect(approved.status).toBe('APPROVED')
     })
 
-    it('marketing_employee can reject an IN_REVIEW asset', async () => {
+    it('an employee can reject an IN_REVIEW asset', async () => {
       const assetId = await createDraftAsset()
       const meCtx = await resolveAuthContext(testDb, marketingEmployeeId, orgId)
       await submitCreativeForReview(meCtx!, assetId)
@@ -234,7 +234,7 @@ describe('Creative Agent + "Generate creative concepts" workflow (Phase 2, BRD S
       expect(rejected.status).toBe('REJECTED')
     })
 
-    it('a client_user cannot submit/approve/reject a creative asset (no creative.manage)', async () => {
+    it('a client cannot submit/approve/reject a creative asset (no creative.manage)', async () => {
       const assetId = await createDraftAsset()
       const clientCtx = await resolveAuthContext(testDb, clientUserId, orgId)
       await expect(submitCreativeForReview(clientCtx!, assetId)).rejects.toThrow(ForbiddenError)

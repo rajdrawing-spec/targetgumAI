@@ -18,10 +18,10 @@ cross-client listing.
   else: `clients.read` for reads; `clients.edit` (Phase 2 - narrower than
   `clients.manage` above, which is creation-only; `.edit` is updating an
   *already-accessible* client's Brain/brand assets/competitors/policy, granted to
-  `account_manager` too, still confined to their assigned clients by
+  `employee` too, still confined to their assigned clients by
   `assertClientAccess` - see docs/DECISIONS.md) for `updateClientBrainSection`,
   `addClientBrandAsset`, `addClientCompetitor`, `updateClientPolicy`; `feedback.create`
-  (Phase 2 - also granted to `client_user`, BRD Section 4.4 "Provide feedback") for
+  (Phase 2 - also granted to `client`, BRD Section 4.4 "Provide feedback") for
   `addClientFeedback` specifically.
 - `context-router.ts` — `assembleClientContext(ctx, clientId, category)`: the
   Context Router. Returns only the Client Brain slice relevant to `'analytics' |
