@@ -19,6 +19,7 @@ import {
   Plug,
   ScrollText,
   BarChart3,
+  Settings,
   type LucideIcon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -42,6 +43,9 @@ export const NAV_ITEMS: Array<{ href: string; label: string; icon: LucideIcon; b
   // Visible to everyone, same as Audit above - users.manage (Super Admin
   // only) is enforced by the page itself via the shared error boundary.
   { href: '/dashboard/team', label: 'Team', icon: UserCog },
+  // Self-service only (src/lib/users/profile.ts) - always visible, no
+  // permission gate needed since it only ever touches the caller's own row.
+  { href: '/dashboard/account', label: 'My Account', icon: Settings },
 ]
 
 export function DashboardNav() {

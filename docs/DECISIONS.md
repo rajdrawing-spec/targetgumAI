@@ -5,6 +5,44 @@ Newest entries at the top.
 
 ---
 
+## 2026-09-13 — "My Account": self-service profile + password, no new permission
+
+**Decision:** Added `src/lib/users/profile.ts` (`getOwnProfile`,
+`updateOwnName`, `changeOwnPassword`) and a new `/dashboard/account` page.
+Every function takes only `AuthContext`, never a target user id - they
+always act on `ctx.userId`, so there is no permission to check beyond
+"is this a real, authenticated session" (unlike every other mutation in
+this app, which checks a named permission before touching someone else's
+data). `changeOwnPassword` requires and verifies the current password
+whenever one already exists; only a Google-only account with no password
+yet can set one without that step. Reachable from the sidebar for every
+signed-in staff member (`src/components/dashboard-nav.tsx`).
+
+**Deliberately out of scope for this pass:** self-service email change
+(email is the sign-in/invitation identity key - `User.email` is unique
+and both invitations and Google account linking key off it, so changing
+it safely needs re-verification and collision handling, a materially
+bigger feature); MFA self-enrollment (no enrollment UI exists anywhere
+yet, not just here - `mfaEnabled` is shown read-only); and an admin-side
+"edit another employee's details" on the Team page (a separate,
+larger feature - this pass is self-service only).
+
+**Found while building, fixed narrowly:** `<Badge variant="accent">`
+renders invisible text everywhere it's used (`bg-accent` and
+`text-accent-foreground` both resolve to the same red -
+`--primary-tint === --primary` in `src/app/globals.css`, in both the
+light and dark blocks - not an actual tint). This page uses `neutral`/
+`success` instead rather than fixing the shared token, since the token
+bug is app-wide (it also affects `src/app/dashboard/team/page.tsx`'s
+role badges) and out of scope for this change.
+
+**Trade-off accepted:** sessions are JWT-based (see the 2026-09-10 "Session
+strategy: JWT, not database" entry below) - changing a password here
+cannot invalidate any other already-issued session token. Same accepted
+trade-off as that decision, not a new one.
+
+---
+
 ## 2026-09-13 — AI Gateway reverted from Gemini back to Claude
 
 **Decision:** `src/lib/ai/{client,gateway,models,errors}.ts` now call Claude
