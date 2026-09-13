@@ -223,7 +223,7 @@ sync directly rather than enqueuing to the queue/worker pair 4a needs -
 no second always-on process to deploy for this one:
 
 ```text
-Vercel Cron (hourly, vercel.json)
+Vercel Cron (daily, vercel.json)
   → GET /api/cron/meta-ads-sync (Vercel serverless function, maxDuration 300s)
       - finds every Meta Ads connection due (CONNECTED/DEGRADED, never
         synced or stale past the interval - findMetaAdsConnectionsDueForSync)
@@ -246,11 +246,12 @@ arbitrarily via `findFirst` and silently leave every connection past the
 first permanently stale, even when a human clicked "Sync Live Data" on
 its row). See `docs/DECISIONS.md`, 2026-09-13.
 
-**Vercel plan note**: Vercel Cron on the Hobby plan only supports daily
-(or coarser) schedules; the hourly cadence configured in `vercel.json`
-requires a paid plan to actually fire hourly - on Hobby it will be
-silently coerced to a daily run. Either upgrade the plan or lower
-expectations to daily freshness.
+**Vercel plan note**: Vercel Cron on the Hobby plan only *accepts*
+daily-or-coarser schedules - a more frequent one isn't downgraded, it fails
+the deployment outright at build time. (An earlier version of this cron
+shipped hourly and broke every deployment until this was caught - see the
+correction in `docs/DECISIONS.md`, 2026-09-13.) Upgrading to a paid plan is
+what it would take to sync more often than daily.
 
 ## 5. Security Risks Identified (see `docs/SECURITY.md` for the full model)
 

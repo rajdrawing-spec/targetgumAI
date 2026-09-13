@@ -39,12 +39,13 @@ useful degraded mode to fall back to here.
 
 ---
 
-## 2026-09-13 — Meta Ads sync: an hourly cron, run per-connection instead of per-client
+## 2026-09-13 — Meta Ads sync: a daily cron, run per-connection instead of per-client
 
 **Decision:** Added `GET /api/cron/meta-ads-sync` (registered in `vercel.json`,
-hourly), which finds every Meta Ads `IntegrationConnection` due for a refresh
-(`findMetaAdsConnectionsDueForSync` — `CONNECTED`/`DEGRADED`, never synced or
-stale past 60 minutes) and calls `syncMetaAdAccountTelemetry` for each,
+daily at 05:00 UTC — see the correction below), which finds every Meta Ads
+`IntegrationConnection` due for a refresh (`findMetaAdsConnectionsDueForSync`
+— `CONNECTED`/`DEGRADED`, never synced or stale past the interval) and calls
+`syncMetaAdAccountTelemetry` for each,
 running as the same real staff actor as the existing weekly-intelligence
 automation (`resolveAutomationActor` — see the 2026-09-11 entry below). Unlike
 that job, this one runs the sync inline in the serverless function rather
@@ -75,11 +76,23 @@ spend). Reusing `resolveAutomationActor` rather than inventing a scheduled-job
 identity keeps this on the same authorization chain as every other action in
 the app (BRD Section 4.5 / docs/SECURITY.md invariant 3).
 
-**Trade-off accepted:** Vercel Cron's Hobby plan only supports daily (or
-coarser) schedules — the hourly cadence in `vercel.json` needs a paid plan to
-actually fire hourly; on Hobby it's silently coerced to daily. A connection
-whose client has no eligible staff assigned is skipped (audited `DENIED`),
-same as the weekly job — not retried differently.
+**Trade-off accepted:** daily freshness, not hourly — Vercel Cron's Hobby plan
+only *accepts* daily-or-coarser schedules; it does not downgrade a more
+frequent one, it refuses to deploy at all (see the correction below). A
+connection whose client has no eligible staff assigned is skipped (audited
+`DENIED`), same as the weekly job — not retried differently.
+
+**Correction (same day):** this entry originally shipped `vercel.json` with
+an hourly schedule (`0 * * * *`) and claimed Hobby would "silently coerce" it
+to daily. Both were wrong: Vercel's Hobby plan rejects any cron schedule more
+frequent than once/day *at deploy time* — every deployment from this
+commit through the next three behind it failed outright (Vercel's own check
+showed "Deployment failed" on each). Fixed by changing the schedule to
+`0 5 * * *` (daily) and raising `findMetaAdsConnectionsDueForSync`'s default
+interval from 60 minutes to 20 hours to match. Lesson: a claim about a
+third-party platform's behavior needs to be verified against that platform
+(its docs, or just watching the deploy), not assumed from a plausible-sounding
+guess.
 
 **Revisit if:** sync volume grows enough that looping over every due
 connection inline risks the 300s function budget — at that point this should

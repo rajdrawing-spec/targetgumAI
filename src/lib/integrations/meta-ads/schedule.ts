@@ -1,6 +1,12 @@
 import { db } from '@/lib/db/client'
 
-const DEFAULT_SYNC_INTERVAL_MINUTES = 60
+// Matches the actual cron cadence in vercel.json (once daily - Vercel Cron
+// on the Hobby plan rejects anything more frequent at deploy time, see
+// docs/DECISIONS.md, 2026-09-13). Kept comfortably under 24h so a connection
+// is always "due" by the next scheduled run even if that run lands a bit
+// early/late, without also treating every connection as due immediately
+// after a manual re-trigger on the same day.
+const DEFAULT_SYNC_INTERVAL_MINUTES = 20 * 60
 
 export interface DueMetaAdsConnection {
   connectionId: string
