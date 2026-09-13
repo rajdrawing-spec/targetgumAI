@@ -19,6 +19,34 @@ function isReportContent(value: unknown): value is ReportContent {
   return typeof v.summary === 'string' && Array.isArray(v.findings) && Array.isArray(v.recommendations)
 }
 
+interface AdReportContent {
+  executiveSummary: string
+  metrics: { impressions: number; clicks: number; spend: number; revenue: number; ctr: number; cpc: number; roas: number; amazonAcos: number }
+  channelBreakdown: Array<{ platform: string; impressions: number; spend: number; roas: number; clicks: number }>
+  diagnostics: Array<{ title: string; whatIsHappening: string; impact: string; recommendation: string; severity: string }>
+  generatedAt: string
+}
+
+/**
+ * The "AI Ad Performance & Impression Audit" shape
+ * (`src/lib/ads/analyzer.ts`'s `createAndShareClientReport`) - a genuinely
+ * different report type from `ReportContent` above (a per-channel
+ * breakdown, severity-graded diagnostics with an impact estimate and
+ * suggested action), not a variant of it - so it gets its own rendering
+ * below rather than being force-fit into the generic Findings/
+ * Recommendations shape, which would silently drop channelBreakdown and
+ * severity. Already rendered correctly in the client portal
+ * (`src/app/portal/reports/[reportId]/page.tsx`) - this brings the staff
+ * dashboard view to parity; before this fix, every report created this way
+ * hit the "unexpected format" fallback below, every time (see
+ * docs/DECISIONS.md).
+ */
+function isAdReportContent(value: unknown): value is AdReportContent {
+  if (!value || typeof value !== 'object') return false
+  const v = value as Record<string, unknown>
+  return typeof v.executiveSummary === 'string' && typeof v.metrics === 'object' && v.metrics !== null && Array.isArray(v.diagnostics)
+}
+
 export default async function ReportDetailPage({ params }: { params: Promise<{ reportId: string }> }) {
   const [{ reportId }, ctx] = await Promise.all([params, getCurrentAuthContext()])
   if (!ctx) redirect('/sign-in')
@@ -63,7 +91,82 @@ export default async function ReportDetailPage({ params }: { params: Promise<{ r
         </div>
       </div>
 
-      {!isReportContent(content) ? (
+      {isAdReportContent(content) ? (
+        <>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Executive summary</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm leading-relaxed text-foreground">{content.executiveSummary}</p>
+            </CardContent>
+          </Card>
+
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {[
+              { label: 'Ad impressions', value: content.metrics.impressions.toLocaleString() },
+              { label: 'Clicks (CTR)', value: `${content.metrics.clicks.toLocaleString()} (${content.metrics.ctr}%)` },
+              { label: 'Total spend', value: `$${content.metrics.spend.toLocaleString()}` },
+              { label: 'Return on ad spend', value: `${content.metrics.roas}x ROAS`, accent: true },
+            ].map((tile) => (
+              <div key={tile.label} className="rounded-md border border-border bg-card p-3.5">
+                <span className="block text-xs font-medium uppercase tracking-wide text-caption">{tile.label}</span>
+                <p className={`mt-1 text-xl font-semibold tabular-nums ${tile.accent ? 'text-success' : 'text-foreground'}`}>{tile.value}</p>
+              </div>
+            ))}
+          </div>
+
+          {content.channelBreakdown.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Channel performance breakdown</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  {content.channelBreakdown.map((ch) => (
+                    <div key={ch.platform} className="rounded-md border border-border p-3 text-xs">
+                      <p className="font-semibold text-foreground">{ch.platform}</p>
+                      <p className="mt-1 text-caption">
+                        {ch.impressions.toLocaleString()} impressions · ${ch.spend.toLocaleString()} spend
+                      </p>
+                      <p className="mt-1 font-semibold text-success">{ch.roas}x ROAS</p>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Lightbulb className="h-4 w-4 text-muted-foreground" /> AI diagnostic findings & strategic actions
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {content.diagnostics.length === 0 ? (
+                <EmptyState icon={Lightbulb} title="No diagnostics" />
+              ) : (
+                <ul className="space-y-3">
+                  {content.diagnostics.map((diag, i) => (
+                    <li key={i} className="rounded-md border border-border p-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <StatusBadge status={diag.severity} />
+                          <span className="text-sm font-medium text-foreground">{diag.title}</span>
+                        </div>
+                        {diag.impact && <span className="text-xs font-semibold text-success">{diag.impact}</span>}
+                      </div>
+                      <p className="mt-1.5 text-sm text-caption">{diag.whatIsHappening}</p>
+                      <p className="mt-2 border-t border-border pt-2 text-sm font-medium text-foreground">{diag.recommendation}</p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </CardContent>
+          </Card>
+        </>
+      ) : !isReportContent(content) ? (
         <Card className="border-warning/30 bg-warning-bg/40">
           <CardContent className="p-4 text-sm text-foreground">
             This report&apos;s stored content is in an unexpected format and can&apos;t be displayed. Re-run the analysis to generate a fresh report.

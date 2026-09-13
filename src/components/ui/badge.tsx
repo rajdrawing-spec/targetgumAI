@@ -68,6 +68,10 @@ const STATUS_VARIANT: Record<string, BadgeProps['variant']> = {
   HIGH: 'warning',
   CRITICAL: 'destructive',
   URGENT: 'destructive',
+  // Ad performance diagnostic severity (src/lib/ads/analyzer.ts's DiagnosticItem)
+  WARNING: 'warning',
+  OPPORTUNITY: 'info',
+  HEALTHY: 'success',
   // Content calendar (ContentStatus) - APPROVED/CANCELLED/FAILED above are shared.
   IDEA: 'neutral',
   DRAFT: 'neutral',

@@ -5,6 +5,38 @@ Newest entries at the top.
 
 ---
 
+## 2026-09-13 — Staff dashboard report view gets its own renderer for the Ad Performance Audit shape
+
+**Decision:** `src/app/dashboard/reports/[reportId]/page.tsx` gained a
+second recognized report shape, `isAdReportContent` (executive summary +
+metrics + channel breakdown + severity-graded diagnostics), rendered with
+its own cards - metric tiles, a channel breakdown grid, and a diagnostics
+list using `StatusBadge`. Three new severity keys (`WARNING`, `OPPORTUNITY`,
+`HEALTHY`) added to `Badge`'s `STATUS_VARIANT` map so that renders in color.
+
+**Rationale:** Every report created via `src/lib/ads/analyzer.ts`'s
+`createAndShareClientReport` (the Ads page's "AI Ad Performance &
+Impression Audit") stores `{ executiveSummary, metrics, channelBreakdown,
+diagnostics, generatedAt }` - a shape that has never matched
+`ReportContent` (`summary`/`findings`/`recommendations`). The staff
+dashboard's report page only ever recognized `ReportContent`, so **every
+single one of these reports** hit its "unexpected format" fallback for
+staff, unconditionally - not a corrupted row, a permanent gap. The client
+portal (`src/app/portal/reports/[reportId]/page.tsx`) already had a working
+`isAdReport` branch rendering this exact shape correctly; this brings the
+staff-facing view to parity rather than leaving staff unable to see what
+clients could already see.
+
+**Alternative considered:** mapping the ad-report fields onto `ReportContent`
+(`executiveSummary` → `summary`, `diagnostics` → `findings`/
+`recommendations`) so the existing generic renderer could handle it.
+Rejected - `channelBreakdown` has no analog in `ReportContent` at all, and
+folding `severity`/`impactEstimate`/`suggestedActionType` into the generic
+`priority`/`confidence` fields would lose real structured data to fit an
+unrelated shape, not a faithful representation of it.
+
+---
+
 ## 2026-09-13 — "My Account": self-service profile + password, no new permission
 
 **Decision:** Added `src/lib/users/profile.ts` (`getOwnProfile`,
