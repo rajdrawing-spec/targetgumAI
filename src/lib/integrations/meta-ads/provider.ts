@@ -4,6 +4,7 @@ import {
   fetchMetaCampaigns,
   fetchMetaDailyInsights,
   pauseMetaCampaign,
+  resumeMetaCampaign,
   updateMetaCampaignBudget,
 } from './meta-client'
 
@@ -95,6 +96,8 @@ export function createMetaAdsProvider(explicitToken?: string): AdsProvider {
       const activeToken = token()
       if (input.status === 'PAUSED') {
         await pauseMetaCampaign(providerCampaignId, activeToken)
+      } else if (input.status === 'ACTIVE') {
+        await resumeMetaCampaign(providerCampaignId, activeToken)
       }
       if (input.budget !== undefined) {
         await updateMetaCampaignBudget(providerCampaignId, input.budget, activeToken)

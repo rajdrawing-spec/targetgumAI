@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { getCurrentAuthContext } from '@/lib/auth/current-context'
 import { rejectApproval } from '@/lib/approvals/approvals'
+import { syncCampaignFromApproval } from '@/lib/ads/service'
 import { addClientCompetitor, updateClientPolicy } from '@/lib/clients/brain'
 import { createClient } from '@/lib/clients/create'
 import { PROVIDER_LABEL } from '@/components/clients/labels'
@@ -238,8 +239,10 @@ export async function approveApprovalAction(approvalId: string, clientId: string
     const ctx = await requireCtx()
     await approveAndExecuteApproval(ctx, approvalId)
     await syncContentCalendarItemFromApproval(approvalId)
+    await syncCampaignFromApproval(approvalId)
     revalidatePath('/dashboard/approvals')
     revalidatePath('/dashboard/content-calendar')
+    revalidatePath('/dashboard/ads')
     revalidatePath('/dashboard')
     revalidateClient(clientId)
     return actionOk('Approved and executed.')
@@ -252,8 +255,10 @@ export async function rejectApprovalAction(approvalId: string, clientId: string,
     const { reason } = reasonSchema.parse({ reason: formData.get('reason') ?? '' })
     await rejectApproval(ctx, approvalId, reason)
     await syncContentCalendarItemFromApproval(approvalId)
+    await syncCampaignFromApproval(approvalId)
     revalidatePath('/dashboard/approvals')
     revalidatePath('/dashboard/content-calendar')
+    revalidatePath('/dashboard/ads')
     revalidatePath('/dashboard')
     revalidateClient(clientId)
     return actionOk('Approval rejected.')

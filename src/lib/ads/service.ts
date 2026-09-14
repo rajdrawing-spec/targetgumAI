@@ -2,6 +2,7 @@ import { db } from '@/lib/db/client'
 import { assertClientAccess } from '@/lib/rbac/guards'
 import type { AuthContext } from '@/lib/rbac/types'
 import { executeTool } from '@/lib/tools/execute'
+import { ApprovalRequiredError } from '@/lib/tools/errors'
 import type { IntegrationProvider } from '@prisma/client'
 import type { CreateCampaignInput, CampaignSummary } from './types'
 
@@ -61,6 +62,7 @@ export async function listCampaigns(ctx: AuthContext, clientId?: string): Promis
       provider: c.provider,
       channel: c.channel,
       status: c.status ?? 'ACTIVE',
+      approvalId: c.approvalId,
       budget: Number(c.budget ?? 0),
       metrics: {
         impressions,
@@ -133,13 +135,22 @@ export async function createCampaign(ctx: AuthContext, input: CreateCampaignInpu
  * Pausing a META_ADS campaign calls the real Graph API (`meta_ads.
  * pause_campaign`, MEDIUM risk - spend-reducing, executes immediately, no
  * approval) before the local row is flipped, so this button actually stops
- * spend on Meta instead of only changing what TargetGum displays. Resuming
- * a campaign is the higher-risk direction (BRD Section 21 treats it like
- * "launch campaign") and goes through `meta_ads.update_campaign`, which is
- * HIGH risk and approval-gated - that can't complete synchronously inside
- * this one-click toggle without a UI for the pending state, so for now
- * Resume (and every non-Meta provider, in both directions) stays a local
- * status change only. See docs/DECISIONS.md.
+ * spend on Meta instead of only changing what TargetGum displays.
+ *
+ * Resuming is the higher-risk direction - BRD Section 21 treats
+ * re-activating a campaign like "launch campaign", HIGH risk, approval-
+ * required - so it goes through `meta_ads.update_campaign` instead, which
+ * never executes on this call: `executeTool` creates a PENDING Approval and
+ * throws `ApprovalRequiredError`, which this catches to record the
+ * approval id on the campaign (status stays PAUSED - it's still exactly
+ * what it was, just now also waiting on a human). Calling this again while
+ * one is already pending is refused rather than opening a second approval
+ * for the same resume. Once an approver acts on it
+ * (`approveAndExecuteApproval`), `syncCampaignFromApproval` (called right
+ * after, from the dashboard Server Action - same pattern as
+ * `syncContentCalendarItemFromApproval`) reconciles the row. Every non-Meta
+ * provider stays a local status change only in both directions (no write
+ * adapter exists for Google/Amazon Ads yet).
  */
 export async function toggleCampaignStatus(ctx: AuthContext, campaignId: string, currentStatus: string) {
   const campaign = await db.campaign.findUnique({
@@ -157,12 +168,59 @@ export async function toggleCampaignStatus(ctx: AuthContext, campaignId: string,
       clientId: campaign.clientId,
       input: { providerCampaignId: campaign.providerCampaignId },
     })
+    return db.campaign.update({ where: { id: campaignId }, data: { status: newStatus } })
+  }
+
+  if (newStatus === 'ACTIVE' && campaign.provider === 'META_ADS') {
+    if (campaign.approvalId) {
+      throw new Error('A resume request is already pending approval for this campaign.')
+    }
+    try {
+      await executeTool({
+        ctx,
+        toolKey: 'meta_ads.update_campaign',
+        clientId: campaign.clientId,
+        input: { providerCampaignId: campaign.providerCampaignId, status: 'ACTIVE' },
+      })
+      // A HIGH-risk tool call never reaches this line on a fresh (non-approved) call - reaching it means the risk gate didn't fire.
+      throw new Error('meta_ads.update_campaign executed without an approval - the HIGH-risk gate should have blocked this.')
+    } catch (error) {
+      if (error instanceof ApprovalRequiredError) {
+        return db.campaign.update({ where: { id: campaignId }, data: { approvalId: error.approvalId } })
+      }
+      throw error
+    }
   }
 
   return db.campaign.update({
     where: { id: campaignId },
     data: { status: newStatus },
   })
+}
+
+/**
+ * Called right after an approver approves+executes or rejects a campaign
+ * resume approval (`approveAndExecuteApproval`/`rejectApproval`,
+ * src/lib/tools/execute.ts and src/lib/approvals/approvals.ts) - not
+ * itself permission-gated, since it only runs as a side effect of an
+ * action that was already authorized. A no-op for any approval that isn't
+ * linked to a campaign. Broader than `syncContentCalendarItemFromApproval`
+ * in one respect: an EXPIRED or CANCELLED approval also clears
+ * `approvalId` so the Ads Hub toggle doesn't get stuck showing "awaiting
+ * approval" forever - EXECUTED is the only outcome that changes `status`.
+ */
+export async function syncCampaignFromApproval(approvalId: string): Promise<void> {
+  const campaign = await db.campaign.findFirst({ where: { approvalId } })
+  if (!campaign) return
+
+  const approval = await db.approval.findUnique({ where: { id: approvalId } })
+  if (!approval) return
+
+  if (approval.status === 'EXECUTED') {
+    await db.campaign.update({ where: { id: campaign.id }, data: { status: 'ACTIVE', approvalId: null } })
+  } else if (approval.status === 'FAILED' || approval.status === 'REJECTED' || approval.status === 'EXPIRED' || approval.status === 'CANCELLED') {
+    await db.campaign.update({ where: { id: campaign.id }, data: { approvalId: null } })
+  }
 }
 
 /**

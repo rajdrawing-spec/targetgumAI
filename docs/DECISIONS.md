@@ -5,6 +5,61 @@ Newest entries at the top.
 
 ---
 
+## 2026-09-14 — Ads Hub "Resume" now goes through the Approval Engine, with a pending-approval UI
+
+**Decision:** the previous pass (2026-09-13, below) deliberately left resuming
+a paused META_ADS campaign as a local-only status change, because doing it
+for real meant routing through the HIGH-risk, approval-gated
+`meta_ads.update_campaign` tool - which can't resolve synchronously inside
+a one-click toggle, and building the pending-approval UI was explicitly out
+of scope for that pass ("dont chagne the UI"). Asked to build exactly that
+next, so this pass adds it.
+
+**Schema:** `Campaign.approvalId String?` (migration
+`20260914170901_add_campaign_approval_id`), mirroring
+`ContentCalendarItem.approvalId` - same one-column, one-purpose shape, no
+new join table.
+
+**Flow (`toggleCampaignStatus`, src/lib/ads/service.ts):** clicking
+"Activate" on a connected Meta campaign calls `meta_ads.update_campaign`
+with `status: 'ACTIVE'`. That's HIGH risk, so it never executes on this
+call - `executeTool` creates a PENDING `Approval` and throws
+`ApprovalRequiredError`, which is caught to record the approval id on the
+campaign; `status` stays `PAUSED`. Calling it again while one is already
+pending is refused outright (`"A resume request is already pending
+approval for this campaign."`), not a second approval. Once a human
+approves or rejects it on the Approvals Gate, `syncCampaignFromApproval`
+(called from `approveApprovalAction`/`rejectApprovalAction`, same pattern
+as `syncContentCalendarItemFromApproval`) reconciles the row: EXECUTED ->
+`status: ACTIVE`, `approvalId: null`; FAILED/REJECTED/EXPIRED/CANCELLED ->
+`approvalId: null` only, leaving it `PAUSED` and retriable.
+
+**Bug found and fixed along the way:** `meta-ads/provider.ts`'s
+`updateCampaign` only ever sent `status=PAUSED` to the Graph API - there
+was no branch for `status=ACTIVE` at all, so even an approved-and-executed
+resume would have flipped TargetGum's own status to `ACTIVE` without ever
+telling Meta. Added `resumeMetaCampaign` (`meta-ads/meta-client.ts`, POSTs
+`status=ACTIVE`) and wired it in. Caught by a unit test
+(`tests/unit/native-ads-providers.test.ts`) asserting the exact request
+Meta receives, and an integration test
+(`tests/integration/toggle-campaign-status.test.ts`) that approves a real
+pending resume with a mocked Graph API and checks `fetch` was actually
+called - exactly the kind of gap this session's earlier audit was written
+to catch.
+
+**UI (src/app/dashboard/ads/page.tsx):** a campaign with a pending
+`approvalId` shows an amber "Pending approval" pill and a "Review on
+Approvals Gate →" link in place of the Pause/Activate button - same visual
+language the content-calendar list view already uses for its own pending
+publish requests (`"Publish requested - awaiting approval on Approvals
+Gate"`), not a new pattern invented for this one screen. Verified live
+against a production build: clicking Activate creates the approval and
+switches the row to the pending state; rejecting it on the Approvals Gate
+clears `approvalId` and the row goes back to a plain "Activate" button,
+retriable.
+
+---
+
 ## 2026-09-13 — Feature audit follow-up: fix Settings crash, real Meta Ads create/pause, no UI changes
 
 **Context:** the same-day feature audit (see the published report this

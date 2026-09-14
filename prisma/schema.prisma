@@ -1015,6 +1015,11 @@ model Campaign {
   budget             Decimal?            @db.Decimal(12, 2)
   startDate          DateTime?
   endDate            DateTime?
+  /// Set while a resume (reactivation) is waiting on the Approval Engine
+  /// (`meta_ads.update_campaign` is HIGH risk - BRD Section 21 rates
+  /// re-activating a campaign like "launch campaign") - cleared once that
+  /// approval resolves. Mirrors `ContentCalendarItem.approvalId`.
+  approvalId         String?
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
 

@@ -357,6 +357,20 @@ export async function pauseMetaCampaign(campaignId: string, token: string): Prom
 }
 
 /**
+ * Re-activates a paused Meta Campaign. Only reachable through the
+ * approval-gated `meta_ads.update_campaign` tool (BRD Section 21: like
+ * "launch campaign", HIGH risk) - never called on a fresh, unapproved
+ * request.
+ */
+export async function resumeMetaCampaign(campaignId: string, token: string): Promise<void> {
+  await metaFetch(`/${campaignId}`, token.trim(), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ status: 'ACTIVE' }).toString(),
+  })
+}
+
+/**
  * Updates the daily budget of an active Meta Campaign.
  */
 export async function updateMetaCampaignBudget(

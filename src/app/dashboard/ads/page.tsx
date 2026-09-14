@@ -402,11 +402,23 @@ export default async function AdsPage({
                     </td>
 
                     <td className="px-4 py-3.5 text-right">
-                      <ActionForm action={toggleCampaignStatusAction.bind(null, c.id, c.status)}>
-                        <SubmitButton variant="ghost" size="sm" className="text-xs text-[var(--text-muted-hex)] hover:text-white">
-                          {c.status === 'ACTIVE' ? 'Pause' : 'Activate'}
-                        </SubmitButton>
-                      </ActionForm>
+                      {c.approvalId ? (
+                        <div className="flex flex-col items-end gap-0.5">
+                          <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/15 px-2 py-0.5 text-[11px] font-medium text-amber-300">
+                            <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+                            Pending approval
+                          </span>
+                          <Link href="/dashboard/approvals" className="text-[10px] text-[var(--text-muted-hex)] hover:text-[#E5252A] hover:underline">
+                            Review on Approvals Gate →
+                          </Link>
+                        </div>
+                      ) : (
+                        <ActionForm action={toggleCampaignStatusAction.bind(null, c.id, c.status)}>
+                          <SubmitButton variant="ghost" size="sm" className="text-xs text-[var(--text-muted-hex)] hover:text-white">
+                            {c.status === 'ACTIVE' ? 'Pause' : 'Activate'}
+                          </SubmitButton>
+                        </ActionForm>
+                      )}
                     </td>
                   </tr>
                 )

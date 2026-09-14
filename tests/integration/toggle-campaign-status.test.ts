@@ -1,7 +1,9 @@
 import { afterEach, beforeAll, afterAll, describe, expect, it, vi } from 'vitest'
 import { connectClientToMetaAdsAccount } from '@/lib/integrations/meta-ads/connect'
 import { saveProviderCredentials } from '@/lib/integrations/health'
-import { toggleCampaignStatus } from '@/lib/ads/service'
+import { toggleCampaignStatus, syncCampaignFromApproval } from '@/lib/ads/service'
+import { rejectApproval } from '@/lib/approvals/approvals'
+import { approveAndExecuteApproval } from '@/lib/tools/execute'
 import { resolveAuthContext } from '@/lib/rbac/context'
 import { cleanupOrg, createSystemRoles, createTestClient, createTestOrg, createTestUser, testDb } from '../helpers/factory'
 
@@ -12,10 +14,14 @@ import { cleanupOrg, createSystemRoles, createTestClient, createTestOrg, createT
  * a connected META_ADS campaign must now call the real Graph API
  * (`meta_ads.pause_campaign`, MEDIUM risk - immediate, not approval-gated)
  * before the local row is updated, and must not silently mark PAUSED if
- * that call fails. Resuming stays local-only for now (BRD Section 21 rates
- * it like "launch campaign" - HIGH/approval-gated - and there's no pending-
- * approval UI on this toggle yet, docs/DECISIONS.md), as does every
- * direction for a non-Meta provider.
+ * that call fails. Resuming goes through the Approval Engine instead
+ * (`meta_ads.update_campaign`, HIGH risk - BRD Section 21 rates it like
+ * "launch campaign"): a fresh call never executes, just records the
+ * approval id and leaves the row PAUSED; `syncCampaignFromApproval` (called
+ * from the dashboard's approve/reject Server Actions, same pattern as
+ * `syncContentCalendarItemFromApproval`) reconciles it once a human
+ * decides. Every direction for a non-Meta provider stays local-only - no
+ * write adapter exists for Google/Amazon Ads yet.
  */
 describe('toggleCampaignStatus - pauses a connected META_ADS campaign for real', () => {
   let orgId: string
@@ -96,7 +102,7 @@ describe('toggleCampaignStatus - pauses a connected META_ADS campaign for real',
     expect(stillActive?.status).toBe('ACTIVE')
   })
 
-  it('resuming a META_ADS campaign stays local-only (no Graph API call) - approval-gating that direction has no UI yet', async () => {
+  it('resuming a META_ADS campaign never executes on a fresh call - records a pending approval, leaves it PAUSED', async () => {
     const ctx = (await resolveAuthContext(testDb, userId, orgId))!
     const campaign = await testDb.campaign.create({
       data: {
@@ -112,9 +118,77 @@ describe('toggleCampaignStatus - pauses a connected META_ADS campaign for real',
     const fetchMock = vi.fn()
     vi.stubGlobal('fetch', fetchMock)
 
-    const updated = await toggleCampaignStatus(ctx, campaign.id, 'PAUSED')
-    expect(updated.status).toBe('ACTIVE')
-    expect(fetchMock).not.toHaveBeenCalled()
+    const afterFirstCall = await toggleCampaignStatus(ctx, campaign.id, 'PAUSED')
+    expect(afterFirstCall.status).toBe('PAUSED')
+    expect(afterFirstCall.approvalId).toBeTruthy()
+    expect(fetchMock).not.toHaveBeenCalled() // never reaches the Graph API without an approval
+
+    const pendingApproval = await testDb.approval.findUnique({ where: { id: afterFirstCall.approvalId! } })
+    expect(pendingApproval?.status).toBe('PENDING')
+    expect(pendingApproval?.riskLevel).toBe('HIGH')
+
+    // Calling it again while one is already pending is refused, not a second approval.
+    await expect(toggleCampaignStatus(ctx, campaign.id, 'PAUSED')).rejects.toThrow(/already pending approval/)
+  })
+
+  it('approving the resume calls the real Graph API and flips the campaign ACTIVE', async () => {
+    const ctx = (await resolveAuthContext(testDb, userId, orgId))!
+    const resumeClient = await createTestClient(orgId, 'Resume Approval Client')
+    const connection = await connectClientToMetaAdsAccount(ctx, resumeClient.id, 'act_777', 'Live account')
+    await saveProviderCredentials(connection.id, { accessToken: 'fake-token', adAccountId: 'act_777' })
+
+    const campaign = await testDb.campaign.create({
+      data: {
+        organizationId: orgId,
+        clientId: resumeClient.id,
+        provider: 'META_ADS',
+        providerCampaignId: '777888999',
+        name: 'Resumable Campaign',
+        status: 'PAUSED',
+      },
+    })
+
+    const requested = await toggleCampaignStatus(ctx, campaign.id, 'PAUSED')
+    expect(requested.approvalId).toBeTruthy()
+
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ success: true }), { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await approveAndExecuteApproval(ctx, requested.approvalId!)
+    await syncCampaignFromApproval(requested.approvalId!)
+
+    const resolved = await testDb.campaign.findUnique({ where: { id: campaign.id } })
+    expect(resolved?.status).toBe('ACTIVE')
+    expect(resolved?.approvalId).toBeNull()
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('rejecting the resume clears the pending approval and leaves the campaign PAUSED', async () => {
+    const ctx = (await resolveAuthContext(testDb, userId, orgId))!
+    const campaign = await testDb.campaign.create({
+      data: {
+        organizationId: orgId,
+        clientId,
+        provider: 'META_ADS',
+        providerCampaignId: 'aaa111bbb',
+        name: 'Rejected Resume Campaign',
+        status: 'PAUSED',
+      },
+    })
+
+    const requested = await toggleCampaignStatus(ctx, campaign.id, 'PAUSED')
+    expect(requested.approvalId).toBeTruthy()
+
+    await rejectApproval(ctx, requested.approvalId!, 'Not approved for this budget cycle.')
+    await syncCampaignFromApproval(requested.approvalId!)
+
+    const resolved = await testDb.campaign.findUnique({ where: { id: campaign.id } })
+    expect(resolved?.status).toBe('PAUSED')
+    expect(resolved?.approvalId).toBeNull()
+
+    // A retry is possible again now that the approval is cleared.
+    const retried = await toggleCampaignStatus(ctx, campaign.id, 'PAUSED')
+    expect(retried.approvalId).toBeTruthy()
   })
 
   it('a non-Meta provider stays local-only in both directions', async () => {

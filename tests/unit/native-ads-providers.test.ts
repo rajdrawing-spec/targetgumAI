@@ -131,6 +131,20 @@ describe('Meta Ads real adapter (Graph API v20.0)', () => {
     expect(sentParams.get('daily_budget')).toBe('4000') // $40.00 -> cents
   })
 
+  it('updateCampaign({status: ACTIVE}) actually POSTs status=ACTIVE to the Graph API - re-activating is not a no-op', async () => {
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => new Response(JSON.stringify({ success: true }), { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const withToken = createMetaAdsProvider('fake-token') as Required<AdsProvider>
+    await withToken.updateCampaign('999888777', { status: 'ACTIVE' })
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const [url, init] = fetchMock.mock.calls[0]!
+    expect(String(url)).toContain('/999888777')
+    const sentParams = new URLSearchParams(init?.body as string)
+    expect(sentParams.get('status')).toBe('ACTIVE')
+  })
+
   it('createCampaign requires a name', async () => {
     const withToken = createMetaAdsProvider('fake-token') as Required<AdsProvider>
     await expect(withToken.createCampaign('act_123', {})).rejects.toThrow('A campaign name is required.')
