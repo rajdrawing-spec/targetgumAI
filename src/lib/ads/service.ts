@@ -132,14 +132,27 @@ export async function createCampaign(ctx: AuthContext, input: CreateCampaignInpu
 }
 
 /**
- * Pausing a META_ADS campaign calls the real Graph API (`meta_ads.
- * pause_campaign`, MEDIUM risk - spend-reducing, executes immediately, no
- * approval) before the local row is flipped, so this button actually stops
- * spend on Meta instead of only changing what TargetGum displays.
+ * The pause/resume tool keys for providers with a real, write-capable
+ * `AdsProvider` adapter - both Meta Ads and Google Ads as of 2026-09-14
+ * (see docs/DECISIONS.md). A provider absent from this map (Amazon Ads: no
+ * adapter exists yet) falls through to a local-only status change, same as
+ * before either adapter went live.
+ */
+const REAL_PAUSE_RESUME_TOOLS: Partial<Record<IntegrationProvider, { pause: string; resume: string }>> = {
+  META_ADS: { pause: 'meta_ads.pause_campaign', resume: 'meta_ads.update_campaign' },
+  GOOGLE_ADS: { pause: 'google_ads.pause_campaign', resume: 'google_ads.update_campaign' },
+}
+
+/**
+ * Pausing a campaign on a real, connected provider calls the real API
+ * (`{provider}.pause_campaign`, MEDIUM risk - spend-reducing, executes
+ * immediately, no approval) before the local row is flipped, so this
+ * button actually stops spend on the platform instead of only changing
+ * what TargetGum displays.
  *
  * Resuming is the higher-risk direction - BRD Section 21 treats
  * re-activating a campaign like "launch campaign", HIGH risk, approval-
- * required - so it goes through `meta_ads.update_campaign` instead, which
+ * required - so it goes through `{provider}.update_campaign` instead, which
  * never executes on this call: `executeTool` creates a PENDING Approval and
  * throws `ApprovalRequiredError`, which this catches to record the
  * approval id on the campaign (status stays PAUSED - it's still exactly
@@ -148,9 +161,9 @@ export async function createCampaign(ctx: AuthContext, input: CreateCampaignInpu
  * for the same resume. Once an approver acts on it
  * (`approveAndExecuteApproval`), `syncCampaignFromApproval` (called right
  * after, from the dashboard Server Action - same pattern as
- * `syncContentCalendarItemFromApproval`) reconciles the row. Every non-Meta
- * provider stays a local status change only in both directions (no write
- * adapter exists for Google/Amazon Ads yet).
+ * `syncContentCalendarItemFromApproval`) reconciles the row. A provider
+ * with no entry in `REAL_PAUSE_RESUME_TOOLS` stays a local status change
+ * only, in both directions.
  */
 export async function toggleCampaignStatus(ctx: AuthContext, campaignId: string, currentStatus: string) {
   const campaign = await db.campaign.findUnique({
@@ -160,30 +173,31 @@ export async function toggleCampaignStatus(ctx: AuthContext, campaignId: string,
   assertClientAccess(ctx, { id: campaign.clientId, organizationId: ctx.organizationId })
 
   const newStatus = currentStatus === 'ACTIVE' ? 'PAUSED' : 'ACTIVE'
+  const realTools = REAL_PAUSE_RESUME_TOOLS[campaign.provider]
 
-  if (newStatus === 'PAUSED' && campaign.provider === 'META_ADS') {
+  if (newStatus === 'PAUSED' && realTools) {
     await executeTool({
       ctx,
-      toolKey: 'meta_ads.pause_campaign',
+      toolKey: realTools.pause,
       clientId: campaign.clientId,
       input: { providerCampaignId: campaign.providerCampaignId },
     })
     return db.campaign.update({ where: { id: campaignId }, data: { status: newStatus } })
   }
 
-  if (newStatus === 'ACTIVE' && campaign.provider === 'META_ADS') {
+  if (newStatus === 'ACTIVE' && realTools) {
     if (campaign.approvalId) {
       throw new Error('A resume request is already pending approval for this campaign.')
     }
     try {
       await executeTool({
         ctx,
-        toolKey: 'meta_ads.update_campaign',
+        toolKey: realTools.resume,
         clientId: campaign.clientId,
         input: { providerCampaignId: campaign.providerCampaignId, status: 'ACTIVE' },
       })
       // A HIGH-risk tool call never reaches this line on a fresh (non-approved) call - reaching it means the risk gate didn't fire.
-      throw new Error('meta_ads.update_campaign executed without an approval - the HIGH-risk gate should have blocked this.')
+      throw new Error(`${realTools.resume} executed without an approval - the HIGH-risk gate should have blocked this.`)
     } catch (error) {
       if (error instanceof ApprovalRequiredError) {
         return db.campaign.update({ where: { id: campaignId }, data: { approvalId: error.approvalId } })

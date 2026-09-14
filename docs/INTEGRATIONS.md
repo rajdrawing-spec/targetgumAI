@@ -88,7 +88,7 @@ implemented, not speculatively here.
 | AI reasoning | Claude | Implemented (Day 4) - orchestration verified, live API call pending a key |
 | Social scheduling / analytics | Metricool MCP | Implemented (Day 6), analytics parsing corrected against real response data (Day 15) - adapter unit-tested against the verified live shape; the deployed app itself still has no `METRICOOL_MCP_URL` of its own, so wire-level connectivity from the app is not live-tested |
 | Supported ad analysis (read) | Metricool MCP | Implemented (Day 6), same real-shape fix and live-test caveat as above; the `campaigns` connector's exact shape is inferred from the verified `evolution` connector, not independently confirmed (no populated ads account available) |
-| Ad management (write) | Native Google Ads / Meta Ads (Phase 2) | **Implemented (Day 16/Phase 2)** via `GoogleAdsMockProvider`/`MetaAdsMockProvider` - confirmed unavailable via Metricool (capability gap in the MCP itself), so this is a separate `AdsProvider` implementation, not a Metricool fix. Real adapters are `UnsupportedOperationError` (no verified client library for either platform in this environment) - see below and docs/EXTERNAL-APPROVALS.md |
+| Ad management (write) | Native Google Ads / Meta Ads (Phase 2) | **Real for both, as of 2026-09-14** - confirmed unavailable via Metricool (capability gap in the MCP itself), so this is a separate `AdsProvider` implementation, not a Metricool fix. `GoogleAdsMockProvider`/`MetaAdsMockProvider` still exist and are what runs without credentials configured. Meta's real adapter is live-exercised (reads, pause, create, resume); Google Ads' real adapter is written against the documented v18 REST/GAQL API but not yet live-verified (no developer token in this environment) - see below and docs/EXTERNAL-APPROVALS.md |
 | Website analytics | GA4 | Implemented (Day 7) via official `googleapis` client; not live-tested (no OAuth app configured) |
 | Search analytics | Google Search Console | Implemented (Day 7), same caveat as above |
 | Creative | Canva MCP | **Implemented (Day 17/Phase 2)** via `CanvaMockProvider` - real adapter is `UnsupportedOperationError` (no verified Canva MCP connection in this environment) - see below and docs/EXTERNAL-APPROVALS.md |
@@ -282,7 +282,7 @@ operation, more granular control is needed, or provider policy requires
 direct integration — behind the same `AdsProvider` interface, so agent code
 is unchanged.
 
-### Google Ads / Meta Ads — implemented against the mock (Phase 2, Day 16)
+### Google Ads / Meta Ads (Phase 2, Day 16 — both now have real adapters, see the update below)
 
 Metricool's ads-write gap (above) was exactly the trigger Section 51
 describes, so `src/lib/integrations/google-ads/` and `src/lib/integrations/
@@ -297,23 +297,67 @@ meta-ads/` were built, identical in shape:
   full, deterministic implementations - what every tool/test actually
   exercises. `createCampaign` always returns `PAUSED`, same safety
   reasoning as Metricool's `draft: true`.
-- **Real adapters are `UnsupportedOperationError`** for every method -
-  unlike GA4/GSC (which wrap the official, already-installed `googleapis`
-  client), there is no official Node.js client for the Google Ads API at
-  all, and Meta's official SDK (`facebook-nodejs-business-sdk`) is
-  deliberately not added as an unverified dependency - no developer
-  token/Google Cloud project/OAuth app (Google Ads, Section 52) and no
-  Meta developer app/app review/test account (Meta, Section 54) exist in
-  this environment to check an implementation against either way. Same
-  choice already made for `metricool.publish_post`'s real adapter. See
-  docs/DECISIONS.md and docs/EXTERNAL-APPROVALS.md.
+- **Real adapters, as of the updates below, are no longer stubs.** At the
+  time this section was written (Day 16), both threw
+  `UnsupportedOperationError` for every method - unlike GA4/GSC (which wrap
+  the official, already-installed `googleapis` client), there is no
+  official Node.js client for the Google Ads API at all, and Meta's
+  official SDK (`facebook-nodejs-business-sdk`) was deliberately not added
+  as an unverified dependency. That's since changed for both, written
+  directly against each platform's documented REST interface instead of an
+  SDK - see "2026-09-13/14 updates" below for what's real today and what
+  each still needs (docs/EXTERNAL-APPROVALS.md has the full credential
+  list).
 - **Connect flow**: single-step connect-and-verify (`connectClientToGoogleAdsAccount`/
   `connectClientToMetaAdsAccount`), matching Metricool's shape rather than
   GA4/GSC's OAuth flow - that OAuth scaffold was built on Day 7 but never
   wired to any route or UI either, so replicating it here would add a
   second unexercised flow, not a working one.
-- **Not live-verified**: no real Google Ads/Meta Ads credentials exist in
-  this environment. Live-verified via Playwright: connected Client A to a
-  mock Google Ads customer id and mock Meta Ads account id through the
-  client detail page's new forms, confirmed both show `CONNECTED`,
-  cross-checked against the database.
+- **Not live-verified (as of Day 16)**: no real Google Ads/Meta Ads
+  credentials exist in this environment. Live-verified via Playwright:
+  connected Client A to a mock Google Ads customer id and mock Meta Ads
+  account id through the client detail page's new forms, confirmed both
+  show `CONNECTED`, cross-checked against the database.
+
+**2026-09-13/14 updates:**
+
+- **Meta Ads is real and live-exercised.** `meta-ads/provider.ts` calls the
+  Graph API v20.0 directly (`meta-ads/meta-client.ts`). Reads
+  (`getCampaigns`/`getCampaignPerformance`) and writes
+  (`pauseCampaign`/`updateCampaign`/`createCampaign`) all hit the real API;
+  `createCampaign` and re-activating a paused campaign (`status: ACTIVE`)
+  were the two write paths still stubbed until this pass - both are now
+  real, each proven with a fetch-mocking unit test asserting the exact
+  request Meta receives (`tests/unit/native-ads-providers.test.ts`) and,
+  for resume, a full integration test that approves a pending request
+  against a mocked Graph API and confirms the call actually happened
+  (`tests/integration/toggle-campaign-status.test.ts`).
+- **Google Ads is real, not yet live-verified.** `google-ads/provider.ts`
+  now calls the Google Ads API (v18) directly over REST/GAQL
+  (`google-ads/google-ads-client.ts`) rather than throwing
+  `UnsupportedOperationError` - every read and write method is
+  implemented: GAQL search for campaigns/performance/ad groups/ads, a
+  two-step `campaignBudgets:mutate` + `campaigns:mutate` for
+  `createCampaign` (always `PAUSED`), `campaigns:mutate` for pause/resume,
+  a budget-resource lookup + `campaignBudgets:mutate` for `updateBudget`,
+  and `adGroups:mutate` for `updateBid` (Google Ads bids live at the ad
+  group level, not per-ad - see the file's doc comment). This environment
+  still has no `GOOGLE_ADS_DEVELOPER_TOKEN`/OAuth client/test account
+  (docs/EXTERNAL-APPROVALS.md), so every request shape follows Google's
+  published REST reference as closely as training data allows and is
+  tested against that exact shape (`tests/unit/native-ads-providers.test.ts`)
+  - not the same thing as confirming it against Google's actual
+  infrastructure. Two spots are flagged inline as most likely to need a
+  one-line fix once real credentials exist: the `updateMask` casing
+  convention on mutate operations, and whether a fresh `SEARCH` campaign
+  needs an explicit `networkSettings` block to pass validation.
+- **Auth model differs between the two.** Meta stores an encrypted token
+  per `IntegrationConnection` (falling back to `META_ACCESS_TOKEN`/
+  `META_SYSTEM_ACCESS_TOKEN`). Google Ads authenticates once per *manager*
+  (MCC) account - a single agency-wide OAuth refresh token
+  (`GOOGLE_ADS_REFRESH_TOKEN` + `GOOGLE_ADS_LOGIN_CUSTOMER_ID`) covers every
+  client account linked under it, so there's nothing per-connection to
+  store beyond the client's Google Ads customer id. See `.env.example`'s
+  "Native Ads" sections for the full variable list for both providers -
+  neither was documented there before this update, despite the code
+  already reading them.

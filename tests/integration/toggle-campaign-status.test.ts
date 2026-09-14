@@ -1,5 +1,6 @@
 import { afterEach, beforeAll, afterAll, describe, expect, it, vi } from 'vitest'
 import { connectClientToMetaAdsAccount } from '@/lib/integrations/meta-ads/connect'
+import { connectClientToGoogleAdsAccount } from '@/lib/integrations/google-ads/connect'
 import { saveProviderCredentials } from '@/lib/integrations/health'
 import { toggleCampaignStatus, syncCampaignFromApproval } from '@/lib/ads/service'
 import { rejectApproval } from '@/lib/approvals/approvals'
@@ -20,8 +21,14 @@ import { cleanupOrg, createSystemRoles, createTestClient, createTestOrg, createT
  * approval id and leaves the row PAUSED; `syncCampaignFromApproval` (called
  * from the dashboard's approve/reject Server Actions, same pattern as
  * `syncContentCalendarItemFromApproval`) reconciles it once a human
- * decides. Every direction for a non-Meta provider stays local-only - no
- * write adapter exists for Google/Amazon Ads yet.
+ * decides. Google Ads (2026-09-14) got the exact same treatment once its
+ * adapter went real - see the second describe block below, which reuses
+ * `GoogleAdsMockProvider` (no `GOOGLE_ADS_DEVELOPER_TOKEN` in this test
+ * environment) to prove the `toggleCampaignStatus`/Approval Engine wiring
+ * itself; the real Google Ads HTTP request shapes are covered separately
+ * in `tests/unit/native-ads-providers.test.ts`. Amazon Ads has no adapter
+ * at all yet, so it's what proves the local-only fallback still works for
+ * an unintegrated provider.
  */
 describe('toggleCampaignStatus - pauses a connected META_ADS campaign for real', () => {
   let orgId: string
@@ -191,15 +198,15 @@ describe('toggleCampaignStatus - pauses a connected META_ADS campaign for real',
     expect(retried.approvalId).toBeTruthy()
   })
 
-  it('a non-Meta provider stays local-only in both directions', async () => {
+  it('a provider with no adapter (Amazon Ads) stays local-only in both directions', async () => {
     const ctx = (await resolveAuthContext(testDb, userId, orgId))!
     const campaign = await testDb.campaign.create({
       data: {
         organizationId: orgId,
         clientId,
-        provider: 'GOOGLE_ADS',
-        providerCampaignId: 'gads-1',
-        name: 'Google Campaign',
+        provider: 'AMAZON_ADS',
+        providerCampaignId: 'amzn-1',
+        name: 'Amazon Campaign',
         status: 'ACTIVE',
       },
     })
@@ -212,5 +219,76 @@ describe('toggleCampaignStatus - pauses a connected META_ADS campaign for real',
     const resumed = await toggleCampaignStatus(ctx, campaign.id, 'PAUSED')
     expect(resumed.status).toBe('ACTIVE')
     expect(fetchMock).not.toHaveBeenCalled()
+  })
+})
+
+describe('toggleCampaignStatus - Google Ads gets the same real pause/approval-gated resume treatment', () => {
+  let orgId: string
+  let userId: string
+  let clientId: string
+
+  beforeAll(async () => {
+    const org = await createTestOrg()
+    orgId = org.id
+    const roles = await createSystemRoles(orgId)
+    const client = await createTestClient(orgId, 'Google Ads Toggle Client')
+    clientId = client.id
+
+    const user = await createTestUser()
+    userId = user.id
+    await testDb.organizationUser.create({
+      data: { organizationId: orgId, userId, roleId: roles.get('super_admin')!.id },
+    })
+
+    const ctx = (await resolveAuthContext(testDb, userId, orgId))!
+    await connectClientToGoogleAdsAccount(ctx, clientId, '444-555-6666', 'Test account')
+  })
+
+  afterAll(async () => {
+    await cleanupOrg(orgId, [userId])
+  })
+
+  it('pausing calls the tool registry (GoogleAdsMockProvider by default) before flipping the local row', async () => {
+    const ctx = (await resolveAuthContext(testDb, userId, orgId))!
+    const campaign = await testDb.campaign.create({
+      data: { organizationId: orgId, clientId, provider: 'GOOGLE_ADS', providerCampaignId: 'mock-gads-campaign-1', name: 'Search Campaign', status: 'ACTIVE' },
+    })
+
+    const paused = await toggleCampaignStatus(ctx, campaign.id, 'ACTIVE')
+    expect(paused.status).toBe('PAUSED')
+  })
+
+  it('resuming never executes on a fresh call - records a pending HIGH-risk approval, leaves it PAUSED', async () => {
+    const ctx = (await resolveAuthContext(testDb, userId, orgId))!
+    const campaign = await testDb.campaign.create({
+      data: { organizationId: orgId, clientId, provider: 'GOOGLE_ADS', providerCampaignId: 'mock-gads-campaign-2', name: 'Paused Campaign', status: 'PAUSED' },
+    })
+
+    const requested = await toggleCampaignStatus(ctx, campaign.id, 'PAUSED')
+    expect(requested.status).toBe('PAUSED')
+    expect(requested.approvalId).toBeTruthy()
+
+    const pendingApproval = await testDb.approval.findUnique({ where: { id: requested.approvalId! } })
+    expect(pendingApproval?.status).toBe('PENDING')
+    expect(pendingApproval?.riskLevel).toBe('HIGH')
+
+    await expect(toggleCampaignStatus(ctx, campaign.id, 'PAUSED')).rejects.toThrow(/already pending approval/)
+  })
+
+  it('approving the resume executes against the provider and flips the campaign ACTIVE', async () => {
+    const ctx = (await resolveAuthContext(testDb, userId, orgId))!
+    const resumeClient = await createTestClient(orgId, 'Google Ads Resume Approval Client')
+    await connectClientToGoogleAdsAccount(ctx, resumeClient.id, '777-888-9999', 'Test account')
+    const campaign = await testDb.campaign.create({
+      data: { organizationId: orgId, clientId: resumeClient.id, provider: 'GOOGLE_ADS', providerCampaignId: 'mock-gads-campaign-1', name: 'Resumable Campaign', status: 'PAUSED' },
+    })
+
+    const requested = await toggleCampaignStatus(ctx, campaign.id, 'PAUSED')
+    await approveAndExecuteApproval(ctx, requested.approvalId!)
+    await syncCampaignFromApproval(requested.approvalId!)
+
+    const resolved = await testDb.campaign.findUnique({ where: { id: campaign.id } })
+    expect(resolved?.status).toBe('ACTIVE')
+    expect(resolved?.approvalId).toBeNull()
   })
 })

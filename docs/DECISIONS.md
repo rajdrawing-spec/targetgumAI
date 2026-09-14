@@ -5,6 +5,83 @@ Newest entries at the top.
 
 ---
 
+## 2026-09-14 — Google Ads adapter implemented for real (Phase 1 of the Full Automation Roadmap)
+
+**Decision:** `src/lib/integrations/google-ads/provider.ts` no longer
+throws `UnsupportedOperationError` for every method. It's now a real
+adapter against the Google Ads API (v18, REST + GAQL,
+`google-ads-client.ts`) - the same choice already made for Meta Ads
+(2026-09-13), and for the same reason it wasn't done earlier: there is no
+official Node.js client library for the Google Ads API at all (Google's
+own client-library list covers Java/.NET/PHP/Python/Perl/Ruby, not Node),
+so the only way to implement this at all is against the documented REST
+interface directly. This environment still has no `GOOGLE_ADS_DEVELOPER_TOKEN`/
+OAuth client/test account (docs/EXTERNAL-APPROVALS.md), so every request/
+response shape follows Google's published reference as closely as
+training data allows and is verified in tests against that exact shape
+(`tests/unit/native-ads-providers.test.ts`) - not the same thing as
+confirming it against Google's actual infrastructure. Two spots are
+flagged inline in `google-ads-client.ts` as most likely to need a one-line
+fix once real credentials exist: the `updateMask` casing convention on
+mutate operations, and whether a fresh `SEARCH` campaign needs an explicit
+`networkSettings` block to pass validation.
+
+**What's implemented:** all nine `AdsProvider` methods - GAQL search for
+`getCampaigns`/`getCampaignPerformance`/`getAdGroups`/`getAds`; a two-step
+`campaignBudgets:mutate` + `campaigns:mutate` for `createCampaign` (always
+`PAUSED`, same convention as Meta's `createMetaCampaign` and BRD Section
+21's "create draft campaign is MEDIUM, launch is a separate HIGH action");
+`campaigns:mutate` for pause/resume; a budget-resource lookup +
+`campaignBudgets:mutate` for `updateBudget` (Google Ads budgets are a
+separate resource from the campaign, unlike Meta's inline `daily_budget`);
+`adGroups:mutate` for `updateBid` (Google Ads sets bids at the ad group
+level, never per-ad - `providerAdId` is treated as an ad group id, noted
+in both `provider.ts` and the tool's own description in `tools.ts`).
+
+**A real interface gap found and fixed along the way:** the shared
+`AdsProvider` interface's four write methods
+(`updateCampaign`/`pauseCampaign`/`updateBudget`/`updateBid`) don't carry
+an account id parameter - Meta never needed one (a Graph API campaign id
+is globally addressable), so this was never noticed. Every Google Ads API
+call is scoped to a customer account in the URL path itself
+(`/customers/{id}/...`), so without one these four methods are
+unreachable for Google Ads specifically. Rather than widen the shared
+interface (which would ripple into Meta's and Metricool's implementations
+and every existing test for both, for a parameter neither needs),
+`createGoogleAdsProvider(accountId?)` takes it as a factory argument
+instead - the same shape Meta's own `createMetaAdsProvider(token)` already
+uses for its per-call context. `google-ads/tools.ts`'s four write tools
+now pass `connection.integrationAccount.externalAccountId` when they build
+the provider (previously they ignored the `connection` argument
+`withIntegrationHealthTracking` already handed them, since the mock
+provider never needed it either).
+
+**Ads Hub pause/resume toggle extended to Google Ads.** The real-pause/
+approval-gated-resume behavior built for Meta Ads campaigns (2026-09-14,
+below) now applies identically to Google Ads campaigns -
+`toggleCampaignStatus` (`src/lib/ads/service.ts`) looks up a
+`{pause, resume}` tool-key pair per provider (`REAL_PAUSE_RESUME_TOOLS`)
+instead of a Meta-specific branch, so a third real adapter (Amazon Ads,
+when built) is a one-line addition to that map, not a new code path.
+Verified live against a production build with the same click-through as
+Meta's resume feature: Activate on a paused Google Ads campaign creates a
+real `google_ads.update_campaign` approval (HIGH risk, shown on the
+Approvals Gate as "Update a Google Ads campaign") and switches the row to
+the same "Pending approval" pill Meta's resume uses - no UI code changed,
+since that pill was already built provider-agnostic.
+
+**Auth model, documented for the first time:** unlike Meta's per-connection
+encrypted token, Google Ads authenticates once per *manager* (MCC)
+account - a single agency-wide OAuth refresh token
+(`GOOGLE_ADS_REFRESH_TOKEN` + `GOOGLE_ADS_LOGIN_CUSTOMER_ID`) can act on
+any client account linked under that manager, identified per call by the
+client's own customer id (`IntegrationConnection.externalAccountId`).
+Added a "Native Ads" section to `.env.example` documenting every Meta and
+Google Ads environment variable the code reads - neither provider had one
+before this, despite `META_ACCESS_TOKEN` already being read in production.
+
+---
+
 ## 2026-09-14 — Ads Hub "Resume" now goes through the Approval Engine, with a pending-approval UI
 
 **Decision:** the previous pass (2026-09-13, below) deliberately left resuming

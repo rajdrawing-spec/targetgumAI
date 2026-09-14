@@ -140,8 +140,8 @@ export async function registerGoogleAdsTools(): Promise<void> {
     outputSchema: z.null(),
     execute: async (input, ctx) => {
       const clientId = requireClientId(ctx)
-      return withIntegrationHealthTracking(clientId, 'GOOGLE_ADS', async () => {
-        await resolveGoogleAdsProvider().pauseCampaign(input.providerCampaignId)
+      return withIntegrationHealthTracking(clientId, 'GOOGLE_ADS', async (connection) => {
+        await resolveGoogleAdsProvider(connection.integrationAccount.externalAccountId).pauseCampaign(input.providerCampaignId)
         return null
       })
     },
@@ -167,8 +167,8 @@ export async function registerGoogleAdsTools(): Promise<void> {
     execute: async (input, ctx) => {
       const clientId = requireClientId(ctx)
       const { providerCampaignId, ...changes } = input
-      return withIntegrationHealthTracking(clientId, 'GOOGLE_ADS', () =>
-        resolveGoogleAdsProvider().updateCampaign(providerCampaignId, changes),
+      return withIntegrationHealthTracking(clientId, 'GOOGLE_ADS', (connection) =>
+        resolveGoogleAdsProvider(connection.integrationAccount.externalAccountId).updateCampaign(providerCampaignId, changes),
       )
     },
   })
@@ -184,8 +184,8 @@ export async function registerGoogleAdsTools(): Promise<void> {
     outputSchema: z.null(),
     execute: async (input, ctx) => {
       const clientId = requireClientId(ctx)
-      return withIntegrationHealthTracking(clientId, 'GOOGLE_ADS', async () => {
-        await resolveGoogleAdsProvider().updateBudget(input.providerCampaignId, input.budget)
+      return withIntegrationHealthTracking(clientId, 'GOOGLE_ADS', async (connection) => {
+        await resolveGoogleAdsProvider(connection.integrationAccount.externalAccountId).updateBudget(input.providerCampaignId, input.budget)
         return null
       })
     },
@@ -195,15 +195,16 @@ export async function registerGoogleAdsTools(): Promise<void> {
     key: 'google_ads.update_bid',
     name: 'Change a Google Ads bid',
     provider: 'google_ads',
-    description: 'Changes an ad\'s bid (BRD Section 21: "Change bids" is HIGH risk) - see docs/DECISIONS.md.',
+    description:
+      'Changes a manual CPC bid (BRD Section 21: "Change bids" is HIGH risk) - see docs/DECISIONS.md. Google Ads sets bids at the ad group level, not per-ad, so `providerAdId` here is treated as an ad group id (google-ads/provider.ts).',
     riskLevel: 'HIGH',
     requiredPermissions: ['ads.manage'],
     inputSchema: z.object({ providerAdId: z.string(), bid: z.number().positive() }),
     outputSchema: z.null(),
     execute: async (input, ctx) => {
       const clientId = requireClientId(ctx)
-      return withIntegrationHealthTracking(clientId, 'GOOGLE_ADS', async () => {
-        await resolveGoogleAdsProvider().updateBid(input.providerAdId, input.bid)
+      return withIntegrationHealthTracking(clientId, 'GOOGLE_ADS', async (connection) => {
+        await resolveGoogleAdsProvider(connection.integrationAccount.externalAccountId).updateBid(input.providerAdId, input.bid)
         return null
       })
     },
