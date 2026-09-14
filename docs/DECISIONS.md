@@ -5,6 +5,101 @@ Newest entries at the top.
 
 ---
 
+## 2026-09-14 — Amazon Ads adapter built from scratch (Phase 2 of the Full Automation Roadmap)
+
+**Decision:** `src/lib/integrations/amazon-ads/` is a brand-new integration
+module - no adapter of any kind existed for Amazon Ads before this (the
+9-13 audit flagged it as "no adapter directory exists"). Scoped to
+**Sponsored Products only** - the highest-volume Amazon ad type, and the
+one `src/lib/ads/types.ts`'s `CreateCampaignInput` already has fields for
+(`AmazonCampaignType`, `AmazonTargetingType`). Sponsored Brands/Display
+would be additional, near-identical adapters, not a rewrite of this one,
+if ever needed. Same "not live-verified" situation as Google Ads: no
+Amazon Advertising API access application/Login with Amazon (LWA) app/
+test advertiser account exists in this environment
+(docs/EXTERNAL-APPROVALS.md), so every request/response shape follows
+Amazon's published REST reference as closely as training data allows and
+is verified in tests against that exact shape
+(`tests/unit/native-ads-providers.test.ts`), not against Amazon's actual
+infrastructure.
+
+**Structure mirrors `google-ads/` exactly** (`amazon-ads-client.ts`,
+`provider.ts`, `mock-provider.ts`, `index.ts`, `tools.ts`, `connect.ts`,
+`README.md`) - same reasons: no official Node.js client exists for the
+Amazon Advertising API either, and the auth model is agency-wide (one
+Login with Amazon refresh token acts on any advertiser profile shared
+with the agency's Amazon account, identified per call by its numeric
+profile id - `IntegrationConnection.externalAccountId`), so
+`createAmazonAdsProvider(accountId?)` takes the profile id as a factory
+argument the same way Google Ads' does, for the same reason (every Amazon
+Ads API call is scoped to a profile via the
+`Amazon-Advertising-API-Scope` header; the shared `AdsProvider`
+interface's write methods carry no account-id parameter).
+
+**The one genuinely different piece: performance data is asynchronous.**
+Unlike Meta and Google Ads, Amazon has no synchronous "get today's stats"
+endpoint for Sponsored Products - `getCampaignPerformance` has to request
+a report, poll until Amazon finishes generating it, then download and
+gunzip the result. Implemented as a bounded poll (10 attempts, 3s apart,
+~30s total) rather than blocking indefinitely; a report still pending
+after that throws a clear error instead of returning partial or
+fabricated data (CLAUDE.md rule 5) - proven with a test that forces the
+poll to never complete. In production this may need to move off a
+user-facing request path entirely (the scheduled worker, Full Automation
+Roadmap §4 phase 9) rather than growing the bound further.
+
+**Three follow-on extensions made while wiring this up, all small because
+the patterns already existed:**
+- `src/lib/ads/service.ts`'s `toggleCampaignStatus` (built for Meta,
+  already generalized to a provider→tool-key map when Google Ads was
+  added) got Amazon Ads as a third entry - the Ads Hub's real-pause/
+  approval-gated-resume behavior now covers every `AdPlatform` with one
+  shared code path, not three parallel ones.
+- The Marketing Analytics Agent (`src/lib/agents/analytics-agent.ts`) now
+  reads Google Ads and Amazon Ads campaigns/performance too, not just
+  Meta - "analyze this client" was silently Meta-only for ads despite
+  Google Ads already being real since Phase 1; both are now in its
+  allowlist and its data-gathering sequence, same `tryGatherData` pattern
+  as every other source (a failure becomes a reported gap, never a
+  fabricated value).
+- Fixed the 3 pre-existing stale assertions in
+  `tests/integration/analytics-agent.test.ts` flagged in the original
+  audit (allowlist/dataGaps counts hadn't been updated when Meta Ads was
+  added to the agent in an earlier session) while touching this file for
+  the Google Ads/Amazon Ads additions anyway - connected all three ad
+  platforms for the "full pipeline" test client (Google/Amazon succeed via
+  their mocks; Meta has no mock fallback and genuinely needs
+  `META_ACCESS_TOKEN`, so its 2 tool calls are asserted as the only
+  expected gaps, rather than papering over that distinction).
+
+**A real gap closed, not just the adapter:** the client Integrations tab
+had connect forms for Metricool, Google Ads, Meta Ads, and Canva - never
+Amazon Ads, even though the Connections tab's ad-platform row already
+listed it with a "Manage on Integrations tab" link that went nowhere
+useful. Added a matching form (same pattern as Google Ads' - one text
+input for the advertiser profile id, `connectAmazonAdsAccountAction`
+reusing the same generic `connectAction` helper every other provider's
+button already uses) so this adapter is actually reachable, not just
+real-but-unusable. Verified live against a production build: connect via
+the form → shows CONNECTED → Activate a paused campaign on the Ads Hub →
+creates a real HIGH-risk approval, shown on the Approvals Gate as "Update
+an Amazon Ads campaign" → same pending-approval pill Meta/Google Ads use.
+
+**One casing inconsistency found and deliberately left as-is, not
+papered over with a normalization layer:** Amazon's native campaign
+states are lowercase (`"paused"`/`"enabled"`), while Meta's are uppercase
+(`"ACTIVE"`/`"PAUSED"`) and Google's are also uppercase but a different
+word (`"ENABLED"`/`"PAUSED"`) - every adapter already passes through its
+platform's native status string rather than normalizing to one shared
+vocabulary, so this is one more instance of an existing pattern, not a
+new inconsistency. The one place it mattered was test assertions written
+assuming uppercase (`tests/integration/native-ads-tools.test.ts`'s
+provider-parametrized suite) - made those two assertions
+case-insensitive rather than either normalizing Amazon's adapter output
+or excluding Amazon from that shared test file.
+
+---
+
 ## 2026-09-14 — Google Ads adapter implemented for real (Phase 1 of the Full Automation Roadmap)
 
 **Decision:** `src/lib/integrations/google-ads/provider.ts` no longer

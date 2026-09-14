@@ -5,6 +5,9 @@ import { GoogleAdsMockProvider } from '@/lib/integrations/google-ads/mock-provid
 import { createGoogleAdsProvider } from '@/lib/integrations/google-ads/provider'
 import { MetaAdsMockProvider } from '@/lib/integrations/meta-ads/mock-provider'
 import { createMetaAdsProvider } from '@/lib/integrations/meta-ads/provider'
+import { _resetAmazonAdsTokenCacheForTests } from '@/lib/integrations/amazon-ads/amazon-ads-client'
+import { AmazonAdsMockProvider } from '@/lib/integrations/amazon-ads/mock-provider'
+import { createAmazonAdsProvider } from '@/lib/integrations/amazon-ads/provider'
 import type { AdsProvider } from '@/lib/integrations/providers'
 
 const range = { from: '2026-01-01', to: '2026-01-31' }
@@ -341,3 +344,240 @@ describe('Meta Ads real adapter (Graph API v20.0)', () => {
   })
 })
 
+
+describe('Amazon Ads mock provider (full AdsProvider interface, no network)', () => {
+  const provider = AmazonAdsMockProvider
+  const channel = 'amazon_ads'
+
+  it('lists the seeded campaigns for the right channel only', async () => {
+    const campaigns = await provider.getCampaigns('profile-1', channel)
+    expect(campaigns.length).toBeGreaterThan(0)
+    expect(campaigns.every((c) => c.channel === channel)).toBe(true)
+  })
+
+  it('returns campaign performance with provenance for the seeded campaigns', async () => {
+    const performance = await provider.getCampaignPerformance('profile-1', channel, range)
+    expect(performance.length).toBeGreaterThan(0)
+    expect(performance[0]).toMatchObject({ source: 'amazon-ads-mock', period: `${range.from}..${range.to}` })
+    expect(typeof performance[0]?.roas).toBe('number')
+  })
+
+  it('returns ad groups and ads scoped to the seeded campaign/ad group', async () => {
+    const campaigns = await provider.getCampaigns('profile-1', channel)
+    const adGroups = await provider.getAdGroups!('profile-1', campaigns[0]!.providerCampaignId)
+    expect(adGroups.length).toBeGreaterThan(0)
+    expect(adGroups[0]?.providerCampaignId).toBe(campaigns[0]!.providerCampaignId)
+
+    const ads = await provider.getAds!('profile-1', adGroups[0]!.providerAdGroupId)
+    expect(ads.length).toBeGreaterThan(0)
+    expect(ads[0]?.providerAdGroupId).toBe(adGroups[0]!.providerAdGroupId)
+  })
+
+  it('createCampaign always creates a "paused" campaign, never live (Amazon\'s native state casing, BRD Section 21)', async () => {
+    const campaign = await provider.createCampaign!('profile-1', { name: 'New Sponsored Products Campaign', budget: 30 })
+    expect(campaign.status).toBe('paused')
+    expect(campaign.name).toBe('New Sponsored Products Campaign')
+
+    const campaigns = await provider.getCampaigns('profile-1', channel)
+    expect(campaigns.find((c) => c.providerCampaignId === campaign.providerCampaignId)?.status).toBe('paused')
+  })
+
+  it('updateCampaign/pauseCampaign/updateBudget mutate the stored campaign in place', async () => {
+    const campaign = await provider.createCampaign!('profile-1', { name: 'Mutable Campaign', budget: 20 })
+
+    const updated = await provider.updateCampaign!(campaign.providerCampaignId, { name: 'Renamed Campaign' })
+    expect(updated.name).toBe('Renamed Campaign')
+
+    await provider.updateBudget!(campaign.providerCampaignId, 60)
+    const afterBudget = await provider.getCampaigns('profile-1', channel)
+    expect(afterBudget.find((c) => c.providerCampaignId === campaign.providerCampaignId)?.budget).toBe(60)
+
+    await provider.pauseCampaign!(campaign.providerCampaignId)
+    const afterPause = await provider.getCampaigns('profile-1', channel)
+    expect(afterPause.find((c) => c.providerCampaignId === campaign.providerCampaignId)?.status).toBe('paused')
+  })
+
+  it('updateBid resolves (no-op, same simplification the other mocks make)', async () => {
+    await expect(provider.updateBid!('adgroup-1', 1.5)).resolves.toBeUndefined()
+  })
+
+  it('throws for updateCampaign/updateBudget/pauseCampaign on an unknown campaign id', async () => {
+    await expect(provider.updateCampaign!('does-not-exist', {})).rejects.toThrow()
+    await expect(provider.updateBudget!('does-not-exist', 10)).rejects.toThrow()
+    await expect(provider.pauseCampaign!('does-not-exist')).rejects.toThrow()
+  })
+})
+
+/**
+ * Amazon Ads real adapter (Advertising API v3) - not live-verified, no
+ * LWA app/API access application/test advertiser account exists in this
+ * environment (docs/EXTERNAL-APPROVALS.md). Same purpose as the Google Ads
+ * block above: prove every request this code sends matches
+ * amazon-ads-client.ts's documented shape exactly, including the
+ * asynchronous report request -> poll -> gunzip-and-parse flow, which has
+ * no equivalent in either other provider.
+ */
+describe('Amazon Ads real adapter (Advertising API v3)', () => {
+  function mockAmazonAdsFetch(handleApiCall: (url: string, init: RequestInit) => Response) {
+    return vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url === 'https://api.amazon.com/auth/o2/token') {
+        const params = new URLSearchParams(init?.body as string)
+        expect(params.get('grant_type')).toBe('refresh_token')
+        expect(params.get('refresh_token')).toBe('test-refresh-token')
+        return new Response(JSON.stringify({ access_token: 'test-access-token', expires_in: 3600 }), { status: 200 })
+      }
+      return handleApiCall(url, init!)
+    })
+  }
+
+  beforeAll(() => {
+    vi.stubEnv('AMAZON_ADS_CLIENT_ID', 'test-client-id')
+    vi.stubEnv('AMAZON_ADS_CLIENT_SECRET', 'test-client-secret')
+    vi.stubEnv('AMAZON_ADS_REFRESH_TOKEN', 'test-refresh-token')
+    vi.stubEnv('AMAZON_ADS_REGION', 'NA')
+  })
+  afterAll(() => vi.unstubAllEnvs())
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    _resetAmazonAdsTokenCacheForTests()
+  })
+
+  it('getCampaigns lists campaigns with the right headers (Scope = profile id)', async () => {
+    const fetchMock = mockAmazonAdsFetch((url, init) => {
+      expect(url).toContain('/sp/campaigns/list')
+      expect(init.method).toBe('POST')
+      const headers = init.headers as Record<string, string>
+      expect(headers.Authorization).toBe('Bearer test-access-token')
+      expect(headers['Amazon-Advertising-API-ClientId']).toBe('test-client-id')
+      expect(headers['Amazon-Advertising-API-Scope']).toBe('profile-123')
+      return new Response(
+        JSON.stringify({ campaigns: [{ campaignId: '999', name: 'Sponsored Products - Auto', state: 'enabled', campaignType: 'sponsoredProducts', dailyBudget: 25 }] }),
+        { status: 200 },
+      )
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const provider = createAmazonAdsProvider()
+    const campaigns = await provider.getCampaigns('profile-123', 'amazon_ads')
+    expect(campaigns).toEqual([{ providerCampaignId: '999', name: 'Sponsored Products - Auto', channel: 'amazon_ads', status: 'enabled', budget: 25, startDate: undefined, endDate: undefined }])
+  })
+
+  it('createCampaign always POSTs state=paused with targetingType=auto, never live', async () => {
+    const fetchMock = mockAmazonAdsFetch((url, init) => {
+      expect(url).toContain('/sp/campaigns')
+      expect(init.method).toBe('POST')
+      const body = JSON.parse(init.body as string)
+      expect(body.campaigns[0].state).toBe('paused')
+      expect(body.campaigns[0].targetingType).toBe('auto')
+      expect(body.campaigns[0].campaignType).toBe('sponsoredProducts')
+      expect(body.campaigns[0].dailyBudget).toBe(15)
+      return new Response(JSON.stringify({ campaigns: { success: [{ campaignId: '777' }] } }), { status: 200 })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const provider = createAmazonAdsProvider()
+    const campaign = await provider.createCampaign('profile-123', { name: 'New Campaign', budget: 15 })
+    expect(campaign).toMatchObject({ providerCampaignId: '777', name: 'New Campaign', status: 'paused', budget: 15 })
+  })
+
+  it('createCampaign throws with the batch error detail when Amazon rejects every item', async () => {
+    const fetchMock = mockAmazonAdsFetch(() =>
+      new Response(JSON.stringify({ campaigns: { error: [{ errors: [{ errorType: 'INVALID_BUDGET', errorValue: 'dailyBudget must be at least $1.00' }] }] } }), { status: 200 }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const provider = createAmazonAdsProvider()
+    await expect(provider.createCampaign('profile-123', { name: 'x', budget: 0.1 })).rejects.toThrow('dailyBudget must be at least $1.00')
+  })
+
+  it('pauseCampaign requires an accountId - the shared AdsProvider interface has no room for one', async () => {
+    const provider = createAmazonAdsProvider()
+    await expect(provider.pauseCampaign('777')).rejects.toThrow(/target advertiser profile id/)
+  })
+
+  it('pauseCampaign (with accountId) PUTs state=paused for the right campaign', async () => {
+    const fetchMock = mockAmazonAdsFetch((url, init) => {
+      expect(url).toContain('/sp/campaigns')
+      expect(init.method).toBe('PUT')
+      const body = JSON.parse(init.body as string)
+      expect(body.campaigns[0]).toEqual({ campaignId: '777', state: 'paused' })
+      return new Response(JSON.stringify({ campaigns: { success: [{ campaignId: '777' }] } }), { status: 200 })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const provider = createAmazonAdsProvider('profile-123')
+    await expect(provider.pauseCampaign('777')).resolves.toBeUndefined()
+  })
+
+  it('updateCampaign({status: ACTIVE}) sends state=enabled - re-activating is a real call', async () => {
+    const fetchMock = mockAmazonAdsFetch((url, init) => {
+      const body = JSON.parse(init.body as string)
+      expect(body.campaigns[0].state).toBe('enabled')
+      return new Response(JSON.stringify({ campaigns: { success: [{ campaignId: '777' }] } }), { status: 200 })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const provider = createAmazonAdsProvider('profile-123')
+    const updated = await provider.updateCampaign('777', { status: 'ACTIVE' })
+    expect(updated.status).toBe('ACTIVE')
+  })
+
+  it('updateBid sets defaultBid on the ad group', async () => {
+    const fetchMock = mockAmazonAdsFetch((url, init) => {
+      expect(url).toContain('/sp/adGroups')
+      const body = JSON.parse(init.body as string)
+      expect(body.adGroups[0]).toEqual({ adGroupId: '55', defaultBid: 1.25 })
+      return new Response(JSON.stringify({ adGroups: { success: [{ adGroupId: '55' }] } }), { status: 200 })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const provider = createAmazonAdsProvider('profile-123')
+    await expect(provider.updateBid('55', 1.25)).resolves.toBeUndefined()
+  })
+
+  it('getCampaignPerformance requests a report, polls until COMPLETED, then downloads and gunzips it', async () => {
+    const { gzipSync } = await import('node:zlib')
+    const reportRows = [{ campaignId: '999', date: '2026-01-15', impressions: 5000, clicks: 80, cost: 40, purchases7d: 6, sales7d: 210 }]
+    const gzippedBody = gzipSync(JSON.stringify(reportRows))
+
+    let pollCount = 0
+    const fetchMock = mockAmazonAdsFetch((url) => {
+      if (url.endsWith('/reporting/reports')) {
+        return new Response(JSON.stringify({ reportId: 'report-1' }), { status: 200 })
+      }
+      if (url.endsWith('/reporting/reports/report-1')) {
+        pollCount++
+        if (pollCount < 2) return new Response(JSON.stringify({ status: 'PENDING' }), { status: 200 })
+        return new Response(JSON.stringify({ status: 'COMPLETED', url: 'https://amazon-reports.example.com/report-1.gz' }), { status: 200 })
+      }
+      if (url === 'https://amazon-reports.example.com/report-1.gz') {
+        return new Response(gzippedBody, { status: 200 })
+      }
+      throw new Error(`unexpected URL ${url}`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const provider = createAmazonAdsProvider()
+    const [perf] = await provider.getCampaignPerformance('profile-123', 'amazon_ads', range)
+    expect(perf).toMatchObject({ providerCampaignId: '999', spend: 40, clicks: 80, conversions: 6, revenue: 210, roas: 5.25 })
+    expect(pollCount).toBe(2) // proves it actually polled (PENDING once, then COMPLETED), not just a single lucky call
+  })
+
+  it('getCampaignPerformance throws rather than hang or fabricate data if the report never completes', async () => {
+    const fetchMock = mockAmazonAdsFetch((url) => {
+      if (url.endsWith('/reporting/reports')) return new Response(JSON.stringify({ reportId: 'report-2' }), { status: 200 })
+      return new Response(JSON.stringify({ status: 'PENDING' }), { status: 200 })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const provider = createAmazonAdsProvider()
+    await expect(provider.getCampaignPerformance('profile-123', 'amazon_ads', range)).rejects.toThrow(/still generating/)
+  }, 60000)
+
+  it('createCampaign requires a name', async () => {
+    const provider = createAmazonAdsProvider()
+    await expect(provider.createCampaign('profile-123', {})).rejects.toThrow('A campaign name is required.')
+  })
+})

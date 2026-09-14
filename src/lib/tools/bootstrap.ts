@@ -25,6 +25,7 @@ import { registerGA4Tools } from '@/lib/integrations/ga4/tools'
 import { registerGSCTools } from '@/lib/integrations/gsc/tools'
 import { registerGoogleAdsTools } from '@/lib/integrations/google-ads/tools'
 import { registerMetaAdsTools } from '@/lib/integrations/meta-ads/tools'
+import { registerAmazonAdsTools } from '@/lib/integrations/amazon-ads/tools'
 import { registerCanvaTools } from '@/lib/integrations/canva/tools'
 import { registerMarketingAnalyticsAgent } from '@/lib/agents/analytics-agent'
 import { registerSeoAgent } from '@/lib/agents/seo-agent'
@@ -43,8 +44,9 @@ export async function ensureToolsRegistered(): Promise<void> {
       await registerGSCTools()
       await registerGoogleAdsTools()
       await registerMetaAdsTools()
+      await registerAmazonAdsTools()
       await registerCanvaTools()
-      await registerMarketingAnalyticsAgent() // depends on the metricool/ga4/gsc/google-ads/meta-ads tools above already being registered
+      await registerMarketingAnalyticsAgent() // depends on the metricool/ga4/gsc/google-ads/meta-ads/amazon-ads tools above already being registered
       await registerSeoAgent() // depends on the gsc tool above already being registered
       await registerCompetitorAgent() // no tool dependencies - allowedToolKeys: []
       await registerCreativeAgent() // no tool dependencies - allowedToolKeys: []

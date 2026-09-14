@@ -4,6 +4,7 @@ import { getCurrentAuthContext } from '@/lib/auth/current-context'
 import { listIntegrationConnectionsForOrg } from '@/lib/integrations/health'
 import { isGoogleIntegrationConfigured } from '@/lib/integrations/google/oauth'
 import {
+  connectAmazonAdsAccountAction,
   connectCanvaAccountAction,
   connectGoogleAdsAccountAction,
   connectMetaAdsAccountAction,
@@ -106,6 +107,20 @@ export default async function ClientIntegrationsPage({ params }: { params: Promi
                 <Input id="label-gads" name="label" type="text" className="w-44" />
               </div>
               <SubmitButton variant="outline" pendingLabel="Connecting…">Connect Google Ads</SubmitButton>
+            </ActionForm>
+
+            <ActionForm action={connectAmazonAdsAccountAction.bind(null, clientId)} className="flex flex-wrap items-end gap-3 rounded-md border border-dashed border-border p-3">
+              <div>
+                <Label htmlFor="amazonAdsProfileId">Amazon Ads advertiser profile id</Label>
+                <Input id="amazonAdsProfileId" name="externalAccountId" type="text" required placeholder="e.g. 3054123456789" className="w-44" />
+                <FieldError name="externalAccountId" />
+                <p className="mt-1 text-xs text-caption">Sponsored Products only. Find it in Amazon Ads console under Settings → Account access.</p>
+              </div>
+              <div>
+                <Label htmlFor="label-amzn">Label (optional)</Label>
+                <Input id="label-amzn" name="label" type="text" className="w-44" />
+              </div>
+              <SubmitButton variant="outline" pendingLabel="Connecting…">Connect Amazon Ads</SubmitButton>
             </ActionForm>
 
             {/* Meta Marketing API (Graph API v20.0) */}

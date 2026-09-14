@@ -11,6 +11,9 @@ import { connectClientToProviderAccount, recordIntegrationSuccess } from '@/lib/
 import { registerGA4Tools } from '@/lib/integrations/ga4/tools'
 import { registerGSCTools } from '@/lib/integrations/gsc/tools'
 import { registerMetricoolTools } from '@/lib/integrations/metricool/tools'
+import { registerMetaAdsTools } from '@/lib/integrations/meta-ads/tools'
+import { registerGoogleAdsTools } from '@/lib/integrations/google-ads/tools'
+import { registerAmazonAdsTools } from '@/lib/integrations/amazon-ads/tools'
 import { resolveAuthContext } from '@/lib/rbac/context'
 import {
   cleanupOrg,
@@ -68,6 +71,9 @@ describe('Marketing Analytics Agent (Day 9) - AI Gateway + Tool Registry + Conte
     await registerMetricoolTools()
     await registerGA4Tools()
     await registerGSCTools()
+    await registerMetaAdsTools()
+    await registerGoogleAdsTools()
+    await registerAmazonAdsTools()
     await registerMarketingAnalyticsAgent()
 
     const org = await createTestOrg()
@@ -88,6 +94,9 @@ describe('Marketing Analytics Agent (Day 9) - AI Gateway + Tool Registry + Conte
       ['METRICOOL', 'mock-brand-analytics'],
       ['GA4', '999999'],
       ['GOOGLE_SEARCH_CONSOLE', 'https://example.com/'],
+      ['META_ADS', 'mock-meta-account-analytics'],
+      ['GOOGLE_ADS', 'mock-gads-account-analytics'],
+      ['AMAZON_ADS', 'mock-amzn-account-analytics'],
     ] as const) {
       const connection = await connectClientToProviderAccount({
         organizationId: orgId,
@@ -125,6 +134,12 @@ describe('Marketing Analytics Agent (Day 9) - AI Gateway + Tool Registry + Conte
         'metricool.get_ad_campaigns',
         'metricool.get_ad_performance',
         'metricool.get_social_analytics',
+        'meta_ads.get_campaigns',
+        'meta_ads.get_campaign_performance',
+        'google_ads.get_campaigns',
+        'google_ads.get_campaign_performance',
+        'amazon_ads.get_campaigns',
+        'amazon_ads.get_campaign_performance',
       ].sort(),
     )
     expect(agentTools.every((at) => at.tool.riskLevel === 'LOW')).toBe(true)
@@ -146,7 +161,12 @@ describe('Marketing Analytics Agent (Day 9) - AI Gateway + Tool Registry + Conte
     expect(result.summary).toBe(VALID_ANALYSIS_OUTPUT.summary)
     expect(result.recommendations).toHaveLength(1)
     expect(result.recommendations[0]?.priority).toBe('HIGH')
-    expect(result.dataGaps).toHaveLength(0)
+    // Meta Ads has no mock fallback (unlike Google/Amazon Ads) - it always
+    // calls the real Graph API, which fails without a real META_ACCESS_TOKEN
+    // in this environment. Everything else (Metricool/Google Ads/Amazon
+    // Ads/GA4/GSC) is connected and succeeds via its mock provider.
+    expect(result.dataGaps).toHaveLength(2)
+    expect(result.dataGaps.every((gap) => gap.startsWith('Meta Ads'))).toBe(true)
     expect(result.aiRunId).toBeTruthy()
 
     // The userMessage sent to Claude actually contains the gathered data and brain context.
@@ -159,8 +179,11 @@ describe('Marketing Analytics Agent (Day 9) - AI Gateway + Tool Registry + Conte
     const executions = await db.toolExecution.findMany({
       where: { organizationId: orgId, clientId, agent: { key: MARKETING_ANALYTICS_AGENT_KEY } },
     })
-    expect(executions.length).toBeGreaterThanOrEqual(5)
-    expect(executions.every((e) => e.status === 'SUCCEEDED')).toBe(true)
+    expect(executions.length).toBeGreaterThanOrEqual(11)
+    // Every execution succeeds except the 2 Meta Ads calls (no real token in this environment - see the dataGaps assertion above).
+    const [succeeded, failed] = [executions.filter((e) => e.status === 'SUCCEEDED'), executions.filter((e) => e.status !== 'SUCCEEDED')]
+    expect(failed.length).toBe(2)
+    expect(succeeded.length).toBe(executions.length - 2)
 
     const aiRun = await db.aiRun.findUniqueOrThrow({ where: { id: result.aiRunId! } })
     expect(aiRun.status).toBe('SUCCEEDED')
@@ -212,7 +235,7 @@ describe('Marketing Analytics Agent (Day 9) - AI Gateway + Tool Registry + Conte
 
     expect(result.aiRunId).toBeNull()
     expect(result.recommendations).toHaveLength(0)
-    expect(result.dataGaps).toHaveLength(5) // all five tools failed
+    expect(result.dataGaps).toHaveLength(11) // all eleven tools failed - no connection for this client on any provider
     expect(parse).not.toHaveBeenCalled() // no AI spend on an all-gaps input
   })
 })

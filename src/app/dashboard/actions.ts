@@ -27,6 +27,7 @@ import {
 import { connectClientToCanvaAccount } from '@/lib/integrations/canva/connect'
 import { connectClientToPlaceholderAccount, disconnectClientFromProvider } from '@/lib/integrations/connections'
 import { connectClientToGoogleAdsAccount } from '@/lib/integrations/google-ads/connect'
+import { connectClientToAmazonAdsAccount } from '@/lib/integrations/amazon-ads/connect'
 import { connectClientToMetaAdsAccount } from '@/lib/integrations/meta-ads/connect'
 import { syncMetaAdAccountTelemetry } from '@/lib/integrations/meta-ads/sync'
 import { connectClientToMetricoolBrand } from '@/lib/integrations/metricool/connect'
@@ -300,6 +301,10 @@ export async function connectMetricoolBrandAction(clientId: string, _prev: Actio
 
 export async function connectGoogleAdsAccountAction(clientId: string, _prev: ActionResult, formData: FormData): Promise<ActionResult> {
   return connectAction('connect-google-ads', clientId, formData, 'externalAccountId', (ctx, id, label) => connectClientToGoogleAdsAccount(ctx, clientId, id, label), 'Google Ads account connected.')
+}
+
+export async function connectAmazonAdsAccountAction(clientId: string, _prev: ActionResult, formData: FormData): Promise<ActionResult> {
+  return connectAction('connect-amazon-ads', clientId, formData, 'externalAccountId', (ctx, id, label) => connectClientToAmazonAdsAccount(ctx, clientId, id, label), 'Amazon Ads account connected.')
 }
 
 export async function connectMetaAdsAccountAction(clientId: string, _prev: ActionResult, formData: FormData): Promise<ActionResult> {

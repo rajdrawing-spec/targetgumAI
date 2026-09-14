@@ -1,6 +1,7 @@
 import { afterEach, beforeAll, afterAll, describe, expect, it, vi } from 'vitest'
 import { connectClientToMetaAdsAccount } from '@/lib/integrations/meta-ads/connect'
 import { connectClientToGoogleAdsAccount } from '@/lib/integrations/google-ads/connect'
+import { connectClientToAmazonAdsAccount } from '@/lib/integrations/amazon-ads/connect'
 import { saveProviderCredentials } from '@/lib/integrations/health'
 import { toggleCampaignStatus, syncCampaignFromApproval } from '@/lib/ads/service'
 import { rejectApproval } from '@/lib/approvals/approvals'
@@ -21,14 +22,15 @@ import { cleanupOrg, createSystemRoles, createTestClient, createTestOrg, createT
  * approval id and leaves the row PAUSED; `syncCampaignFromApproval` (called
  * from the dashboard's approve/reject Server Actions, same pattern as
  * `syncContentCalendarItemFromApproval`) reconciles it once a human
- * decides. Google Ads (2026-09-14) got the exact same treatment once its
- * adapter went real - see the second describe block below, which reuses
- * `GoogleAdsMockProvider` (no `GOOGLE_ADS_DEVELOPER_TOKEN` in this test
- * environment) to prove the `toggleCampaignStatus`/Approval Engine wiring
- * itself; the real Google Ads HTTP request shapes are covered separately
- * in `tests/unit/native-ads-providers.test.ts`. Amazon Ads has no adapter
- * at all yet, so it's what proves the local-only fallback still works for
- * an unintegrated provider.
+ * decides. Google Ads and Amazon Ads (both 2026-09-14) got the exact same
+ * treatment once their adapters went real - see the describe blocks below,
+ * which reuse `GoogleAdsMockProvider`/`AmazonAdsMockProvider` (no real
+ * developer token/LWA credentials in this test environment) to prove the
+ * `toggleCampaignStatus`/Approval Engine wiring itself; the real HTTP
+ * request shapes for both are covered separately in
+ * `tests/unit/native-ads-providers.test.ts`. Every `AdPlatform` now has a
+ * real adapter, so the local-only fallback is proven against a synthetic
+ * non-ads provider instead (see that test's own comment).
  */
 describe('toggleCampaignStatus - pauses a connected META_ADS campaign for real', () => {
   let orgId: string
@@ -198,15 +200,19 @@ describe('toggleCampaignStatus - pauses a connected META_ADS campaign for real',
     expect(retried.approvalId).toBeTruthy()
   })
 
-  it('a provider with no adapter (Amazon Ads) stays local-only in both directions', async () => {
+  it('a provider absent from REAL_PAUSE_RESUME_TOOLS stays local-only in both directions', async () => {
+    // Every AdPlatform (Meta/Google/Amazon) has a real adapter as of
+    // 2026-09-14 - there's no real-world "unintegrated ad platform" left to
+    // test the fallback against, so this uses a non-ads provider value on
+    // the Campaign row purely to exercise the generic fallback path itself.
     const ctx = (await resolveAuthContext(testDb, userId, orgId))!
     const campaign = await testDb.campaign.create({
       data: {
         organizationId: orgId,
         clientId,
-        provider: 'AMAZON_ADS',
-        providerCampaignId: 'amzn-1',
-        name: 'Amazon Campaign',
+        provider: 'CANVA',
+        providerCampaignId: 'no-adapter-1',
+        name: 'No-Adapter Campaign',
         status: 'ACTIVE',
       },
     })
@@ -219,6 +225,77 @@ describe('toggleCampaignStatus - pauses a connected META_ADS campaign for real',
     const resumed = await toggleCampaignStatus(ctx, campaign.id, 'PAUSED')
     expect(resumed.status).toBe('ACTIVE')
     expect(fetchMock).not.toHaveBeenCalled()
+  })
+})
+
+describe('toggleCampaignStatus - Amazon Ads gets the same real pause/approval-gated resume treatment', () => {
+  let orgId: string
+  let userId: string
+  let clientId: string
+
+  beforeAll(async () => {
+    const org = await createTestOrg()
+    orgId = org.id
+    const roles = await createSystemRoles(orgId)
+    const client = await createTestClient(orgId, 'Amazon Ads Toggle Client')
+    clientId = client.id
+
+    const user = await createTestUser()
+    userId = user.id
+    await testDb.organizationUser.create({
+      data: { organizationId: orgId, userId, roleId: roles.get('super_admin')!.id },
+    })
+
+    const ctx = (await resolveAuthContext(testDb, userId, orgId))!
+    await connectClientToAmazonAdsAccount(ctx, clientId, 'mock-profile-123', 'Test profile')
+  })
+
+  afterAll(async () => {
+    await cleanupOrg(orgId, [userId])
+  })
+
+  it('pausing calls the tool registry (AmazonAdsMockProvider by default) before flipping the local row', async () => {
+    const ctx = (await resolveAuthContext(testDb, userId, orgId))!
+    const campaign = await testDb.campaign.create({
+      data: { organizationId: orgId, clientId, provider: 'AMAZON_ADS', providerCampaignId: 'mock-amzn-campaign-1', name: 'Sponsored Products - Auto', status: 'ACTIVE' },
+    })
+
+    const paused = await toggleCampaignStatus(ctx, campaign.id, 'ACTIVE')
+    expect(paused.status).toBe('PAUSED')
+  })
+
+  it('resuming never executes on a fresh call - records a pending HIGH-risk approval, leaves it PAUSED', async () => {
+    const ctx = (await resolveAuthContext(testDb, userId, orgId))!
+    const campaign = await testDb.campaign.create({
+      data: { organizationId: orgId, clientId, provider: 'AMAZON_ADS', providerCampaignId: 'mock-amzn-campaign-2', name: 'Paused Campaign', status: 'PAUSED' },
+    })
+
+    const requested = await toggleCampaignStatus(ctx, campaign.id, 'PAUSED')
+    expect(requested.status).toBe('PAUSED')
+    expect(requested.approvalId).toBeTruthy()
+
+    const pendingApproval = await testDb.approval.findUnique({ where: { id: requested.approvalId! } })
+    expect(pendingApproval?.status).toBe('PENDING')
+    expect(pendingApproval?.riskLevel).toBe('HIGH')
+
+    await expect(toggleCampaignStatus(ctx, campaign.id, 'PAUSED')).rejects.toThrow(/already pending approval/)
+  })
+
+  it('approving the resume executes against the provider and flips the campaign ACTIVE', async () => {
+    const ctx = (await resolveAuthContext(testDb, userId, orgId))!
+    const resumeClient = await createTestClient(orgId, 'Amazon Ads Resume Approval Client')
+    await connectClientToAmazonAdsAccount(ctx, resumeClient.id, 'mock-profile-456', 'Test profile')
+    const campaign = await testDb.campaign.create({
+      data: { organizationId: orgId, clientId: resumeClient.id, provider: 'AMAZON_ADS', providerCampaignId: 'mock-amzn-campaign-1', name: 'Resumable Campaign', status: 'PAUSED' },
+    })
+
+    const requested = await toggleCampaignStatus(ctx, campaign.id, 'PAUSED')
+    await approveAndExecuteApproval(ctx, requested.approvalId!)
+    await syncCampaignFromApproval(requested.approvalId!)
+
+    const resolved = await testDb.campaign.findUnique({ where: { id: campaign.id } })
+    expect(resolved?.status).toBe('ACTIVE')
+    expect(resolved?.approvalId).toBeNull()
   })
 })
 

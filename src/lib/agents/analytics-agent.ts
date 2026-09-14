@@ -38,6 +38,10 @@ export async function registerMarketingAnalyticsAgent(): Promise<void> {
       'metricool.get_ad_performance',
       'meta_ads.get_campaigns',
       'meta_ads.get_campaign_performance',
+      'google_ads.get_campaigns',
+      'google_ads.get_campaign_performance',
+      'amazon_ads.get_campaigns',
+      'amazon_ads.get_campaign_performance',
       'ga4.get_report',
       'gsc.get_search_performance',
     ],
@@ -159,6 +163,56 @@ export async function runMarketingAnalysis(input: AnalyticsRunInput): Promise<An
   if (metaPerformance) {
     dataBlocks.push(`Meta Ads performance:\n${JSON.stringify(metaPerformance, null, 2)}`)
     metrics.push(...aggregateAdPerformance(metaPerformance as AdCampaignPerformance[]))
+  }
+
+  const googleAdsCampaigns = await tryGatherData('Google Ads campaigns', dataGaps, () =>
+    executeTool({
+      ctx,
+      toolKey: 'google_ads.get_campaigns',
+      clientId,
+      agentKey: MARKETING_ANALYTICS_AGENT_KEY,
+      input: {},
+    }),
+  )
+  if (googleAdsCampaigns) dataBlocks.push(`Google Ads campaigns:\n${JSON.stringify(googleAdsCampaigns, null, 2)}`)
+
+  const googleAdsPerformance = await tryGatherData('Google Ads performance', dataGaps, () =>
+    executeTool({
+      ctx,
+      toolKey: 'google_ads.get_campaign_performance',
+      clientId,
+      agentKey: MARKETING_ANALYTICS_AGENT_KEY,
+      input: { from: range.from, to: range.to },
+    }),
+  )
+  if (googleAdsPerformance) {
+    dataBlocks.push(`Google Ads performance:\n${JSON.stringify(googleAdsPerformance, null, 2)}`)
+    metrics.push(...aggregateAdPerformance(googleAdsPerformance as AdCampaignPerformance[]))
+  }
+
+  const amazonAdsCampaigns = await tryGatherData('Amazon Ads campaigns', dataGaps, () =>
+    executeTool({
+      ctx,
+      toolKey: 'amazon_ads.get_campaigns',
+      clientId,
+      agentKey: MARKETING_ANALYTICS_AGENT_KEY,
+      input: {},
+    }),
+  )
+  if (amazonAdsCampaigns) dataBlocks.push(`Amazon Ads campaigns:\n${JSON.stringify(amazonAdsCampaigns, null, 2)}`)
+
+  const amazonAdsPerformance = await tryGatherData('Amazon Ads performance', dataGaps, () =>
+    executeTool({
+      ctx,
+      toolKey: 'amazon_ads.get_campaign_performance',
+      clientId,
+      agentKey: MARKETING_ANALYTICS_AGENT_KEY,
+      input: { from: range.from, to: range.to },
+    }),
+  )
+  if (amazonAdsPerformance) {
+    dataBlocks.push(`Amazon Ads performance:\n${JSON.stringify(amazonAdsPerformance, null, 2)}`)
+    metrics.push(...aggregateAdPerformance(amazonAdsPerformance as AdCampaignPerformance[]))
   }
 
   const ga4Report = await tryGatherData('GA4 report', dataGaps, () =>

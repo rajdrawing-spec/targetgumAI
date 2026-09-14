@@ -3,6 +3,8 @@ import { connectClientToGoogleAdsAccount } from '@/lib/integrations/google-ads/c
 import { registerGoogleAdsTools } from '@/lib/integrations/google-ads/tools'
 import { connectClientToMetaAdsAccount } from '@/lib/integrations/meta-ads/connect'
 import { registerMetaAdsTools } from '@/lib/integrations/meta-ads/tools'
+import { connectClientToAmazonAdsAccount } from '@/lib/integrations/amazon-ads/connect'
+import { registerAmazonAdsTools } from '@/lib/integrations/amazon-ads/tools'
 import { IntegrationUnavailableError } from '@/lib/integrations/errors'
 import { db } from '@/lib/db/client'
 import { resolveAuthContext } from '@/lib/rbac/context'
@@ -12,17 +14,19 @@ import { approveAndExecuteApproval, executeTool } from '@/lib/tools/execute'
 import { cleanupOrg, createSystemRoles, createTestClient, createTestOrg, createTestUser, testDb } from '../helpers/factory'
 
 /**
- * Native Google Ads / Meta Ads integration (Phase 2, BRD Section 51/85) -
- * closes the "ad management (write)" gap `docs/INTEGRATIONS.md` documents
- * as confirmed unavailable via Metricool, behind the same `AdsProvider`
- * interface (BRD Section 51: "agent code is unchanged"). Both providers
- * share the exact same tool shapes/risk levels/permission model
- * (`google_ads.*`/`meta_ads.*`), so this file parametrizes the whole suite
- * across both rather than duplicating it - see docs/DECISIONS.md.
+ * Native Google Ads / Meta Ads / Amazon Ads integration (Phase 2/3, BRD
+ * Section 51/85) - closes the "ad management (write)" gap
+ * `docs/INTEGRATIONS.md` documents as confirmed unavailable via Metricool,
+ * behind the same `AdsProvider` interface (BRD Section 51: "agent code is
+ * unchanged"). All three providers share the exact same tool shapes/risk
+ * levels/permission model (`google_ads.*`/`meta_ads.*`/`amazon_ads.*`), so
+ * this file parametrizes the whole suite across all three rather than
+ * duplicating it - see docs/DECISIONS.md.
  */
 describe.each([
   { label: 'Google Ads', prefix: 'google_ads', dbProvider: 'GOOGLE_ADS' as const, externalId: 'mock-gads-account-1', connect: connectClientToGoogleAdsAccount },
   { label: 'Meta Ads', prefix: 'meta_ads', dbProvider: 'META_ADS' as const, externalId: 'mock-meta-account-1', connect: connectClientToMetaAdsAccount },
+  { label: 'Amazon Ads', prefix: 'amazon_ads', dbProvider: 'AMAZON_ADS' as const, externalId: 'mock-profile-1', connect: connectClientToAmazonAdsAccount },
 ])('$label tools end-to-end (Tool Registry + ads.manage + Approval Engine)', ({ prefix, dbProvider, externalId, connect }) => {
   let orgId: string
   let clientId: string
@@ -35,6 +39,7 @@ describe.each([
   beforeAll(async () => {
     await registerGoogleAdsTools()
     await registerMetaAdsTools()
+    await registerAmazonAdsTools()
 
     const org = await createTestOrg()
     orgId = org.id
@@ -141,7 +146,11 @@ describe.each([
       input: { name: 'New E2E Campaign', budget: 60 },
       clientId,
     })) as { status: string; providerCampaignId: string }
-    expect(campaign.status).toBe('PAUSED')
+    // Provider-native casing differs (Amazon Ads: "paused"; Google/Meta
+    // Ads: "PAUSED") - see docs/DECISIONS.md on why this isn't normalized
+    // away. Case-insensitive here on purpose; the point being proven is
+    // "never live", not the exact string.
+    expect(campaign.status.toUpperCase()).toBe('PAUSED')
 
     // Every employee has ads.manage now (account_manager/marketing_employee
     // merged, docs/DECISIONS.md 2026-09-13) - a second, separately-assigned
@@ -153,7 +162,7 @@ describe.each([
       input: { name: 'Second Employee Campaign', budget: 45 },
       clientId,
     })) as { status: string }
-    expect(secondCampaign.status).toBe('PAUSED')
+    expect(secondCampaign.status.toUpperCase()).toBe('PAUSED')
   })
 
   it('create_campaign/pause_campaign (MEDIUM) are denied for a client (no ads.manage)', async () => {

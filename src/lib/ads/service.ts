@@ -133,14 +133,17 @@ export async function createCampaign(ctx: AuthContext, input: CreateCampaignInpu
 
 /**
  * The pause/resume tool keys for providers with a real, write-capable
- * `AdsProvider` adapter - both Meta Ads and Google Ads as of 2026-09-14
- * (see docs/DECISIONS.md). A provider absent from this map (Amazon Ads: no
- * adapter exists yet) falls through to a local-only status change, same as
- * before either adapter went live.
+ * `AdsProvider` adapter - Meta Ads, Google Ads, and Amazon Ads, all as of
+ * 2026-09-14 (see docs/DECISIONS.md). A provider absent from this map
+ * falls through to a local-only status change, same as before any adapter
+ * went live - there is currently no such provider (every `AdPlatform`
+ * has a real adapter), but the fallback stays in place for whatever's
+ * added next.
  */
 const REAL_PAUSE_RESUME_TOOLS: Partial<Record<IntegrationProvider, { pause: string; resume: string }>> = {
   META_ADS: { pause: 'meta_ads.pause_campaign', resume: 'meta_ads.update_campaign' },
   GOOGLE_ADS: { pause: 'google_ads.pause_campaign', resume: 'google_ads.update_campaign' },
+  AMAZON_ADS: { pause: 'amazon_ads.pause_campaign', resume: 'amazon_ads.update_campaign' },
 }
 
 /**

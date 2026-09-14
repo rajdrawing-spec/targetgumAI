@@ -6,8 +6,9 @@ parsing corrected against real live data (Day 15); native Google Ads/Meta Ads
 interfaces (`src/lib/integrations/providers.ts`), the connection/health model
 (`src/lib/integrations/health.ts`), and real + mock adapters for Metricool
 (`src/lib/integrations/metricool/`), GA4 (`.../ga4/`), GSC (`.../gsc/`),
-Google Ads (`.../google-ads/`), Meta Ads (`.../meta-ads/`), and Canva
-(`.../canva/`) all exist. Day 15 also verified the Metricool adapter against
+Google Ads (`.../google-ads/`), Meta Ads (`.../meta-ads/`), Amazon Ads
+(`.../amazon-ads/`, added 2026-09-14 - see the "2026-09-13/14 updates"
+section below), and Canva (`.../canva/`) all exist. Day 15 also verified the Metricool adapter against
 this session's own live MCP connection (not just documented schemas) and
 found + fixed a real parsing bug - see "`getAnalyticsDataByMetrics` real
 response shape" below.
@@ -88,7 +89,7 @@ implemented, not speculatively here.
 | AI reasoning | Claude | Implemented (Day 4) - orchestration verified, live API call pending a key |
 | Social scheduling / analytics | Metricool MCP | Implemented (Day 6), analytics parsing corrected against real response data (Day 15) - adapter unit-tested against the verified live shape; the deployed app itself still has no `METRICOOL_MCP_URL` of its own, so wire-level connectivity from the app is not live-tested |
 | Supported ad analysis (read) | Metricool MCP | Implemented (Day 6), same real-shape fix and live-test caveat as above; the `campaigns` connector's exact shape is inferred from the verified `evolution` connector, not independently confirmed (no populated ads account available) |
-| Ad management (write) | Native Google Ads / Meta Ads (Phase 2) | **Real for both, as of 2026-09-14** - confirmed unavailable via Metricool (capability gap in the MCP itself), so this is a separate `AdsProvider` implementation, not a Metricool fix. `GoogleAdsMockProvider`/`MetaAdsMockProvider` still exist and are what runs without credentials configured. Meta's real adapter is live-exercised (reads, pause, create, resume); Google Ads' real adapter is written against the documented v18 REST/GAQL API but not yet live-verified (no developer token in this environment) - see below and docs/EXTERNAL-APPROVALS.md |
+| Ad management (write) | Native Google Ads / Meta Ads / Amazon Ads (Phase 2/3) | **Real for all three, as of 2026-09-14** - confirmed unavailable via Metricool (capability gap in the MCP itself), so this is a separate `AdsProvider` implementation per platform, not a Metricool fix. Each mock provider still exists and is what runs without credentials configured. Meta's real adapter is live-exercised (reads, pause, create, resume); Google Ads' and Amazon Ads' real adapters are written against each platform's documented REST API but not yet live-verified (no developer token/LWA credentials in this environment) - see below and docs/EXTERNAL-APPROVALS.md |
 | Website analytics | GA4 | Implemented (Day 7) via official `googleapis` client; not live-tested (no OAuth app configured) |
 | Search analytics | Google Search Console | Implemented (Day 7), same caveat as above |
 | Creative | Canva MCP | **Implemented (Day 17/Phase 2)** via `CanvaMockProvider` - real adapter is `UnsupportedOperationError` (no verified Canva MCP connection in this environment) - see below and docs/EXTERNAL-APPROVALS.md |
@@ -351,13 +352,42 @@ meta-ads/` were built, identical in shape:
   one-line fix once real credentials exist: the `updateMask` casing
   convention on mutate operations, and whether a fresh `SEARCH` campaign
   needs an explicit `networkSettings` block to pass validation.
-- **Auth model differs between the two.** Meta stores an encrypted token
-  per `IntegrationConnection` (falling back to `META_ACCESS_TOKEN`/
-  `META_SYSTEM_ACCESS_TOKEN`). Google Ads authenticates once per *manager*
-  (MCC) account - a single agency-wide OAuth refresh token
-  (`GOOGLE_ADS_REFRESH_TOKEN` + `GOOGLE_ADS_LOGIN_CUSTOMER_ID`) covers every
-  client account linked under it, so there's nothing per-connection to
-  store beyond the client's Google Ads customer id. See `.env.example`'s
-  "Native Ads" sections for the full variable list for both providers -
-  neither was documented there before this update, despite the code
-  already reading them.
+- **Amazon Ads is real, not yet live-verified.** `amazon-ads/provider.ts`
+  is a new adapter (Sponsored Products only - the highest-volume Amazon ad
+  type) calling the Amazon Advertising API (v3) directly
+  (`amazon-ads/amazon-ads-client.ts`) - there was no adapter of any kind
+  before this. Reads/writes use `/sp/campaigns`, `/sp/adGroups`,
+  `/sp/productAds` (list + mutate); `createCampaign` (always `paused`,
+  `targetingType: auto`) and pause/resume/budget/bid all implemented.
+  Performance data is the one genuinely different shape from Meta/Google:
+  Amazon has no synchronous stats endpoint at all - `getCampaignPerformance`
+  requests an async report, polls with a bounded budget (~30s) rather than
+  blocking indefinitely, then downloads and gunzips the result; a report
+  still pending after that throws rather than returning partial or
+  fabricated data (CLAUDE.md rule 5), proven with a test that forces the
+  poll to never complete (`tests/unit/native-ads-providers.test.ts`).
+  Same "not live-verified" caveat as Google Ads - no LWA app/API access
+  application/test advertiser account in this environment
+  (docs/EXTERNAL-APPROVALS.md).
+- **Auth model is agency-wide for both Google Ads and Amazon Ads, unlike
+  Meta.** Meta stores an encrypted token per `IntegrationConnection`
+  (falling back to `META_ACCESS_TOKEN`/`META_SYSTEM_ACCESS_TOKEN`). Google
+  Ads authenticates once per *manager* (MCC) account and Amazon Ads once
+  per Amazon Ads account with profiles shared to it - one refresh token
+  each (`GOOGLE_ADS_REFRESH_TOKEN` + `GOOGLE_ADS_LOGIN_CUSTOMER_ID`;
+  `AMAZON_ADS_REFRESH_TOKEN` + `AMAZON_ADS_REGION`) covers every client
+  account/profile linked under it, so there's nothing per-connection to
+  store beyond the client's own customer id / profile id. See
+  `.env.example`'s "Native Ads" sections for the full variable list for
+  all three providers - none was documented there before this update,
+  despite `META_ACCESS_TOKEN` already being read in production.
+- **The Marketing Analytics Agent now reads all three ad platforms.**
+  `google_ads.get_campaigns`/`get_campaign_performance` and
+  `amazon_ads.get_campaigns`/`get_campaign_performance` were added to its
+  tool allowlist alongside the existing `meta_ads.*` pair
+  (`src/lib/agents/analytics-agent.ts`) - "analyze this client" now
+  actually gathers Meta, Google, and Amazon data, not just Meta.
+- **The Ads Hub's real-pause/approval-gated-resume toggle now covers all
+  three platforms too** (`src/lib/ads/service.ts`'s
+  `REAL_PAUSE_RESUME_TOOLS` map), via the same generic mechanism built for
+  Meta - a third real adapter needed a one-line addition, not new logic.
