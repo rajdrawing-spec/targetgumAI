@@ -4,6 +4,8 @@ import { decryptSecret, encryptSecret } from '@/lib/crypto/envelope'
 import { scopedClientWhere } from '@/lib/db/tenant'
 import { assertPermission } from '@/lib/rbac/guards'
 import type { AuthContext } from '@/lib/rbac/types'
+import { resolveClientAndAdminRecipients } from '@/lib/notifications/recipients'
+import { notifyRecipients } from '@/lib/notifications/service'
 import { IntegrationUnavailableError } from './errors'
 
 /**
@@ -105,15 +107,48 @@ export async function recordIntegrationSuccess(connectionId: string) {
   })
 }
 
+/**
+ * "Critical integration failure" (BRD Section 64) is a transition INTO
+ * ERROR, not every individual failed call - once a connection is already
+ * ERROR, repeated failures (e.g. every call in a bulk sync) would
+ * otherwise spam a notification per call. Fetches the prior status first
+ * to detect that transition; never fails the caller's own error handling
+ * if this lookup or the notification itself has a problem.
+ */
 export async function recordIntegrationFailure(
   connectionId: string,
   message: string,
   health: Extract<IntegrationHealth, 'DEGRADED' | 'ERROR' | 'AUTH_REQUIRED'> = 'ERROR',
 ) {
+  const before = await db.integrationConnection.findUnique({
+    where: { id: connectionId },
+    select: {
+      status: true,
+      organizationId: true,
+      clientId: true,
+      client: { select: { name: true } },
+      integrationAccount: { select: { integration: { select: { provider: true } } } },
+    },
+  })
+
   await db.integrationConnection.update({
     where: { id: connectionId },
     data: { status: health, lastErrorAt: new Date(), lastErrorMessage: message },
   })
+
+  if (before && health === 'ERROR' && before.status !== 'ERROR') {
+    const recipients = await resolveClientAndAdminRecipients(before.organizationId, before.clientId)
+    await notifyRecipients({
+      organizationId: before.organizationId,
+      clientId: before.clientId,
+      recipients,
+      type: 'INTEGRATION_CRITICAL_FAILURE',
+      title: `${before.integrationAccount.integration.provider} integration is failing for ${before.client.name}`,
+      body: message,
+      link: `/dashboard/clients/${before.clientId}/integrations`,
+      email: true,
+    })
+  }
 }
 
 export type ResolvedProviderConnection = Awaited<ReturnType<typeof requireProviderConnection>>

@@ -20,12 +20,14 @@ import {
   ScrollText,
   BarChart3,
   Settings,
+  Bell,
   type LucideIcon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 export const NAV_ITEMS: Array<{ href: string; label: string; icon: LucideIcon; badge?: string; isAlert?: boolean }> = [
   { href: '/dashboard', label: 'Command Center', icon: LayoutDashboard },
+  { href: '/dashboard/notifications', label: 'Notifications', icon: Bell },
   { href: '/dashboard/clients', label: 'Client Workspaces', icon: Users },
   { href: '/dashboard/ads', label: 'AI Ad Campaigns', icon: Megaphone, badge: 'STUDIO' },
   { href: '/dashboard/ads/analytics', label: 'Unified Telemetry', icon: BarChart3, badge: 'LIVE' },

@@ -3,6 +3,8 @@ import { db } from '@/lib/db/client'
 import { assertClientAccess, assertPermission } from '@/lib/rbac/guards'
 import { ForbiddenError } from '@/lib/rbac/errors'
 import type { AuthContext } from '@/lib/rbac/types'
+import { resolveClientStaffRecipients } from '@/lib/notifications/recipients'
+import { notifyRecipients } from '@/lib/notifications/service'
 
 /**
  * The Approval Engine (BRD-PRD Section 21-22). Every HIGH/CRITICAL-risk
@@ -31,9 +33,16 @@ export interface CreateApprovalInput {
   expiresInHours?: number
 }
 
+/**
+ * Every caller (execute.ts's HIGH/CRITICAL risk gate, route.ts's
+ * recommendation routing, dispatch-proposed-actions.ts) goes through this
+ * one function, which is exactly why the "Approval required" notification
+ * (BRD Section 64) is wired in here rather than at each call site -
+ * nobody who starts creating approvals a new way can forget it.
+ */
 export async function createApproval(input: CreateApprovalInput) {
   const expiresAt = new Date(Date.now() + (input.expiresInHours ?? DEFAULT_EXPIRY_HOURS) * 60 * 60 * 1000)
-  return db.approval.create({
+  const approval = await db.approval.create({
     data: {
       organizationId: input.organizationId,
       clientId: input.clientId,
@@ -49,6 +58,23 @@ export async function createApproval(input: CreateApprovalInput) {
       expiresAt,
     },
   })
+
+  const recipients = await resolveClientStaffRecipients(input.clientId)
+  await notifyRecipients({
+    organizationId: input.organizationId,
+    clientId: input.clientId,
+    recipients,
+    type: 'APPROVAL_REQUIRED',
+    title: `Approval needed: ${input.actionSummary}`,
+    body: input.riskLevel === 'CRITICAL' ? 'CRITICAL risk - review as soon as possible.' : undefined,
+    link: '/dashboard/approvals',
+    // MEDIUM approvals exist (Phase 3's ASSISTED-level "draft only" path
+    // forces even a MEDIUM-risk tool through here) but aren't urgent
+    // enough for email - in-app is enough; HIGH/CRITICAL get both.
+    email: input.riskLevel === 'HIGH' || input.riskLevel === 'CRITICAL',
+  })
+
+  return approval
 }
 
 export async function listApprovals(

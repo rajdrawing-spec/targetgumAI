@@ -2911,6 +2911,98 @@ case bolted onto this file.
 
 ---
 
+## 2026-09-14 — Phase 4: notifications (BRD Section 64/106)
+
+**Decision:** `Notification` already existed in the schema (channel/type/
+title/body/readAt) but nothing in the app ever wrote or read a row - this
+phase wires it up end to end rather than replacing it. Added two columns
+(`clientId String?`, `link String?`, one small migration) and built:
+
+- `src/lib/notifications/recipients.ts` - who should hear about something
+  on a given client: `resolveClientStaffRecipients` (ACTIVE assigned
+  `ClientAssignment` staff + the client's account manager, deduped) and
+  `resolveOrgAdminRecipients` (ACTIVE `super_admin`s - the escalation
+  floor BRD Section 106 asks for, so a client with no staff assigned yet
+  still isn't silently buried). Deliberately reuses the existing staffing
+  model rather than a new subscription/preference system.
+- `src/lib/notifications/service.ts` - `notifyRecipients` (writes an
+  `IN_APP` row per recipient always, an `EMAIL` row + a real
+  `sendMail` call only when the caller marks the notification worth an
+  inbox interruption) and the read-side (`listNotificationsForUser`/
+  `countUnreadNotifications`/`markNotificationRead`/
+  `markAllNotificationsRead`) - every read/write scoped to `ctx.userId`,
+  never a caller-supplied id; a notification's own row IS the
+  authorization boundary, there is no separate permission for it.
+  `notifyRecipients` never throws - every per-recipient DB or email
+  failure is caught and logged, since a notification is a side effect of
+  something that already happened, never the operation itself.
+- Four trigger points, each wired into the one existing choke point every
+  caller already goes through (not duplicated per call site):
+  `createApproval` (approvals.ts) -> `APPROVAL_REQUIRED`, email for
+  HIGH/CRITICAL only; `completeWorkflowRun` (workflows/runs.ts) on
+  `FAILED` -> `WORKFLOW_FAILED`, always email; `recordIntegrationFailure`
+  (integrations/health.ts) on the transition INTO `ERROR` (never on a
+  repeat failure while already `ERROR` - fetches the prior status first)
+  -> `INTEGRATION_CRITICAL_FAILURE`, always email; `persistRecommendations`
+  (recommendations/persist.ts), one notification per run for every
+  HIGH/CRITICAL finding together (not one per recommendation) ->
+  `HIGH_PRIORITY_RECOMMENDATION`, email only if any is CRITICAL.
+- UI: `NotificationBell` (header dropdown, `src/components/
+  notification-bell.tsx`) and `/dashboard/notifications` (full history,
+  All/Unread tabs). The bell is a Server Component - open/close is a
+  hidden checkbox + `peer-checked:` + `<label htmlFor>`, the same no-JS
+  disclosure pattern `layout.tsx`'s mobile nav drawer already uses (a
+  `<label for>` natively toggles a checkbox off on an outside click; a
+  plain `<details>` has no equivalent without a client-side handler, which
+  would have forced the whole component to be a client component just for
+  open/close). Only the "mark as read" buttons inside are interactive
+  islands (`ActionForm`).
+
+**Rationale:** BRD Section 64 lists exactly these six trigger categories
+("Approval required, Critical integration failure, High-priority campaign
+issue, Workflow failure, Scheduled report, Important client activity");
+four are wired this phase (the four with an unambiguous single existing
+choke point and a clear recipient set). "Scheduled report" and "Important
+client activity" are deferred - see Revisit below, not silently dropped.
+Choosing existing choke points (`createApproval`/`completeWorkflowRun`/
+`recordIntegrationFailure`/`persistRecommendations`) over per-call-site
+wiring means every current and future caller of each gets the
+notification automatically - nobody creating an approval a new way, or
+adding a fourth recommendation-producing workflow, can forget it, the same
+reasoning already applied to why `executeTool` is the one place tool
+authorization happens.
+
+**Alternative(s) considered:** A real-time channel (SSE/WebSocket/polling)
+for the bell - rejected for this phase: BRD Section 64 asks for "in-app"
+support, not live push, and the layout already re-fetches
+`countUnreadNotifications`/`listNotificationsForUser` on every navigation
+(a Server Component), which is enough signal for an MVP inbox without a
+new transport. A `<details>/<summary>` dropdown - rejected once outside-
+click-to-close needed a `<label htmlFor>` a `<details>` has no equivalent
+for (see above) - the checkbox/peer pattern was already established in
+this exact file for the mobile nav drawer, so reusing it kept the bell a
+Server Component instead of becoming a client component for no other
+reason. A user-configurable notification-preferences system (which
+channels/types a person wants) - out of scope for this phase; BRD Section
+64 doesn't ask for one and the current channel/urgency choices per trigger
+are reasonable, documented defaults, not something users lack any control
+over that would be actively wrong.
+
+**Revisit if:** "Scheduled report" (a report generated by an automated/
+weekly run) and "Important client activity" (e.g. a client portal user
+rejecting a recommendation, or leaving feedback) are wanted next - both
+have clear existing choke points (`generateReport`, `rejectRecommendation`
+when `ctx.isClientUser`) and would follow the exact same pattern as the
+four here. If notification volume becomes a real problem, a per-user
+preferences model (which types/channels to receive) is the natural next
+layer on top of `resolveClientStaffRecipients`, not a replacement for it.
+Slack/WhatsApp channels are already modeled in `NotificationChannel` but
+have no delivery implementation - add them as new branches in
+`notifyRecipients` when a real integration exists, never by reusing the
+`EMAIL` branch's shape for something that isn't email.
+
+---
+
 ## Template for future entries
 
 ```text

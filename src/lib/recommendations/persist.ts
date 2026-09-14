@@ -4,6 +4,8 @@ import { getAuthorizedClient, scopedClientWhere } from '@/lib/db/tenant'
 import { assertClientAccess, assertPermission } from '@/lib/rbac/guards'
 import { ForbiddenError } from '@/lib/rbac/errors'
 import type { AuthContext } from '@/lib/rbac/types'
+import { resolveClientStaffRecipients } from '@/lib/notifications/recipients'
+import { notifyRecipients } from '@/lib/notifications/service'
 
 /**
  * Recommendation persistence + lifecycle (BRD-PRD Section 39, 107). The
@@ -25,7 +27,16 @@ export interface RecommendationInput {
   requiresApproval: boolean
 }
 
-/** Persists a batch of recommendations from one AI run. Initial status: RECOMMENDED - the AI has already analyzed and recommended; next is a human ACCEPT/REJECT (BRD Section 107 lifecycle). */
+/**
+ * Persists a batch of recommendations from one AI run. Initial status:
+ * RECOMMENDED - the AI has already analyzed and recommended; next is a
+ * human ACCEPT/REJECT (BRD Section 107 lifecycle). Shared by every
+ * recommendation-producing workflow (analytics/SEO/competitor) - the
+ * "High-priority campaign issue" notification (BRD Section 64) is wired in
+ * here, one notification per run listing every HIGH/CRITICAL finding,
+ * rather than one per recommendation (a run with several high-priority
+ * findings shouldn't flood the bell).
+ */
 export async function persistRecommendations(
   ctx: AuthContext,
   clientId: string,
@@ -33,7 +44,7 @@ export async function persistRecommendations(
   recommendations: RecommendationInput[],
 ) {
   await getAuthorizedClient(ctx, clientId)
-  return Promise.all(
+  const persisted = await Promise.all(
     recommendations.map((rec) =>
       db.recommendation.create({
         data: {
@@ -54,6 +65,24 @@ export async function persistRecommendations(
       }),
     ),
   )
+
+  const urgent = persisted.filter((r) => r.priority === 'HIGH' || r.priority === 'CRITICAL')
+  if (urgent.length > 0) {
+    const recipients = await resolveClientStaffRecipients(clientId)
+    const summary = urgent.length === 1 ? `${urgent[0]!.area}: ${urgent[0]!.finding}` : `${urgent.length} high-priority findings across ${new Set(urgent.map((r) => r.area)).size} area(s)`
+    await notifyRecipients({
+      organizationId: ctx.organizationId,
+      clientId,
+      recipients,
+      type: 'HIGH_PRIORITY_RECOMMENDATION',
+      title: `New high-priority finding${urgent.length > 1 ? 's' : ''}`,
+      body: summary,
+      link: '/dashboard/recommendations',
+      email: urgent.some((r) => r.priority === 'CRITICAL'),
+    })
+  }
+
+  return persisted
 }
 
 export async function listRecommendations(

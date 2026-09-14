@@ -47,7 +47,10 @@ tasks                     — internal work items (BRD Section 40)
 approvals                 — pending/approved/rejected high-risk actions (BRD Section 22)
 audit_events               — append-only, protected from ordinary users (BRD Section 28)
 reports                   — generated internal/client reports
-notifications             — in-app/email/(later Slack/WhatsApp) notifications
+notifications             — in-app/email/(later Slack/WhatsApp) notifications;
+                             organizationId/clientId (optional)/userId
+                             (recipient)/channel/type/title/body/link/readAt -
+                             see docs/DECISIONS.md (Phase 4)
 ```
 
 ## Marketing Tables (BRD-PRD Section 32)

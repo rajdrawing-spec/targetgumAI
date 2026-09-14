@@ -1,5 +1,7 @@
 import type { Prisma, WorkflowRunStatus, WorkflowStepStatus } from '@prisma/client'
 import { db } from '@/lib/db/client'
+import { resolveClientAndAdminRecipients, resolveOrgAdminRecipients } from '@/lib/notifications/recipients'
+import { notifyRecipients } from '@/lib/notifications/service'
 
 /**
  * Minimal WorkflowRun/WorkflowStep tracking (BRD-PRD Section 23). This is
@@ -60,9 +62,34 @@ export async function recordWorkflowStep(
   })
 }
 
+/**
+ * Every workflow (analyze-client, SEO, competitor, creative) ends its run
+ * through this one function - the "Workflow failure" notification (BRD
+ * Section 64) is wired in here so any current or future workflow gets it
+ * automatically, not by remembering to add it per workflow.
+ */
 export async function completeWorkflowRun(workflowRunId: string, status: WorkflowRunStatus, error?: string) {
-  return db.workflowRun.update({
+  const run = await db.workflowRun.update({
     where: { id: workflowRunId },
     data: { status, error, completedAt: new Date() },
+    include: { workflow: { select: { name: true } } },
   })
+
+  if (status === 'FAILED') {
+    const recipients = run.clientId
+      ? await resolveClientAndAdminRecipients(run.organizationId, run.clientId)
+      : await resolveOrgAdminRecipients(run.organizationId)
+    await notifyRecipients({
+      organizationId: run.organizationId,
+      clientId: run.clientId ?? undefined,
+      recipients,
+      type: 'WORKFLOW_FAILED',
+      title: `Workflow failed: ${run.workflow.name}`,
+      body: error,
+      link: run.clientId ? `/dashboard/clients/${run.clientId}` : undefined,
+      email: true, // rare enough, and BRD Section 106 treats this as an escalation - never buried in-app only
+    })
+  }
+
+  return run
 }

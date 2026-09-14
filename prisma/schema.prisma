@@ -313,6 +313,7 @@ model Client {
   recommendations        Recommendation[]
   contentCalendarItems   ContentCalendarItem[]
   creativeAssets         CreativeAsset[]
+  notifications          Notification[]
 
   @@unique([organizationId, slug])
   @@index([organizationId, status])
@@ -983,19 +984,30 @@ enum NotificationChannel {
   WHATSAPP
 }
 
+/// Phase 3/4 automation roadmap (BRD Section 64/106). `userId` is the
+/// recipient - deliberately a plain, unenforced string, not a `User`
+/// relation, matching this codebase's existing convention for "which user
+/// did/should see this" fields (Approval.requestedBy/approvedBy,
+/// WorkflowRun.triggeredBy) rather than introducing a new pattern here.
 model Notification {
   id             String              @id @default(cuid())
   organizationId String
+  clientId       String?
   userId         String
   channel        NotificationChannel
   type           String
   title          String
   body           String?
+  /// Relative in-app path to deep-link to (e.g. "/dashboard/approvals") -
+  /// never an absolute URL (no host to get wrong across environments).
+  link           String?
   readAt         DateTime?
   createdAt      DateTime            @default(now())
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  client       Client?      @relation(fields: [clientId], references: [id], onDelete: SetNull)
 
+  @@index([organizationId, userId, readAt, createdAt])
   @@map("notifications")
 }
 

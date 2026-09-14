@@ -4,7 +4,9 @@ import { redirect } from 'next/navigation'
 import { LogOut, Menu } from 'lucide-react'
 import { getCurrentAuthContext } from '@/lib/auth/current-context'
 import { signOut } from '@/lib/auth'
+import { countUnreadNotifications, listNotificationsForUser } from '@/lib/notifications/service'
 import { DashboardNav } from '@/components/dashboard-nav'
+import { NotificationBell } from '@/components/notification-bell'
 import { ToastProvider } from '@/components/ui/toast'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { UniversalSearch } from '@/components/universal-search'
@@ -55,6 +57,11 @@ export default async function DashboardLayout({ children }: { children: React.Re
   if (!ctx) redirect('/sign-in')
   if (ctx.isClientUser) redirect('/portal')
 
+  const [unreadCount, recentNotifications] = await Promise.all([
+    countUnreadNotifications(ctx),
+    listNotificationsForUser(ctx, { limit: 8 }),
+  ])
+
   return (
     <ToastProvider>
       <div className="flex min-h-screen flex-col bg-[var(--bg-ink)] text-[var(--text-primary-hex)]">
@@ -102,6 +109,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
             <span className="hidden text-xs font-mono-data uppercase tracking-wider text-[var(--text-faint-hex)] sm:inline">
               {ROLE_LABEL[ctx.roleKey] ?? ctx.roleKey}
             </span>
+            <NotificationBell unreadCount={unreadCount} items={recentNotifications} />
             <ThemeToggle className="flex h-8 w-8 items-center justify-center rounded text-[var(--text-faint-hex)] transition-colors hover:bg-[var(--surface-subtle)] hover:text-[var(--text-primary-hex)]" />
           </div>
         </header>

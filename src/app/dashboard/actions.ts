@@ -31,6 +31,7 @@ import { connectClientToAmazonAdsAccount } from '@/lib/integrations/amazon-ads/c
 import { connectClientToMetaAdsAccount } from '@/lib/integrations/meta-ads/connect'
 import { syncMetaAdAccountTelemetry } from '@/lib/integrations/meta-ads/sync'
 import { connectClientToMetricoolBrand } from '@/lib/integrations/metricool/connect'
+import { markAllNotificationsRead, markNotificationRead } from '@/lib/notifications/service'
 import { acceptRecommendation, rejectRecommendation } from '@/lib/recommendations/persist'
 import { updateTaskStatus } from '@/lib/recommendations/tasks'
 import { generateClientReportFromInternal } from '@/lib/reports/generate'
@@ -564,4 +565,26 @@ export async function generateClientReportAction(internalReportId: string, _prev
 
 function revalidateClient(clientId: string) {
   revalidatePath(`/dashboard/clients/${clientId}`, 'layout')
+}
+
+// ---------------------------------------------------------------- notifications
+
+export async function markNotificationReadAction(notificationId: string, _prev: ActionResult, _formData: FormData): Promise<ActionResult> {
+  return runAction('mark-notification-read', async () => {
+    const ctx = await requireCtx()
+    await markNotificationRead(ctx, notificationId)
+    revalidatePath('/dashboard/notifications')
+    revalidatePath('/dashboard', 'layout')
+    return actionOk()
+  })
+}
+
+export async function markAllNotificationsReadAction(_prev: ActionResult, _formData: FormData): Promise<ActionResult> {
+  return runAction('mark-all-notifications-read', async () => {
+    const ctx = await requireCtx()
+    await markAllNotificationsRead(ctx)
+    revalidatePath('/dashboard/notifications')
+    revalidatePath('/dashboard', 'layout')
+    return actionOk('All notifications marked as read.')
+  })
 }
