@@ -2799,6 +2799,118 @@ single-client).
 
 ---
 
+## 2026-09-14 — Phase 3: agents propose real actions (`proposedActions` + `dispatchProposedActions`)
+
+**Decision:** The Marketing Analytics Agent's structured output gains a
+second array, `proposedActions` (`src/lib/agents/schemas.ts`'s
+`ProposedActionSchema`), alongside the existing `recommendations`. Each
+entry names a real provider (`META_ADS`/`GOOGLE_ADS`/`AMAZON_ADS`), an
+action (`PAUSE_CAMPAIGN` | `UPDATE_BUDGET`), a `providerCampaignId` that
+must be copied verbatim from the campaign data the agent was given, and a
+`relatedRecommendationIndex` tying it back to the finding it carries out.
+The agent's own tool allowlist is untouched - still every tool in it is
+LOW risk (unit-tested), so the agent itself still only ever reads and
+proposes, never executes (BRD Section 19 holds exactly as before).
+
+A new file, `src/lib/automation/dispatch-proposed-actions.ts`, is the
+deterministic (non-AI) orchestrator that decides what happens to each
+proposal, wired into `analyze-client-workflow.ts` as a fifth step
+(`execute_proposed_actions`, SKIPPED when there are no proposals - same
+SKIP-vs-RUN pattern the persist/route steps already use). It is the first
+code in this codebase to actually enforce `ClientPolicy.autoChangeAds`,
+`maxBudgetChangePercent`, and `maxDailyAdBudget` as real checks rather
+than decorative prompt context, and the first to make `Client.automationLevel`
+change what a workflow run is allowed to do rather than only what it
+displays. Gating, most to least permissive:
+
+- `MANUAL` or `autoChangeAds` off -> every proposal is left untouched
+  (`SKIPPED`) - identical behavior to before this phase existed.
+- Campaign id not present in the exact data this run gathered -> `SKIPPED`
+  outright, regardless of automation level - defense against a
+  hallucinated or stale id, independent of whatever the structured-output
+  schema already constrains.
+- `UPDATE_BUDGET` exceeding `maxBudgetChangePercent` (vs. that campaign's
+  own current budget) or `maxDailyAdBudget` (vs. the client's total known
+  daily budget across every connected platform, with the change applied)
+  -> forced into the same "draft only" path `ASSISTED` uses, whatever the
+  automation level, with the violation recorded on the resulting
+  Approval's `estimatedImpact`.
+- `ASSISTED`, or any of the above policy violations: a pending Approval is
+  created directly (bypassing the tool's own risk gate), so even a
+  MEDIUM-risk pause never auto-executes - "AI drafts and prepares actions"
+  means nothing runs until a human clicks Approve.
+- `APPROVAL_BASED` / `HIGH_AUTOMATION`: dispatched through the ordinary
+  `executeTool` risk gate, exactly like any other caller - MEDIUM
+  (`pause_campaign`) executes immediately, HIGH (`update_budget`) still
+  creates a pending Approval via the Tool Registry's existing mechanism.
+
+Neither path ever passes an `agentKey` to `executeTool`/`createApproval` -
+see the file's own doc comment. The Marketing Analytics Agent's allowlist
+staying read-only is a real security boundary (BRD Section 31's per-agent
+allowlist check), not incidental; the dispatcher acts on the resolved
+ctx's own `ads.manage` permission, the same way the Ads Hub's manual
+pause/resume button already does (`src/lib/ads/service.ts`'s
+`toggleCampaignStatus`), not as if the agent itself were calling the tool.
+Traceability to the run that produced the proposal still holds through
+`workflowRunId` (carried on every execution/approval) and `aiRunId`
+(carried in the approval's `proposedChanges` where relevant).
+
+`prompts/analytics/v2.md` is a new prompt version (never edit `v1.md` in
+place, per `src/lib/ai/prompts.ts`'s own doc comment) with instructions
+for shaping `proposedActions`, while keeping every one of v1's rules
+("recommendations are proposals for a human to review", "never invent
+data") unchanged.
+
+**Rationale:** This is Phase 3 of the automation roadmap published to the
+user ("agents that propose real actions, not just findings"). The
+alternative - letting Claude directly call `executeTool` from inside the
+agent - was rejected outright as a direct violation of BRD Section 19
+("No campaign modification should occur merely because Claude
+recommends it") and Section 31 ("Claude/agents never decide their own
+access"): an agent choosing to execute is exactly the failure mode this
+whole architecture exists to prevent. Reusing the existing
+`proposedChanges.toolKey` approval shape (the same one `execute.ts`'s own
+risk gate already produces for any HIGH/CRITICAL tool call) rather than
+inventing a new approval kind means every existing Approvals Gate UI page,
+audit event shape, and `approveAndExecuteApproval` code path needed zero
+changes to support this - a proposed-action approval looks, to every part
+of the app except the dispatcher that created it, identical to any other
+tool-call approval.
+
+**Alternative(s) considered:** Extending the shared `AnalysisResultSchema`
+(used by the Competitor and SEO agents too) with `proposedActions` -
+rejected: neither of those agents produces anything executable, and
+forcing an always-empty field onto their output just to share one type
+is worse than the two-interface split (`AnalysisResult` /
+`MarketingAnalysisResult extends AnalysisResult`) actually used. A zod
+`discriminatedUnion` for `ProposedActionSchema` (action-keyed variants,
+`newBudget` only present on the `UPDATE_BUDGET` variant) - rejected in
+favor of a flat object with an optional `newBudget` plus a runtime guard
+in the dispatcher: this codebase has no prior use of `discriminatedUnion`
+with the AI Gateway's native structured outputs (`zodOutputFormat`), and
+there is no live Anthropic credential in this environment to verify the
+JSON Schema conversion behaves as expected for that shape - not worth the
+risk on an unverified path when a flat schema + a defensive runtime check
+achieves the same guarantee. Giving `APPROVAL_BASED` and `HIGH_AUTOMATION`
+distinct dispatch behavior (rather than both simply deferring to
+`executeTool`'s own risk gate) - deferred: the Tool Registry has no
+mechanism today for a client policy to auto-approve a HIGH-risk call, so
+there is nothing real to differentiate them on yet; inventing one here
+would be speculative.
+
+**Revisit if:** A MEDIUM-risk, budget-changing tool is ever added (none
+exists today - `update_budget` is HIGH on every provider) - the
+`maxBudgetChangePercent`/`maxDailyAdBudget` checks already forcing the
+"draft only" path on a violation would then be the *only* thing stopping
+an out-of-policy MEDIUM change from auto-executing under
+`APPROVAL_BASED`/`HIGH_AUTOMATION`, so re-verify that path specifically.
+If `APPROVAL_BASED` and `HIGH_AUTOMATION` need real behavioral daylight
+between them, that belongs in the Tool Registry's risk-gate mechanism
+(e.g. a client-policy-driven HIGH-risk auto-approval), not as a special
+case bolted onto this file.
+
+---
+
 ## Template for future entries
 
 ```text

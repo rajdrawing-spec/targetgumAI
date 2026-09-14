@@ -52,6 +52,14 @@ HIGH_AUTOMATION — low-risk actions execute automatically; high-risk still need
 
 CRITICAL actions never bypass explicit policy regardless of automation level.
 
+**Implementation status (Phase 3):** enforced for the Marketing Analytics
+Agent's `proposedActions` (pause a campaign / change its budget) via
+`src/lib/automation/dispatch-proposed-actions.ts` - see docs/DECISIONS.md
+for the exact per-level behavior and how `ClientPolicy.autoChangeAds`/
+`maxBudgetChangePercent`/`maxDailyAdBudget` are enforced alongside it.
+Not yet enforced for any other action type (social publishing, creative,
+SEO) - those still follow only the Tool Registry's own risk-level gate.
+
 ## Recommendation → Approval → Execution Lifecycle (BRD-PRD Section 107)
 
 ```text

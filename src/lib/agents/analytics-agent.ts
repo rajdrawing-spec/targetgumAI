@@ -1,13 +1,15 @@
 import type { z } from 'zod/v4'
+import type { IntegrationProvider } from '@prisma/client'
 import { assembleClientContext, renderContextAsText } from '@/lib/clients/context-router'
 import { runStructuredAiTask } from '@/lib/ai/gateway'
 import { aggregateAdPerformance, aggregateGa4Report, aggregateGscRows, aggregateSocialMetrics } from '@/lib/analytics/metrics'
 import type { MetricSnapshotInput } from '@/lib/analytics/metrics'
 import type { AdCampaignPerformance, AnalyticsReportRow, SeoQueryRow, SocialMetricValue } from '@/lib/integrations/providers'
+import type { AdCampaignRecord } from '@/lib/integrations/ads-schemas'
 import { executeTool } from '@/lib/tools/execute'
 import type { AuthContext } from '@/lib/rbac/types'
 import { registerAgent } from './registry'
-import { AnalysisResultSchema, RecommendationSchema } from './schemas'
+import { AnalyticsAnalysisResultSchema, ProposedActionSchema, RecommendationSchema } from './schemas'
 
 /**
  * The Marketing Analytics Agent (BRD-PRD Section 25.3): analyzes a
@@ -61,6 +63,12 @@ export interface AnalyticsRunInput {
   adsChannel: string
 }
 
+/**
+ * Shared by every analysis agent (Competitor, SEO, and this one -
+ * `runCompetitorAnalysis`/`runSeoAnalysis` import this exact type). Do not
+ * add Marketing-Analytics-only fields here - see `MarketingAnalysisResult`
+ * below for those.
+ */
 export interface AnalysisResult {
   summary: string
   recommendations: z.infer<typeof RecommendationSchema>[]
@@ -70,6 +78,28 @@ export interface AnalysisResult {
   dataGaps: string[]
   /** Validated, aggregated per-metric values from the gathered data (src/lib/analytics/metrics.ts) - what src/lib/reports/generate.ts persists as AnalyticsSnapshot rows and compares period-over-period. Never derived from anything Claude said. */
   metrics: MetricSnapshotInput[]
+}
+
+/**
+ * `AnalysisResult` + Phase 3's proposed actions - the Marketing Analytics
+ * Agent's own, wider return shape. Not shared with the Competitor or SEO
+ * agents (neither produces anything executable), which is why this extends
+ * rather than replaces the base type above.
+ */
+export interface MarketingAnalysisResult extends AnalysisResult {
+  /** Concrete, executable next steps the agent proposed - see schemas.ts's ProposedActionSchema doc comment. Always [] when aiRunId is null. */
+  proposedActions: z.infer<typeof ProposedActionSchema>[]
+  /**
+   * The exact campaign records (id/name/budget) each connected ad platform
+   * returned during this run's data gathering below - what `proposedActions`
+   * above was grounded in. Exposed so the deterministic orchestrator
+   * (`src/lib/automation/dispatch-proposed-actions.ts`) can verify a
+   * proposed campaign id is real and read its current budget for policy
+   * checks, without re-fetching from the provider (this agent never
+   * re-fetches to "double check" itself - the data Claude saw is the data
+   * everything downstream uses).
+   */
+  campaignsByProvider: Partial<Record<IntegrationProvider, AdCampaignRecord[]>>
 }
 
 async function tryGatherData(
@@ -92,7 +122,7 @@ async function tryGatherData(
  * findings/recommendations. Nothing here is persisted - Day 10 wires
  * results into the `recommendations` table, tasks, and the approval flow.
  */
-export async function runMarketingAnalysis(input: AnalyticsRunInput): Promise<AnalysisResult> {
+export async function runMarketingAnalysis(input: AnalyticsRunInput): Promise<MarketingAnalysisResult> {
   const { ctx, clientId, range } = input
 
   const context = await assembleClientContext(ctx, clientId, 'analytics')
@@ -100,6 +130,7 @@ export async function runMarketingAnalysis(input: AnalyticsRunInput): Promise<An
   const dataGaps: string[] = []
   const dataBlocks: string[] = []
   const metrics: MetricSnapshotInput[] = []
+  const campaignsByProvider: MarketingAnalysisResult['campaignsByProvider'] = {}
 
   const socialAnalytics = await tryGatherData('Metricool social analytics', dataGaps, () =>
     executeTool({
@@ -149,7 +180,10 @@ export async function runMarketingAnalysis(input: AnalyticsRunInput): Promise<An
       input: {},
     }),
   )
-  if (metaCampaigns) dataBlocks.push(`Meta Ads campaigns:\n${JSON.stringify(metaCampaigns, null, 2)}`)
+  if (metaCampaigns) {
+    dataBlocks.push(`Meta Ads campaigns:\n${JSON.stringify(metaCampaigns, null, 2)}`)
+    campaignsByProvider.META_ADS = metaCampaigns as AdCampaignRecord[]
+  }
 
   const metaPerformance = await tryGatherData('Meta Ads performance', dataGaps, () =>
     executeTool({
@@ -174,7 +208,10 @@ export async function runMarketingAnalysis(input: AnalyticsRunInput): Promise<An
       input: {},
     }),
   )
-  if (googleAdsCampaigns) dataBlocks.push(`Google Ads campaigns:\n${JSON.stringify(googleAdsCampaigns, null, 2)}`)
+  if (googleAdsCampaigns) {
+    dataBlocks.push(`Google Ads campaigns:\n${JSON.stringify(googleAdsCampaigns, null, 2)}`)
+    campaignsByProvider.GOOGLE_ADS = googleAdsCampaigns as AdCampaignRecord[]
+  }
 
   const googleAdsPerformance = await tryGatherData('Google Ads performance', dataGaps, () =>
     executeTool({
@@ -199,7 +236,10 @@ export async function runMarketingAnalysis(input: AnalyticsRunInput): Promise<An
       input: {},
     }),
   )
-  if (amazonAdsCampaigns) dataBlocks.push(`Amazon Ads campaigns:\n${JSON.stringify(amazonAdsCampaigns, null, 2)}`)
+  if (amazonAdsCampaigns) {
+    dataBlocks.push(`Amazon Ads campaigns:\n${JSON.stringify(amazonAdsCampaigns, null, 2)}`)
+    campaignsByProvider.AMAZON_ADS = amazonAdsCampaigns as AdCampaignRecord[]
+  }
 
   const amazonAdsPerformance = await tryGatherData('Amazon Ads performance', dataGaps, () =>
     executeTool({
@@ -255,6 +295,8 @@ export async function runMarketingAnalysis(input: AnalyticsRunInput): Promise<An
     return {
       summary: 'No performance data could be retrieved for this period - every connected data source failed or is unavailable. See dataGaps.',
       recommendations: [],
+      proposedActions: [],
+      campaignsByProvider,
       aiRunId: null,
       dataGaps,
       metrics: [],
@@ -280,8 +322,8 @@ export async function runMarketingAnalysis(input: AnalyticsRunInput): Promise<An
     promptCategory: 'analytics',
     variables: { client_name: context.client.name },
     userMessage,
-    schema: AnalysisResultSchema,
+    schema: AnalyticsAnalysisResultSchema,
   })
 
-  return { ...result.data, aiRunId: result.aiRunId, dataGaps, metrics }
+  return { ...result.data, campaignsByProvider, aiRunId: result.aiRunId, dataGaps, metrics }
 }

@@ -28,33 +28,47 @@ This is the one complete workflow the MVP proves end-to-end
 
 ```text
 User request → Client resolution → Authorization → Client Brain
-  → Metricool data → GA4 data → GSC data → Data normalization
-  → Claude analysis → Anomaly detection → Findings → Recommendations
-  → Priority → Tasks → Approval if execution is requested → Report → Audit
+  → Metricool/Meta/Google/Amazon Ads data → GA4 data → GSC data
+  → Data normalization → Claude analysis → Findings → Recommendations
+  → Priority → Tasks → Approval if execution is requested
+  → Proposed actions dispatched per automation level/policy → Report → Audit
 ```
 
 Each arrow above a `WorkflowStep` boundary is recorded (`analysis` →
-`persist_recommendations` → `route_recommendations` → `report`), each as
-`RUNNING` then `SUCCEEDED`/`FAILED`/`SKIPPED`, under one `WorkflowRun` that
-itself ends `SUCCEEDED` or `FAILED`. Three paths are tested
-(`tests/integration/analyze-client-workflow.test.ts`):
+`persist_recommendations` → `route_recommendations` →
+`execute_proposed_actions` → `report`), each as `RUNNING` then
+`SUCCEEDED`/`FAILED`/`SKIPPED`, under one `WorkflowRun` that itself ends
+`SUCCEEDED` or `FAILED`. Four paths are tested
+(`tests/integration/analyze-client-workflow.test.ts`,
+`tests/integration/dispatch-proposed-actions.test.ts`):
 
 - **Success**: recommendations persisted, HIGH/CRITICAL ones routed to a
   real `PENDING` `Approval`, everything else to a `Task`, an `INTERNAL`
   report generated, a `SUCCESS` audit event recorded.
 - **All data sources unavailable** (Day 9's guard: `aiRunId: null`, no
-  Claude call): `persist_recommendations`/`route_recommendations` are
-  recorded `SKIPPED`, not run against nothing — the report step still runs
-  and the workflow still completes `SUCCEEDED`.
+  Claude call): `persist_recommendations`/`route_recommendations`/
+  `execute_proposed_actions` are recorded `SKIPPED`, not run against
+  nothing — the report step still runs and the workflow still completes
+  `SUCCEEDED`.
+- **Proposed actions** (Phase 3): when the agent's output includes
+  `proposedActions`, `execute_proposed_actions` hands them to
+  `dispatchProposedActions` (`src/lib/automation/dispatch-proposed-actions.ts`)
+  - see docs/DECISIONS.md for its full automation-level/policy gating.
+  `SKIPPED` (no proposals, or the client isn't opted in) unless the client
+  actually is.
 - **Failure** (e.g. the AI Gateway call fails): the run is marked `FAILED`
   with the error message, a `FAILURE` audit event is recorded, and the
   error propagates — no partial/silent success.
 
-No campaign modification happens merely because Claude recommends it (BRD
-Section 19) — this workflow is read-only by construction; it ends at
-recommendations + a report + any pending approvals it created. Only a
-separate, explicit `executeApprovedTool` call (Day 10) — after a human
-approves — can write to a provider.
+No campaign modification happens merely because Claude recommends or
+proposes it (BRD Section 19) — the agent itself is still read-only by
+construction (its own Tool Registry allowlist has zero write tools); this
+workflow ends at recommendations + proposed actions + a report + any
+pending approvals or (only where a client's own automation level and
+policy explicitly allow it) real executions `dispatchProposedActions`
+produced. A human approving a pending `Approval` (`executeApprovedTool`,
+Day 10) is always the path for anything the client hasn't explicitly
+opted into auto-running.
 
 ## Post-analytics workflows (built after the above is stable)
 

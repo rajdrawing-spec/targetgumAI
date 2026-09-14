@@ -1,8 +1,9 @@
-import { runMarketingAnalysis, type AnalysisResult } from '@/lib/agents/analytics-agent'
+import { runMarketingAnalysis, type MarketingAnalysisResult } from '@/lib/agents/analytics-agent'
 import { getAuthorizedClient } from '@/lib/db/tenant'
 import { generateReport } from '@/lib/reports/generate'
 import { persistRecommendations } from '@/lib/recommendations/persist'
 import { routeRecommendation } from '@/lib/recommendations/route'
+import { dispatchProposedActions, type ProposedActionResult } from '@/lib/automation/dispatch-proposed-actions'
 import { recordAuditEvent } from '@/lib/audit/record'
 import { assertPermission } from '@/lib/rbac/guards'
 import type { AuthContext } from '@/lib/rbac/types'
@@ -37,10 +38,12 @@ export interface AnalyzeClientWorkflowInput {
 
 export interface AnalyzeClientWorkflowResult {
   workflowRunId: string
-  analysis: AnalysisResult
+  analysis: MarketingAnalysisResult
   recommendationIds: string[]
   taskIds: string[]
   approvalIds: string[]
+  /** Phase 3: outcome per proposed action (executed / pending approval / skipped / failed) - see dispatch-proposed-actions.ts. */
+  proposedActionResults: ProposedActionResult[]
   reportId: string
 }
 
@@ -61,7 +64,7 @@ export async function runAnalyzeClientWorkflow(
     ANALYZE_CLIENT_WORKFLOW_KEY,
     'Analyze Client Performance',
     {
-      steps: ['analysis', 'persist_recommendations', 'route_recommendations', 'report'],
+      steps: ['analysis', 'persist_recommendations', 'route_recommendations', 'execute_proposed_actions', 'report'],
     },
   )
   const run = await startWorkflowRun({
@@ -110,6 +113,34 @@ export async function runAnalyzeClientWorkflow(
       await recordWorkflowStep(run.id, 'route_recommendations', 'SKIPPED')
     }
 
+    let proposedActionResults: ProposedActionResult[] = []
+    if (analysis.aiRunId && analysis.proposedActions.length > 0) {
+      await recordWorkflowStep(run.id, 'execute_proposed_actions', 'RUNNING')
+      proposedActionResults = await dispatchProposedActions({
+        ctx,
+        clientId,
+        workflowRunId: run.id,
+        aiRunId: analysis.aiRunId,
+        proposedActions: analysis.proposedActions,
+        campaignsByProvider: analysis.campaignsByProvider,
+      })
+      approvalIds.push(
+        ...proposedActionResults
+          .map((r) => (r.result.outcome === 'PENDING_APPROVAL' ? r.result.approvalId : undefined))
+          .filter((id): id is string => id !== undefined),
+      )
+      await recordWorkflowStep(run.id, 'execute_proposed_actions', 'SUCCEEDED', {
+        output: {
+          executed: proposedActionResults.filter((r) => r.result.outcome === 'EXECUTED').length,
+          pendingApproval: proposedActionResults.filter((r) => r.result.outcome === 'PENDING_APPROVAL').length,
+          skipped: proposedActionResults.filter((r) => r.result.outcome === 'SKIPPED').length,
+          failed: proposedActionResults.filter((r) => r.result.outcome === 'FAILED').length,
+        },
+      })
+    } else {
+      await recordWorkflowStep(run.id, 'execute_proposed_actions', 'SKIPPED')
+    }
+
     await recordWorkflowStep(run.id, 'report', 'RUNNING')
     const report = await generateReport(ctx, clientId, analysis, range, 'INTERNAL')
     await recordWorkflowStep(run.id, 'report', 'SUCCEEDED', { output: { reportId: report.id } })
@@ -125,10 +156,11 @@ export async function runAnalyzeClientWorkflow(
         recommendationCount: recommendationIds.length,
         taskCount: taskIds.length,
         approvalCount: approvalIds.length,
+        proposedActionCount: proposedActionResults.length,
       },
     })
 
-    return { workflowRunId: run.id, analysis, recommendationIds, taskIds, approvalIds, reportId: report.id }
+    return { workflowRunId: run.id, analysis, recommendationIds, taskIds, approvalIds, proposedActionResults, reportId: report.id }
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown workflow failure.'
     await completeWorkflowRun(run.id, 'FAILED', message)

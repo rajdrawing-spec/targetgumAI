@@ -41,8 +41,17 @@ agent's allowlist on every call, independent of what the model requests.
    resolves intent + client, and determines which workflow to run.
 2. **Client Intelligence Agent** — assembles relevant Client Brain context for
    a given request via the Context Router.
-3. **Marketing Analytics Agent** — analyzes Metricool ads/social data, GA4,
-   and GSC; produces evidence-based findings and structured recommendations.
+3. **Marketing Analytics Agent** — analyzes Metricool/Meta/Google/Amazon
+   Ads data, GA4, and GSC; produces evidence-based findings, structured
+   recommendations, and (Phase 3, `proposedActions` - BRD Section 61's
+   automation levels) concrete, executable next steps (pause a campaign,
+   change a budget) grounded only in real campaign ids from the data it
+   was given. Still read-only by construction - the agent's own tool
+   allowlist is unchanged (every entry LOW risk); a separate,
+   non-AI orchestrator (`src/lib/automation/dispatch-proposed-actions.ts`)
+   decides, from the client's own automation level and policy, whether a
+   proposal becomes a pending Approval or an immediate execution - see
+   docs/DECISIONS.md.
 4. **Content Agent** — drafts content ideas, captions, calendars, copy.
 5. **Creative Agent** ✅ implemented (Phase 2, Day 17,
    `src/lib/agents/creative-agent.ts`) — generates creative concepts
@@ -57,9 +66,12 @@ agent's allowlist on every call, independent of what the model requests.
 
 SEO Agent and Competitor Agent (BRD Section 25's "Later" list) are also
 implemented, brought forward as Phase 2 items - see docs/DECISIONS.md.
-Advertising (execution), Website, Reporting, Client Communication, Sales,
-Operations, and Autonomous Optimization agents are explicitly Phase 2+/3
-(BRD Section 25, 49) and remain unbuilt.
+There is no standalone Advertising (execution) agent - Phase 3 gave the
+Marketing Analytics Agent's own output an executable `proposedActions`
+shape instead (see above), dispatched by deterministic (non-AI) code, not
+by a second agent that decides to act. Website, Reporting, Client
+Communication, Sales, Operations, and full Autonomous Optimization agents
+remain unbuilt (BRD Section 25, 49).
 
 ## Orchestration Flow (Context Architecture, BRD-PRD Section 7)
 

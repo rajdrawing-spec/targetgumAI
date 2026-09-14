@@ -39,6 +39,7 @@ const VALID_ANALYSIS_OUTPUT = {
       requiresApproval: true,
     },
   ],
+  proposedActions: [],
 }
 
 function fakeUsage() {
@@ -168,6 +169,20 @@ describe('Marketing Analytics Agent (Day 9) - AI Gateway + Tool Registry + Conte
     expect(result.dataGaps).toHaveLength(2)
     expect(result.dataGaps.every((gap) => gap.startsWith('Meta Ads'))).toBe(true)
     expect(result.aiRunId).toBeTruthy()
+
+    // Phase 3: the exact campaign records Claude was given are exposed back out,
+    // grounding for whatever it puts in proposedActions - never re-fetched.
+    expect(result.proposedActions).toEqual([])
+    expect(result.campaignsByProvider.GOOGLE_ADS?.map((c) => c.providerCampaignId).sort()).toEqual([
+      'mock-gads-campaign-1',
+      'mock-gads-campaign-2',
+    ])
+    expect(result.campaignsByProvider.AMAZON_ADS?.map((c) => c.providerCampaignId).sort()).toEqual([
+      'mock-amzn-campaign-1',
+      'mock-amzn-campaign-2',
+    ])
+    // Meta Ads failed to gather (no real token) - never fabricated as present.
+    expect(result.campaignsByProvider.META_ADS).toBeUndefined()
 
     // The userMessage sent to Claude actually contains the gathered data and brain context.
     const call = parse.mock.calls[0]![0] as { system: string; messages: Array<{ content: string }> }

@@ -7,6 +7,7 @@ import { connectClientToProviderAccount, recordIntegrationSuccess } from '@/lib/
 import { registerGA4Tools } from '@/lib/integrations/ga4/tools'
 import { registerGSCTools } from '@/lib/integrations/gsc/tools'
 import { registerMetricoolTools } from '@/lib/integrations/metricool/tools'
+import { registerGoogleAdsTools } from '@/lib/integrations/google-ads/tools'
 import { resolveAuthContext } from '@/lib/rbac/context'
 import { ANALYZE_CLIENT_WORKFLOW_KEY, runAnalyzeClientWorkflow } from '@/lib/workflows/analyze-client-workflow'
 import {
@@ -45,6 +46,7 @@ const MIXED_PRIORITY_OUTPUT = {
       requiresApproval: false,
     },
   ],
+  proposedActions: [],
 }
 
 function fakeUsage() {
@@ -71,12 +73,14 @@ describe('"Analyze Client A" workflow (Day 11, BRD Section 46) - the full pipeli
   let orgId: string
   let clientId: string
   let noConnectionsClientId: string
+  let actionsClientId: string
   let userId: string
 
   beforeAll(async () => {
     await registerMetricoolTools()
     await registerGA4Tools()
     await registerGSCTools()
+    await registerGoogleAdsTools()
     await registerMarketingAnalyticsAgent()
 
     const org = await createTestOrg()
@@ -86,6 +90,13 @@ describe('"Analyze Client A" workflow (Day 11, BRD Section 46) - the full pipeli
     clientId = client.id
     const noConnectionsClient = await createTestClient(orgId, 'Analyze Workflow No Connections Client')
     noConnectionsClientId = noConnectionsClient.id
+    // Phase 3 (proposed actions): a separate client, automation-enabled, so
+    // the two other clients' behavior/assertions above stay untouched.
+    const actionsClient = await createTestClient(orgId, 'Analyze Workflow Proposed Actions Client')
+    actionsClientId = actionsClient.id
+    await db.client.update({ where: { id: actionsClientId }, data: { automationLevel: 'HIGH_AUTOMATION' } })
+    // createTestClient already created a default ClientPolicy row - update it, don't create a second one.
+    await db.clientPolicy.update({ where: { clientId: actionsClientId }, data: { autoChangeAds: true } })
 
     const user = await createTestUser()
     userId = user.id
@@ -107,6 +118,15 @@ describe('"Analyze Client A" workflow (Day 11, BRD Section 46) - the full pipeli
       })
       await recordIntegrationSuccess(connection.id)
     }
+
+    const actionsGoogleAdsConnection = await connectClientToProviderAccount({
+      organizationId: orgId,
+      clientId: actionsClientId,
+      provider: 'GOOGLE_ADS',
+      externalAccountId: 'mock-gads-workflow-actions',
+      createdBy: 'test',
+    })
+    await recordIntegrationSuccess(actionsGoogleAdsConnection.id)
   })
 
   afterAll(async () => {
@@ -150,6 +170,9 @@ describe('"Analyze Client A" workflow (Day 11, BRD Section 46) - the full pipeli
     expect(stepsByKey.get('analysis')?.status).toBe('SUCCEEDED')
     expect(stepsByKey.get('persist_recommendations')?.status).toBe('SUCCEEDED')
     expect(stepsByKey.get('route_recommendations')?.status).toBe('SUCCEEDED')
+    // No proposed actions in this mock output - Phase 3's step still runs, correctly SKIPPED rather than absent.
+    expect(stepsByKey.get('execute_proposed_actions')?.status).toBe('SKIPPED')
+    expect(result.proposedActionResults).toEqual([])
     expect(stepsByKey.get('report')?.status).toBe('SUCCEEDED')
 
     const recommendations = await db.recommendation.findMany({ where: { id: { in: result.recommendationIds } } })
@@ -180,6 +203,66 @@ describe('"Analyze Client A" workflow (Day 11, BRD Section 46) - the full pipeli
     await db.approval.deleteMany({ where: { id: { in: result.approvalIds } } })
   })
 
+  it('Phase 3 end to end: a proposed pause on a HIGH_AUTOMATION + autoChangeAds client actually pauses the real (mock) campaign, through the whole Claude -> workflow -> dispatcher -> Tool Registry chain', async () => {
+    const parse = mockClaudeParse()
+    parse.mockResolvedValueOnce({
+      parsed_output: {
+        summary: 'Mock Search - Brand is underperforming; pausing it.',
+        recommendations: [
+          {
+            priority: 'HIGH',
+            area: 'Google Ads',
+            finding: 'CTR on Mock Search - Brand has dropped 40% week over week.',
+            evidence: ['ctr: 0.008 (was 0.013)'],
+            recommendation: 'Pause the campaign until creative is refreshed.',
+            confidence: 0.81,
+            requiresApproval: true,
+          },
+        ],
+        proposedActions: [
+          {
+            provider: 'GOOGLE_ADS',
+            action: 'PAUSE_CAMPAIGN',
+            providerCampaignId: 'mock-gads-campaign-1',
+            campaignName: 'Mock Search - Brand',
+            reasoning: 'CTR down 40% week over week, per the finding above.',
+            relatedRecommendationIndex: 0,
+          },
+        ],
+      },
+      usage: fakeUsage(),
+    })
+
+    const ctx = await resolveAuthContext(testDb, userId, orgId)
+    const result = await runAnalyzeClientWorkflow({
+      ctx: ctx!,
+      clientId: actionsClientId,
+      range: { from: '2026-01-01', to: '2026-01-31' },
+      socialNetwork: 'instagram',
+      adsChannel: 'googleAds',
+    })
+
+    expect(result.proposedActionResults).toHaveLength(1)
+    expect(result.proposedActionResults[0]?.result.outcome).toBe('EXECUTED')
+
+    const run = await db.workflowRun.findUniqueOrThrow({ where: { id: result.workflowRunId } })
+    const steps = await db.workflowStep.findMany({ where: { workflowRunId: run.id } })
+    const stepsByKey = new Map(steps.map((s) => [s.stepKey, s]))
+    expect(stepsByKey.get('execute_proposed_actions')?.status).toBe('SUCCEEDED')
+    expect((stepsByKey.get('execute_proposed_actions')?.output as { executed: number } | null)?.executed).toBe(1)
+
+    const { GoogleAdsMockProvider } = await import('@/lib/integrations/google-ads/mock-provider')
+    const campaigns = await GoogleAdsMockProvider.getCampaigns('mock-gads-workflow-actions', 'google_ads')
+    expect(campaigns.find((c) => c.providerCampaignId === 'mock-gads-campaign-1')?.status).toBe('PAUSED')
+
+    // The tool execution that actually ran is fully audited and attributed to the agent, same as any other tool call.
+    const execution = await db.toolExecution.findFirst({
+      where: { clientId: actionsClientId, tool: { key: 'google_ads.pause_campaign' } },
+      include: { tool: true },
+    })
+    expect(execution?.status).toBe('SUCCEEDED')
+  })
+
   it('all-data-gaps path: when no integration is connected, persist/route steps are SKIPPED but a report still generates and the workflow still SUCCEEDS (BRD Section 19 - never fabricate)', async () => {
     const parse = mockClaudeParse()
 
@@ -206,6 +289,7 @@ describe('"Analyze Client A" workflow (Day 11, BRD Section 46) - the full pipeli
     expect(stepsByKey.get('analysis')?.status).toBe('SUCCEEDED')
     expect(stepsByKey.get('persist_recommendations')?.status).toBe('SKIPPED')
     expect(stepsByKey.get('route_recommendations')?.status).toBe('SKIPPED')
+    expect(stepsByKey.get('execute_proposed_actions')?.status).toBe('SKIPPED')
     expect(stepsByKey.get('report')?.status).toBe('SUCCEEDED')
 
     const report = await db.report.findUniqueOrThrow({ where: { id: result.reportId } })

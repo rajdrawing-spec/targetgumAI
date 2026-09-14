@@ -5,7 +5,8 @@ import { loadPromptTemplate, renderPromptTemplate } from '@/lib/ai/prompts'
 describe('prompt loading (against the real prompts/ directory)', () => {
   it('loads the latest version of a real prompt category', () => {
     const prompt = loadPromptTemplate('analytics')
-    expect(prompt.version).toBe('v1')
+    // v2 (Phase 3 - proposedActions) is now the latest; v1 stays on disk as the previous version.
+    expect(prompt.version).toBe('v2')
     expect(prompt.content).toContain('Marketing Analytics Agent')
   })
 

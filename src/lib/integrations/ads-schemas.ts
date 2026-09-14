@@ -21,6 +21,18 @@ export const AdCampaignRecordSchema = z.object({
   endDate: z.string().optional(),
 })
 
+/**
+ * Plain TS type mirror of the schema above, inferred via this file's own
+ * ('zod', not 'zod/v4') `z` - use this type everywhere outside this file
+ * rather than re-deriving `z.infer<typeof AdCampaignRecordSchema>` with a
+ * different `z` import. The AI Gateway's structured-output schemas
+ * (src/lib/agents/schemas.ts) use 'zod/v4'; mixing the two packages'
+ * `z.infer` against a schema built with the other silently collapses to
+ * `{}` (docs/DECISIONS.md) - not a subtle bug worth re-introducing at every
+ * call site.
+ */
+export type AdCampaignRecord = z.infer<typeof AdCampaignRecordSchema>
+
 export const AdCampaignPerformanceSchema = z.object({
   source: z.string(),
   retrievedAt: z.string(),
