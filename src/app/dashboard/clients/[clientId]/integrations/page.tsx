@@ -123,12 +123,12 @@ export default async function ClientIntegrationsPage({ params }: { params: Promi
               <SubmitButton variant="outline" pendingLabel="Connecting…">Connect Amazon Ads</SubmitButton>
             </ActionForm>
 
-            {/* Meta Marketing API (Graph API v20.0) */}
+            {/* Meta Marketing API (Graph API version - see META_GRAPH_API_VERSION) */}
             <ActionForm action={connectMetaAdsAccountAction.bind(null, clientId)} className="rounded-md border border-dashed border-border p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <div>
                   <span className="font-semibold text-foreground text-sm">Meta Ads</span>
-                  <span className="ml-2 text-xs text-caption">(Facebook & Instagram Marketing API v20.0)</span>
+                  <span className="ml-2 text-xs text-caption">(Facebook & Instagram Marketing API)</span>
                 </div>
                 <a
                   href="https://developers.facebook.com/tools/explorer/"

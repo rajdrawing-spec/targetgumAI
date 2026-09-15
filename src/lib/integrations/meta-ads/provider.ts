@@ -17,7 +17,8 @@ function getAccessToken(explicitToken?: string): string {
 }
 
 /**
- * Production Meta Ads adapter communicating directly with Meta Graph API (v20.0).
+ * Production Meta Ads adapter communicating directly with Meta Graph API -
+ * version pinned in meta-client.ts's `META_GRAPH_VERSION` (env-overridable).
  */
 export function createMetaAdsProvider(explicitToken?: string): AdsProvider {
   const token = () => getAccessToken(explicitToken)

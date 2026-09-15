@@ -182,22 +182,22 @@ export async function syncMetaAdAccountTelemetry(
     syncedCampaigns++
   }
 
-  // 4. Fetch performance insights from Meta Graph API
-  // Query with level=campaign and datePreset: 'maximum' to capture historical and current insights
+  // 4. Fetch performance insights from Meta Graph API. Meta rejects a
+  // day-by-day breakdown (time_increment=1, which fetchMetaDailyInsights
+  // always sets) spanning more than 90 days - "date_preset=maximum" (up to
+  // 37 months) combined with that always fails once an account has any real
+  // history, which used to mean this made a guaranteed-to-fail call on
+  // *every single sync* (and every new connection, via connect.ts) before
+  // ever trying a valid window. That inflated Meta's own measured error
+  // rate for this app - see docs/DECISIONS.md. Request the valid window
+  // directly instead.
   let metaInsights: any[] = []
   try {
     metaInsights = await fetchMetaDailyInsights(adAccountId, accessToken, {
-      datePreset: 'maximum',
+      datePreset: 'last_90d',
     })
   } catch (err) {
-    console.warn(`[Meta Ads] fetchMetaDailyInsights with datePreset maximum failed, trying last_90d:`, err)
-    try {
-      metaInsights = await fetchMetaDailyInsights(adAccountId, accessToken, {
-        datePreset: 'last_90d',
-      })
-    } catch (e2) {
-      console.warn(`[Meta Ads] fetchMetaDailyInsights last_90d failed:`, e2)
-    }
+    console.warn(`[Meta Ads] fetchMetaDailyInsights last_90d failed:`, err)
   }
 
   let syncedMetrics = 0
@@ -259,10 +259,14 @@ export async function syncMetaAdAccountTelemetry(
     syncedMetrics++
   }
 
-  // 4b. Direct campaign fallback: For any campaign that got 0 daily metrics, fetch direct campaign insights
+  // 4b. Direct campaign fallback: for any campaign that got 0 daily metrics,
+  // fetch direct campaign insights - skipping ARCHIVED/DELETED campaigns,
+  // which will never have fresh insights and are a real source of wasted
+  // (and sometimes erroring) Ads API calls for no benefit.
   for (const c of metaCampaigns) {
     const localCampaignId = campaignMap.get(c.id)
     if (!localCampaignId) continue
+    if (c.status === 'ARCHIVED' || c.status === 'DELETED') continue
 
     if (!campaignsWithMetrics.has(localCampaignId)) {
       const directInsights = await fetchCampaignInsights(c.id, accessToken, {

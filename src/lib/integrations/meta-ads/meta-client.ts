@@ -1,12 +1,38 @@
 /**
- * Meta Ads (Graph API v20.0) Production Marketing API Client
+ * Meta Ads Production Marketing API Client
  *
  * Implements direct, type-safe HTTPS communication with Meta's Graph API.
  * Supports verifying credentials, reading ad accounts, campaigns, ad sets,
  * and live daily insights telemetry (impressions, clicks, spend, CTR, ROAS).
  */
 
-const META_GRAPH_BASE = 'https://graph.facebook.com/v20.0'
+/**
+ * Meta sunsets each Graph API version roughly 2 years after release - v20.0
+ * (released May 2024) is past that window. Pinned via env var so it can be
+ * bumped without a code change as Meta's supported versions move forward;
+ * check https://developers.facebook.com/docs/graph-api/changelog before
+ * going live and periodically thereafter. Calling a sunset version is a
+ * real, concrete source of the "error rate too high" App Review rejection -
+ * every call against it fails, not just some.
+ */
+const META_GRAPH_VERSION = process.env.META_GRAPH_API_VERSION || 'v23.0'
+const META_GRAPH_BASE = `https://graph.facebook.com/${META_GRAPH_VERSION}`
+
+/**
+ * Meta's own transient/throttling error codes (rate limits, momentary
+ * service issues) - see
+ * https://developers.facebook.com/docs/graph-api/guides/error-handling.
+ * Worth a short backoff-and-retry; a genuine 4xx (bad params, invalid
+ * token, permission denied) never is - retrying those would only burn more
+ * of the app's error-rate budget for a call that can never succeed.
+ */
+const RETRYABLE_META_ERROR_CODES = new Set([1, 2, 4, 17, 32, 613])
+const MAX_ATTEMPTS = 3
+const BASE_BACKOFF_MS = 600
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
 
 export interface MetaAdAccount {
   id: string // e.g. "act_1234567890"
@@ -64,27 +90,40 @@ async function metaFetch<T>(endpoint: string, token: string, options: RequestIni
   const separator = url.includes('?') ? '&' : '?'
   const authedUrl = `${url}${separator}access_token=${encodeURIComponent(token)}`
 
-  const res = await fetch(authedUrl, {
-    ...options,
-    headers: {
-      Accept: 'application/json',
-      ...options.headers,
-    },
-    // Don't cache live telemetry
-    cache: 'no-store',
-  })
+  let lastError: unknown
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
+    const res = await fetch(authedUrl, {
+      ...options,
+      headers: {
+        Accept: 'application/json',
+        ...options.headers,
+      },
+      // Don't cache live telemetry
+      cache: 'no-store',
+    })
 
-  const json = await res.json()
+    const json = await res.json()
 
-  if (!res.ok || json.error) {
-    const errorObj = json.error || {}
-    const message = errorObj.message || `Meta Graph API error (status ${res.status})`
-    const type = errorObj.type || 'MetaApiException'
-    const code = errorObj.code || res.status
-    throw new Error(`[Meta API ${code} - ${type}]: ${message}`)
+    if (!res.ok || json.error) {
+      const errorObj = json.error || {}
+      const message = errorObj.message || `Meta Graph API error (status ${res.status})`
+      const type = errorObj.type || 'MetaApiException'
+      const code = errorObj.code || res.status
+      const error = new Error(`[Meta API ${code} - ${type}]: ${message}`)
+
+      const retryable = RETRYABLE_META_ERROR_CODES.has(Number(errorObj.code)) || res.status >= 500
+      if (retryable && attempt < MAX_ATTEMPTS) {
+        lastError = error
+        await sleep(BASE_BACKOFF_MS * 2 ** (attempt - 1))
+        continue
+      }
+      throw error
+    }
+
+    return json as T
   }
 
-  return json as T
+  throw lastError instanceof Error ? lastError : new Error('Meta Graph API request failed after retries.')
 }
 
 /**

@@ -3258,6 +3258,63 @@ for bakeries is X%".
 
 ---
 
+## 2026-09-15 — Meta App Review rejection: fixed the code causing the high Ads API error rate
+
+**Decision:** Meta rejected this app's Marketing API Access Tier submission
+for two reasons: insufficient Ads API call volume in the last 15 days, and
+too high an error rate in the last 500 calls. Investigated the second one
+as a real code bug rather than an operational fluke, and found one:
+`syncMetaAdAccountTelemetry` (`src/lib/integrations/meta-ads/sync.ts`)
+requested a *daily* insights breakdown (`time_increment=1`, hardcoded)
+spanning the account's *entire* history (`date_preset=maximum`) as its
+first attempt on every sync, catching the failure and retrying with
+`last_90d`. Meta's Insights API rejects a daily breakdown spanning more
+than ~90 days outright - so once a connected account has any real history,
+that first attempt is **not occasionally** a failure, it's **always** one,
+on every scheduled sync (daily cron, every connection) and every new
+connection (`connect.ts` runs an immediate first sync on connect). Fixed
+by requesting the valid window directly, dropping the doomed first
+attempt entirely. Also fixed three related issues found in the same pass:
+the per-campaign insights fallback was spending calls on ARCHIVED/DELETED
+campaigns that can never have fresh data; `metaFetch` had no retry for
+Meta's own transient/rate-limit error codes (so a momentary throttle
+became a permanent failure); and the Graph API version was hardcoded to
+v20.0, past Meta's typical ~2-year support window as of this date - now
+`META_GRAPH_API_VERSION` (env-configurable, defaults to a current
+version).
+
+**Rationale:** A guaranteed-to-fail call baked into the hot path of both
+the daily cron and every new connection is exactly the kind of systematic,
+high-volume error source Meta's own review tooling would flag - far more
+plausible as the primary cause than intermittent network blips, and it's
+concretely reproducible/provable (a unit test - `tests/integration/
+meta-ads-sync-error-rate.test.ts` - pins that the first insights call is
+now always the valid window, never the doomed one). The retry-with-backoff
+addition is a genuine best practice regardless of whether it was the
+literal rejection cause: any production Meta Marketing API integration
+will occasionally hit the platform's own rate limits, and eating those as
+permanent failures instead of a short retry directly inflates the app's
+measured error rate for no benefit.
+
+**Alternative(s) considered:** Retrying every failed Meta API call,
+including genuine 4xx errors (bad parameters, invalid token, permission
+denied) - rejected: retrying a call that can never succeed only spends
+more of the same limited "last 500 calls" error-rate budget on the exact
+same failure, it doesn't reduce the rate. Only the documented
+transient/throttle error codes (1, 2, 4, 17, 32, 613) and 5xx statuses are
+retried.
+
+**Revisit if:** Meta's own App Review feedback flags a *different* error
+pattern after re-submission - this fix addresses the one concrete,
+reproducible bug found in this pass, not a guarantee against every
+possible source of API errors. The "insufficient call volume" rejection
+reason still needs genuine sustained usage (a real connected ad account,
+active for 15+ days) before re-submitting - no code change satisfies that
+one; see docs/INTEGRATIONS.md's 2026-09-15 entry for the operational
+checklist.
+
+---
+
 ## Template for future entries
 
 ```text

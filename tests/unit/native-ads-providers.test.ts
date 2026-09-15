@@ -283,11 +283,49 @@ describe('Google Ads real adapter (v18 REST/GAQL)', () => {
   })
 })
 
-describe('Meta Ads real adapter (Graph API v20.0)', () => {
+describe('Meta Ads real adapter (Graph API)', () => {
   const provider = createMetaAdsProvider() as Required<AdsProvider>
   it('fails fast when META_ACCESS_TOKEN is not configured', async () => {
     await expect(provider.getCampaigns('a', 'meta_ads')).rejects.toThrow('Meta Ads API Access Token not configured')
     await expect(provider.getCampaignPerformance('a', 'meta_ads', range)).rejects.toThrow('Meta Ads API Access Token not configured')
+  })
+
+  it('never calls the sunset v20.0 Graph API version (App Review rejected the app for exactly this - see docs/DECISIONS.md)', async () => {
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL) => new Response(JSON.stringify({ data: [] }), { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const withToken = createMetaAdsProvider('fake-token') as Required<AdsProvider>
+    await withToken.getCampaigns('act_123', 'meta_ads')
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const [url] = fetchMock.mock.calls[0]!
+    expect(String(url)).not.toContain('/v20.0/')
+    expect(String(url)).toMatch(/graph\.facebook\.com\/v\d+\.\d+\//)
+  })
+
+  it('retries a transient/rate-limit Meta error (code 4) with backoff and eventually succeeds - reduces the app\'s measured Ads API error rate instead of failing on the first hiccup', async () => {
+    let calls = 0
+    const fetchMock = vi.fn(async () => {
+      calls += 1
+      if (calls < 3) {
+        return new Response(JSON.stringify({ error: { message: 'Application request limit reached', type: 'OAuthException', code: 4 } }), { status: 400 })
+      }
+      return new Response(JSON.stringify({ data: [] }), { status: 200 })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const withToken = createMetaAdsProvider('fake-token') as Required<AdsProvider>
+    await expect(withToken.getCampaigns('act_123', 'meta_ads')).resolves.toEqual([])
+    expect(fetchMock).toHaveBeenCalledTimes(3)
+  })
+
+  it('never retries a genuine 4xx (bad parameter) - fails on the first call, the retry budget is only for transient errors', async () => {
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ error: { message: 'Invalid parameter', type: 'OAuthException', code: 100 } }), { status: 400 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const withToken = createMetaAdsProvider('fake-token') as Required<AdsProvider>
+    await expect(withToken.getCampaigns('act_123', 'meta_ads')).rejects.toThrow('[Meta API 100')
+    expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 
   it('createCampaign always POSTs status=PAUSED to the Graph API, never live (BRD Section 21) - no network hit', async () => {

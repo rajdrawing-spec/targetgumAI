@@ -391,3 +391,53 @@ meta-ads/` were built, identical in shape:
   three platforms too** (`src/lib/ads/service.ts`'s
   `REAL_PAUSE_RESUME_TOOLS` map), via the same generic mechanism built for
   Meta - a third real adapter needed a one-line addition, not new logic.
+
+**2026-09-15 update — Meta App Review rejection remediated:**
+
+Meta's App Review rejected the Marketing API Access Tier request for two
+reasons: (1) insufficient Ads API call volume in the last 15 days, (2) too
+high an error rate in the last 500 calls. (2) had a real, concrete root
+cause fixed here; (1) is an operational requirement, not a code bug -
+covered below.
+
+- **The guaranteed-to-fail call is gone.** `syncMetaAdAccountTelemetry`
+  (`meta-ads/sync.ts`) used to request a *daily* insights breakdown
+  (`time_increment=1`, hardcoded in `fetchMetaDailyInsights`) spanning the
+  account's *entire* history (`date_preset=maximum`) first, catching the
+  failure and retrying with `last_90d`. Meta rejects a daily breakdown
+  spanning more than ~90 days outright, so once an account has any real
+  history that first attempt was **always** a failed Ads API call - on
+  every scheduled sync (`meta-ads-sync` cron, daily, every connection) and
+  every new connection (`connect.ts` runs an immediate first sync). That's
+  a guaranteed, systematic contributor to a high measured error rate, not
+  an occasional one. Fixed by requesting the valid window directly - see
+  `tests/integration/meta-ads-sync-error-rate.test.ts`.
+- **Stopped spending calls on campaigns that will never have fresh
+  data.** The per-campaign insights fallback (sync.ts step 4b) now skips
+  ARCHIVED/DELETED campaigns - previously it fetched insights for every
+  campaign with zero daily rows, including ones that can never produce
+  any, wasting call volume and risking permission/object-not-found errors
+  from Meta for deleted objects.
+- **Added retry-with-backoff for Meta's own transient/rate-limit error
+  codes** (1, 2, 4, 17, 32, 613 - "application/user/page-level throttle" -
+  plus any 5xx) in `metaFetch` (`meta-client.ts`), up to 3 attempts with
+  exponential backoff. A genuine 4xx (bad parameter, invalid token,
+  permission denied) is never retried - retrying those would only spend
+  more of the same limited error-rate budget on a call that can never
+  succeed. See `tests/unit/native-ads-providers.test.ts`.
+- **Bumped the Graph API version off v20.0**, which by this date is past
+  Meta's typical ~2-year support window per version - calling a sunset
+  version can itself produce failures independent of anything else, and
+  is a real risk with a hardcoded, unreviewed version string. Now
+  `META_GRAPH_API_VERSION` (env, defaults to a current version) - see
+  `.env.example`. Check
+  https://developers.facebook.com/docs/graph-api/changelog before
+  re-submitting for review and periodically thereafter.
+- **What re-submitting still needs beyond this fix**: reason (1),
+  insufficient call volume, isn't something a code change can satisfy by
+  itself - Meta wants to see sustained real Marketing API traffic (at
+  least 15 days) before granting standard access. After deploying this
+  fix, connect a real (not mock) Meta ad account for at least one client
+  and let the daily sync run - or trigger "Sync Live Data" manually a few
+  times a day - for that window before clicking "Request again" on the
+  submission.
