@@ -3212,6 +3212,52 @@ at 10 clients.
 
 ---
 
+## 2026-09-15 — Marketing search bar: structured analysis, not just data recital
+
+**Decision:** Follow-up feedback on the campaign-performance fix above:
+once real numbers were flowing into the prompt, the search bar's answer
+to "analyse my LHO Beacon Meta ads" was still just a plain-language
+recital of the numbers back at the user - no interpretation, no "what to
+do next". Added three structured array fields to `MarketingSearchAnswerSchema`
+(`workingWell`, `needsAttention`, `nextSteps`) alongside the existing
+`answer`/`notCovered`, each item required to cite the actual numbers it's
+based on. Rewrote `prompts/marketing-search/v1.md` to instruct the model
+to *compare* the given campaigns' CTR/CPC/ROAS against each other, flag
+what's converting well vs. what's spending without results, and give
+concrete next steps traceable to a specific flagged number - while
+keeping every existing discipline (never invent a number, never promise a
+future outcome). The dashboard search bar (`marketing-search-bar.tsx`)
+renders the three arrays as labeled bullet sections under the headline
+answer, each empty and hidden when the question wasn't an analysis one.
+
+**Rationale:** Comparing numbers that are already in the prompt (this
+campaign's 0.36% CTR vs. that one's 2.59%) is analysis, not fabrication -
+every fact in the comparison came from real synced data, so this doesn't
+weaken the "never fabricate" invariant, it exercises the same numbers
+more usefully. Splitting into three schema fields (vs. one long free-text
+paragraph) does two things: it makes "did the model actually analyze, or
+just recite" checkable by tests (empty arrays vs. non-empty), and it lets
+the UI render a scannable report instead of a wall of text.
+
+**Alternative(s) considered:** A single `analysis: string` free-text
+field instead of three arrays - rejected: nothing stops a model from
+writing one unstructured paragraph that's still just a recital; separate,
+explicitly-described fields make "cite the numbers behind each item" a
+per-item instruction the model has to satisfy three times over, not once
+for a whole paragraph. Always requiring non-empty analysis arrays -
+rejected: a quick lookup question ("what needs my approval") has nothing
+to analyze, and forcing analysis there would mean either padding with
+filler or violating the "never invent" rule to fill the field.
+
+**Revisit if:** Users want analysis grounded in external benchmarks
+(industry-average CTR/CPC for a vertical) rather than only relative
+comparison across the client's own campaigns - today there is no such
+benchmark data source, so the prompt is deliberately scoped to what can
+be compared within the real data given, never an invented "average CTR
+for bakeries is X%".
+
+---
+
 ## Template for future entries
 
 ```text

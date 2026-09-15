@@ -58,8 +58,23 @@ export async function registerMarketingSearchAgent(): Promise<void> {
 }
 
 const MarketingSearchAnswerSchema = z.object({
-  answer: z.string(),
+  answer: z.string().describe('A short lead-in summary - 1-3 sentences. For a performance/analysis question this is the headline, not the whole answer - the detail belongs in workingWell/needsAttention/nextSteps below.'),
   notCovered: z.boolean().describe("true if the question genuinely could not be answered from the data given - the answer should then say so and suggest where to look instead"),
+  workingWell: z
+    .array(z.string())
+    .describe(
+      'Only for a performance/analysis question with real campaign data to analyze: specific things going well, each citing the actual numbers that support it (e.g. a campaign\'s CTR or ROAS compared to the others given). Empty array for a non-analysis question, or when nothing in the data stands out as working well.',
+    ),
+  needsAttention: z
+    .array(z.string())
+    .describe(
+      "Only for a performance/analysis question: specific problems or underperformance, each citing the actual numbers (e.g. high spend with zero conversions, CPC far above another campaign's, spend past the stated budget). Empty array for a non-analysis question, or when nothing needs attention.",
+    ),
+  nextSteps: z
+    .array(z.string())
+    .describe(
+      'Only for a performance/analysis question: concrete, actionable next steps grounded in the problems identified above (e.g. "check conversion tracking on the Traffic campaign", "pause the Tshirt Sales ad set and reallocate its budget"). Never a prediction of a future result (no promised clicks/sales/rankings). Empty array for a non-analysis question, or when no action is warranted.',
+    ),
 })
 
 export interface SuggestedLink {
@@ -70,6 +85,9 @@ export interface SuggestedLink {
 export interface MarketingSearchResult {
   answer: string
   notCovered: boolean
+  workingWell: string[]
+  needsAttention: string[]
+  nextSteps: string[]
   links: SuggestedLink[]
   aiRunId: string
 }
@@ -152,7 +170,15 @@ export async function answerMarketingQuestion(ctx: AuthContext, query: string): 
   if (pendingApprovals.length > 0) links.push({ label: 'Approvals Gate', href: '/dashboard/approvals' })
   if (urgentRecs.length > 0) links.push({ label: 'Recommendations', href: '/dashboard/recommendations' })
 
-  return { answer: result.data.answer, notCovered: result.data.notCovered, links, aiRunId: result.aiRunId }
+  return {
+    answer: result.data.answer,
+    notCovered: result.data.notCovered,
+    workingWell: result.data.workingWell,
+    needsAttention: result.data.needsAttention,
+    nextSteps: result.data.nextSteps,
+    links,
+    aiRunId: result.aiRunId,
+  }
 }
 
 const WizardHelpAnswerSchema = z.object({

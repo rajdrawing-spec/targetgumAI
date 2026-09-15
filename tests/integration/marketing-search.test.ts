@@ -104,7 +104,10 @@ describe('marketing-search (dashboard search bar + wizard help)', () => {
       ])
 
       const parse = mockClaudeParse()
-      parse.mockResolvedValueOnce({ parsed_output: { answer: 'You have a pending HIGH risk approval and one CRITICAL recommendation.', notCovered: false }, usage: fakeUsage() })
+      parse.mockResolvedValueOnce({
+        parsed_output: { answer: 'You have a pending HIGH risk approval and one CRITICAL recommendation.', notCovered: false, workingWell: [], needsAttention: [], nextSteps: [] },
+        usage: fakeUsage(),
+      })
 
       const ctx = await resolveAuthContext(testDb, userId, orgId)
       const result = await answerMarketingQuestion(ctx!, 'What needs my attention right now?')
@@ -131,7 +134,10 @@ describe('marketing-search (dashboard search bar + wizard help)', () => {
 
     it('includes a matching client\'s full context when the question names them, and a link to that client', async () => {
       const parse = mockClaudeParse()
-      parse.mockResolvedValueOnce({ parsed_output: { answer: 'Here is what I know about that client.', notCovered: false }, usage: fakeUsage() })
+      parse.mockResolvedValueOnce({
+        parsed_output: { answer: 'Here is what I know about that client.', notCovered: false, workingWell: [], needsAttention: [], nextSteps: [] },
+        usage: fakeUsage(),
+      })
 
       const ctx = await resolveAuthContext(testDb, userId, orgId)
       const result = await answerMarketingQuestion(ctx!, 'How is Marketing Search Test Client doing?')
@@ -163,13 +169,25 @@ describe('marketing-search (dashboard search bar + wizard help)', () => {
       })
 
       const parse = mockClaudeParse()
-      parse.mockResolvedValueOnce({ parsed_output: { answer: 'Retargeting has spent $3030.99 across 6560 impressions and 170 clicks, with 0x ROAS so far.', notCovered: false }, usage: fakeUsage() })
+      parse.mockResolvedValueOnce({
+        parsed_output: {
+          answer: 'Retargeting has spent $3030.99 across 6560 impressions and 170 clicks, with 0x ROAS so far.',
+          notCovered: false,
+          workingWell: [],
+          needsAttention: ['Retargeting has spent $3030.99 with 12 conversions but $0 recorded revenue - worth checking revenue attribution.'],
+          nextSteps: ['Check that conversion values/revenue are being passed back to Meta correctly for Retargeting.'],
+        },
+        usage: fakeUsage(),
+      })
 
       const ctx = await resolveAuthContext(testDb, userId, orgId)
       const result = await answerMarketingQuestion(ctx!, 'Meta ads of Marketing Search Test Client, how are they performing?')
 
       expect(result.notCovered).toBe(false)
       expect(result.links.some((l) => l.href === `/dashboard/ads?clientId=${clientId}`)).toBe(true)
+      expect(result.needsAttention).toHaveLength(1)
+      expect(result.nextSteps).toHaveLength(1)
+      expect(result.workingWell).toHaveLength(0)
 
       const call = parse.mock.calls[0]![0] as { messages: Array<{ content: string }> }
       expect(call.messages[0]?.content).toContain('LHO | Sales campaign | Retargeting')
@@ -189,7 +207,10 @@ describe('marketing-search (dashboard search bar + wizard help)', () => {
       })
 
       const parse = mockClaudeParse()
-      parse.mockResolvedValueOnce({ parsed_output: { answer: 'Marketing Search Test Client has spent the most.', notCovered: false }, usage: fakeUsage() })
+      parse.mockResolvedValueOnce({
+        parsed_output: { answer: 'Marketing Search Test Client has spent the most.', notCovered: false, workingWell: [], needsAttention: [], nextSteps: [] },
+        usage: fakeUsage(),
+      })
 
       const ctx = await resolveAuthContext(testDb, userId, orgId)
       await answerMarketingQuestion(ctx!, 'How is our overall ad spend looking?')

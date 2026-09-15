@@ -106,7 +106,10 @@ describe('security: marketing-search never leaks across organizations', () => {
 
   it('answerMarketingQuestion never includes org B approvals/recommendations in org A\'s prompt, even asking about "Shared Name Client"', async () => {
     const parse = mockClaudeParse()
-    parse.mockResolvedValueOnce({ parsed_output: { answer: 'Nothing urgent for this client.', notCovered: false }, usage: fakeUsage() })
+    parse.mockResolvedValueOnce({
+      parsed_output: { answer: 'Nothing urgent for this client.', notCovered: false, workingWell: [], needsAttention: [], nextSteps: [] },
+      usage: fakeUsage(),
+    })
 
     const ctxA = await resolveAuthContext(testDb, userAId, orgAId)
     const result = await answerMarketingQuestion(ctxA!, 'How is Shared Name Client doing?')
