@@ -150,7 +150,10 @@ export default async function ClientIntegrationsPage({ params }: { params: Promi
                   <Label htmlFor="metaAccessToken">Meta Access Token</Label>
                   <Input id="metaAccessToken" name="accessToken" type="password" placeholder="EAAB... (or set via .env.local)" />
                   <FieldError name="accessToken" />
-                  <p className="mt-1 text-[11px] text-caption">Needs `ads_read` & `read_insights`. Encrypted safely at rest.</p>
+                  <p className="mt-1 text-[11px] text-caption">
+                    Needs `ads_management` (create/pause/budget changes) and `ads_read` + `read_insights` (performance data) - a
+                    read-only token will fail on every write call. Encrypted safely at rest.
+                  </p>
                 </div>
                 <div>
                   <Label htmlFor="label-meta">Label (optional)</Label>
