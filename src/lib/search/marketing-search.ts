@@ -3,6 +3,7 @@ import { assembleClientContext, renderContextAsText } from '@/lib/clients/contex
 import { listAccessibleClients } from '@/lib/clients/list'
 import { listApprovals } from '@/lib/approvals/approvals'
 import { listRecommendationsForOrg } from '@/lib/recommendations/persist'
+import { listCampaigns } from '@/lib/ads/service'
 import { runStructuredAiTask } from '@/lib/ai/gateway'
 import type { AuthContext } from '@/lib/rbac/types'
 import { registerAgent } from '@/lib/agents/registry'
@@ -18,10 +19,10 @@ import { registerAgent } from '@/lib/agents/registry'
  * status that isn't actually in the data assembled below).
  *
  * Every data source this pulls from (`listAccessibleClients`,
- * `listApprovals`, `listRecommendationsForOrg`, `assembleClientContext`)
- * is already tenant/permission-scoped on its own - this module adds no
- * new scoping logic of its own, deliberately, so there's exactly one
- * place cross-client access is ever decided.
+ * `listApprovals`, `listRecommendationsForOrg`, `assembleClientContext`,
+ * `listCampaigns`) is already tenant/permission-scoped on its own - this
+ * module adds no new scoping logic of its own, deliberately, so there's
+ * exactly one place cross-client access is ever decided.
  */
 
 /**
@@ -37,6 +38,11 @@ function findNamedClient<T extends { name: string }>(query: string, clients: T[]
   return clients
     .filter((c) => c.name.trim().length > 0 && lowerQuery.includes(c.name.toLowerCase()))
     .sort((a, b) => b.name.length - a.name.length)[0]
+}
+
+function formatCampaignLine(c: Awaited<ReturnType<typeof listCampaigns>>[number]): string {
+  const m = c.metrics
+  return `"${c.name}" (${c.provider}, ${c.status}, $${c.budget}/mo budget): $${m.spend.toFixed(2)} spent, ${m.impressions} impressions, ${m.clicks} clicks (${m.ctr}% CTR, $${m.cpc} CPC), ${m.conversions} conversions, $${m.revenue.toFixed(2)} revenue, ${m.roas}x ROAS - last 30 days of synced metrics`
 }
 
 export const MARKETING_SEARCH_AGENT_KEY = 'marketing_search'
@@ -68,7 +74,7 @@ export interface MarketingSearchResult {
   aiRunId: string
 }
 
-/** The dashboard search bar. Grounds on one matching client (if the question names one) plus a snapshot of pending approvals and high-priority recommendations across every client the caller can access. */
+/** The dashboard search bar. Grounds on one matching client's real ad campaign performance and full context (if the question names one), a per-client campaign spend/ROAS rollup otherwise, plus a snapshot of pending approvals and high-priority recommendations across every client the caller can access. */
 export async function answerMarketingQuestion(ctx: AuthContext, query: string): Promise<MarketingSearchResult> {
   const trimmed = query.trim()
   if (!trimmed) throw new Error('Ask a question first.')
@@ -82,13 +88,43 @@ export async function answerMarketingQuestion(ctx: AuthContext, query: string): 
   const focusClient = findNamedClient(trimmed, accessibleClients)
   const urgentRecs = allRecommendations.filter((r) => r.priority === 'HIGH' || r.priority === 'CRITICAL').slice(0, 8)
 
-  const clientContext = focusClient ? await assembleClientContext(ctx, focusClient.id, 'campaign') : null
+  const [clientContext, campaigns] = await Promise.all([
+    focusClient ? assembleClientContext(ctx, focusClient.id, 'campaign') : Promise.resolve(null),
+    // Scoped to just the matched client when one is named (real per-campaign
+    // metrics) - unscoped org-wide otherwise, rolled up per client below to
+    // keep a "how's everyone doing" question from blowing up the prompt.
+    listCampaigns(ctx, focusClient?.id),
+  ])
 
   const blocks: string[] = []
   if (clientContext && focusClient) {
     blocks.push(`--- Full context for ${focusClient.name} (the client this question looks like it's about) ---`)
     blocks.push(renderContextAsText(clientContext))
   }
+
+  blocks.push(focusClient ? `\n--- ${focusClient.name}'s ad campaigns (real synced performance) ---` : '\n--- Ad campaign performance, rolled up per client (real synced data) ---')
+  if (campaigns.length === 0) {
+    blocks.push(focusClient ? 'No ad campaigns on file for this client yet.' : 'No ad campaigns on file for any client yet.')
+  } else if (focusClient) {
+    blocks.push(campaigns.map(formatCampaignLine).join('\n'))
+  } else {
+    const byClient = new Map<string, { name: string; spend: number; revenue: number; count: number }>()
+    for (const c of campaigns) {
+      const entry = byClient.get(c.clientId) ?? { name: c.clientName, spend: 0, revenue: 0, count: 0 }
+      entry.spend += c.metrics.spend
+      entry.revenue += c.metrics.revenue
+      entry.count += 1
+      byClient.set(c.clientId, entry)
+    }
+    blocks.push(
+      Array.from(byClient.values())
+        .sort((a, b) => b.spend - a.spend)
+        .slice(0, 10)
+        .map((e) => `${e.name}: ${e.count} campaign${e.count === 1 ? '' : 's'}, $${e.spend.toFixed(2)} spent, ${e.spend > 0 ? (e.revenue / e.spend).toFixed(2) : '0.00'}x blended ROAS (last 30 days)`)
+        .join('\n'),
+    )
+  }
+
   blocks.push('\n--- Pending approvals across your clients ---')
   blocks.push(
     pendingApprovals.length > 0
@@ -112,6 +148,7 @@ export async function answerMarketingQuestion(ctx: AuthContext, query: string): 
 
   const links: SuggestedLink[] = []
   if (focusClient) links.push({ label: focusClient.name, href: `/dashboard/clients/${focusClient.id}` })
+  if (campaigns.length > 0) links.push({ label: 'Ad Campaigns', href: focusClient ? `/dashboard/ads?clientId=${focusClient.id}` : '/dashboard/ads' })
   if (pendingApprovals.length > 0) links.push({ label: 'Approvals Gate', href: '/dashboard/approvals' })
   if (urgentRecs.length > 0) links.push({ label: 'Recommendations', href: '/dashboard/recommendations' })
 

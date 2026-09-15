@@ -3176,6 +3176,42 @@ are fixed, agency-wide text.
 
 ---
 
+## 2026-09-15 — Marketing search bar: grounded in real ad campaign performance
+
+**Decision:** Reported bug: asking the dashboard search bar "Meta ads of
+[client], how they are performing?" answered "I don't have performance
+data" even though the client has real, synced campaigns with spend/clicks/
+ROAS visible on the Ads Hub. Root cause: `answerMarketingQuestion`
+(`src/lib/search/marketing-search.ts`) never queried campaign data at all
+- it only ever grounded on client brain context, approvals, and
+recommendations. Fixed by pulling `listCampaigns` (`src/lib/ads/
+service.ts`, already tenant-scoped, the same source the Ads Hub table
+reads) into the prompt: when the question names a specific client, every
+one of that client's campaigns with full metrics (spend, impressions,
+clicks, CTR, CPC, conversions, revenue, ROAS); otherwise a per-client
+spend/ROAS rollup across every accessible client, so a broader "how's our
+overall ad spend" question still gets real numbers without dumping every
+campaign row into the prompt.
+
+**Rationale:** `listCampaigns` was the obvious, already-scoped source -
+reusing it keeps the "every data source is independently tenant-scoped"
+invariant intact rather than writing a new query. The client-vs-rollup
+split mirrors the existing client-context behavior (full detail when
+named, a bounded summary otherwise) for the same prompt-size reason.
+
+**Alternative(s) considered:** Always fetching every accessible client's
+full campaign list regardless of whether one was named - rejected as
+unbounded prompt growth for an agency with many clients; the rollup gives
+the same "how are we doing overall" answer with O(clients) not
+O(campaigns) size.
+
+**Revisit if:** The per-client campaign list itself grows large enough
+that even one client's full metrics blow up the prompt - would need a
+cap (e.g. top N campaigns by spend) the same way the rollup already caps
+at 10 clients.
+
+---
+
 ## Template for future entries
 
 ```text

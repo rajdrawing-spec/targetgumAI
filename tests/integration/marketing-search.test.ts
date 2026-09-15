@@ -74,6 +74,8 @@ describe('marketing-search (dashboard search bar + wizard help)', () => {
     await db.notification.deleteMany({ where: { organizationId: orgId } })
     await db.approval.deleteMany({ where: { organizationId: orgId } })
     await db.recommendation.deleteMany({ where: { organizationId: orgId } })
+    await db.campaignMetric.deleteMany({ where: { organizationId: orgId } })
+    await db.campaign.deleteMany({ where: { organizationId: orgId } })
     await db.aiRun.deleteMany({ where: { organizationId: orgId } })
     await db.agentTool.deleteMany({ where: { agent: { key: MARKETING_SEARCH_AGENT_KEY } } })
     await db.agent.deleteMany({ where: { key: MARKETING_SEARCH_AGENT_KEY } })
@@ -137,6 +139,67 @@ describe('marketing-search (dashboard search bar + wizard help)', () => {
       expect(result.links.some((l) => l.href === `/dashboard/clients/${clientId}`)).toBe(true)
       const call = parse.mock.calls[0]![0] as { messages: Array<{ content: string }> }
       expect(call.messages[0]?.content).toContain('Full context for Marketing Search Test Client')
+    })
+
+    it('grounds the answer in the matched client\'s real synced Meta Ads campaign performance, never a fabricated "no data" answer', async () => {
+      const campaign = await db.campaign.create({
+        data: { organizationId: orgId, clientId, provider: 'META_ADS', providerCampaignId: 'mock_meta_1', name: 'LHO | Sales campaign | Retargeting', status: 'ACTIVE', budget: 600 },
+      })
+      await db.campaignMetric.create({
+        data: {
+          campaignId: campaign.id,
+          organizationId: orgId,
+          clientId,
+          date: new Date(),
+          source: 'META_ADS',
+          retrievedAt: new Date(),
+          period: 'daily',
+          spend: 3030.99,
+          impressions: 6560,
+          clicks: 170,
+          conversions: 12,
+          revenue: 0,
+        },
+      })
+
+      const parse = mockClaudeParse()
+      parse.mockResolvedValueOnce({ parsed_output: { answer: 'Retargeting has spent $3030.99 across 6560 impressions and 170 clicks, with 0x ROAS so far.', notCovered: false }, usage: fakeUsage() })
+
+      const ctx = await resolveAuthContext(testDb, userId, orgId)
+      const result = await answerMarketingQuestion(ctx!, 'Meta ads of Marketing Search Test Client, how are they performing?')
+
+      expect(result.notCovered).toBe(false)
+      expect(result.links.some((l) => l.href === `/dashboard/ads?clientId=${clientId}`)).toBe(true)
+
+      const call = parse.mock.calls[0]![0] as { messages: Array<{ content: string }> }
+      expect(call.messages[0]?.content).toContain('LHO | Sales campaign | Retargeting')
+      expect(call.messages[0]?.content).toContain('3030.99')
+      expect(call.messages[0]?.content).toContain('170')
+
+      await db.campaignMetric.deleteMany({ where: { clientId } })
+      await db.campaign.deleteMany({ where: { clientId } })
+    })
+
+    it('rolls up campaign spend per client when the question names no specific client', async () => {
+      const campaign = await db.campaign.create({
+        data: { organizationId: orgId, clientId, provider: 'META_ADS', providerCampaignId: 'mock_meta_2', name: 'Rollup Test Campaign', status: 'ACTIVE', budget: 100 },
+      })
+      await db.campaignMetric.create({
+        data: { campaignId: campaign.id, organizationId: orgId, clientId, date: new Date(), source: 'META_ADS', retrievedAt: new Date(), period: 'daily', spend: 500, revenue: 1000 },
+      })
+
+      const parse = mockClaudeParse()
+      parse.mockResolvedValueOnce({ parsed_output: { answer: 'Marketing Search Test Client has spent the most.', notCovered: false }, usage: fakeUsage() })
+
+      const ctx = await resolveAuthContext(testDb, userId, orgId)
+      await answerMarketingQuestion(ctx!, 'How is our overall ad spend looking?')
+
+      const call = parse.mock.calls[0]![0] as { messages: Array<{ content: string }> }
+      expect(call.messages[0]?.content).toContain('rolled up per client')
+      expect(call.messages[0]?.content).toContain('Marketing Search Test Client: 1 campaign, $500.00 spent, 2.00x blended ROAS')
+
+      await db.campaignMetric.deleteMany({ where: { clientId } })
+      await db.campaign.deleteMany({ where: { clientId } })
     })
 
     it('rejects an empty query without calling the model', async () => {

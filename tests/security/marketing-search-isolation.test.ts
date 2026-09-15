@@ -78,12 +78,20 @@ describe('security: marketing-search never leaks across organizations', () => {
     await persistRecommendations(ctxB!, clientBId, runB.id, [
       { priority: 'CRITICAL', area: 'Google Ads', finding: 'ORG B SECRET: internal margin is 340%', evidence: ['margin: 3.4'], recommendation: 'n/a', confidence: 0.9, requiresApproval: true },
     ])
+    const campaignB = await db.campaign.create({
+      data: { organizationId: orgBId, clientId: clientBId, provider: 'META_ADS', providerCampaignId: 'org_b_secret_campaign', name: 'ORG B SECRET Campaign', status: 'ACTIVE', budget: 999 },
+    })
+    await db.campaignMetric.create({
+      data: { campaignId: campaignB.id, organizationId: orgBId, clientId: clientBId, date: new Date(), source: 'META_ADS', retrievedAt: new Date(), period: 'daily', spend: 77777 },
+    })
   })
 
   afterAll(async () => {
     await db.notification.deleteMany({ where: { organizationId: { in: [orgAId, orgBId] } } })
     await db.recommendation.deleteMany({ where: { organizationId: { in: [orgAId, orgBId] } } })
     await db.approval.deleteMany({ where: { organizationId: { in: [orgAId, orgBId] } } })
+    await db.campaignMetric.deleteMany({ where: { organizationId: { in: [orgAId, orgBId] } } })
+    await db.campaign.deleteMany({ where: { organizationId: { in: [orgAId, orgBId] } } })
     await db.aiRun.deleteMany({ where: { organizationId: { in: [orgAId, orgBId] } } })
     await db.agentTool.deleteMany({ where: { agent: { key: MARKETING_SEARCH_AGENT_KEY } } })
     await db.agent.deleteMany({ where: { key: MARKETING_SEARCH_AGENT_KEY } })
@@ -108,6 +116,7 @@ describe('security: marketing-search never leaks across organizations', () => {
     expect(prompt).not.toContain('ORG B')
     expect(prompt).not.toContain('acquire competitor ad account')
     expect(prompt).not.toContain('internal margin is 340%')
+    expect(prompt).not.toContain('77777')
 
     // The matched client must resolve to org A's own client, not org B's same-named one.
     expect(result.links.find((l) => l.label === 'Shared Name Client')?.href).toBe(`/dashboard/clients/${clientAId}`)
