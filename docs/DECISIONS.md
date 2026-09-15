@@ -3118,6 +3118,64 @@ reasonable next addition, not a gap being ignored.
 
 ---
 
+## 2026-09-15 — Dashboard "ask anything" search bar + wizard help polish
+
+**Decision:** Added a genuine natural-language Q&A search bar to the main
+dashboard ("ask anything about your marketing") and a two-tier help system
+inside the guided ad campaign wizard - static `HelpHint` tooltips for fixed
+field explanations, plus a persistent "not sure? ask" AI helper for
+open-ended questions - along with visual step icons and CSS-only
+animations for step transitions and answer reveals. Both AI surfaces are
+backed by one shared module, `src/lib/search/marketing-search.ts`, a
+single read-only agent (`marketing_search`, empty tool allowlist, same
+pattern as the Creative/Competitor/Campaign Brief agents) with two entry
+points: `answerMarketingQuestion` (dashboard bar - grounds on a matched
+client's full context, if the question names one, plus pending approvals
+and HIGH/CRITICAL recommendations across every client the caller can
+access) and `answerWizardQuestion` (wizard helper - grounds only on the
+one client's context and where they are in the wizard, deliberately never
+the wider org snapshot, since a "what does this field mean" question has
+no use for other clients' data).
+
+**Rationale:** One module instead of two nearly-identical ones keeps the
+prompt/AiRun-tracking machinery, the self-registration pattern, and (most
+importantly) the tenant-scoping discipline in exactly one place - every
+data source `answerMarketingQuestion` pulls from (`listAccessibleClients`,
+`listApprovals`, `listRecommendationsForOrg`, `assembleClientContext`) is
+already independently tenant/permission-scoped, so this module adds no new
+scoping logic of its own. This is deliberately a different surface from
+the header's existing `UniversalSearch` (instant client-name/page
+typeahead, no AI call) - that one jumps you somewhere; this one answers a
+question. Plain CSS `@keyframes` (`globals.css`) instead of an animation
+library - none was already a dependency, and the transitions needed
+(fade/slide on step change, shimmer while loading) don't warrant adding
+one. Static `HelpHint` text instead of always calling AI for "what is
+this field" - faster, free, and still available if the AI Gateway is
+down; the AI helper is reserved for questions a fixed tooltip can't
+answer ("which platform for a local bakery?").
+
+**Alternative(s) considered:** Reusing `searchAccessibleClients`
+(`src/lib/clients/search.ts`) to find a client named in the dashboard
+question - rejected after it turned out backwards: that function is built
+for the header's prefix typeahead (`name CONTAINS query`), so it only
+matches when the *entire* free-text question is a substring of a client's
+name, which real questions never are. Built `listAccessibleClients` +
+`findNamedClient` instead - the correct direction (`query CONTAINS
+client.name`), picking the longest matching name to avoid a short name
+accidentally matching inside an unrelated one. A single combined
+dashboard-search-and-wizard-help component - rejected: the two live in
+different parts of the tree with different grounding data and different
+persistence needs (the wizard helper must survive across wizard steps
+without resetting), so two small client components sharing one backend
+module was simpler than one component branching on where it's rendered.
+
+**Revisit if:** The dashboard search bar's example-question chips or the
+wizard's static `HelpHint` copy need to vary per client vertical (e.g.
+different phrasing for e-commerce vs. local-service clients) - today both
+are fixed, agency-wide text.
+
+---
+
 ## Template for future entries
 
 ```text

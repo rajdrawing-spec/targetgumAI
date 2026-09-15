@@ -6,6 +6,7 @@ import { getCurrentAuthContext } from '@/lib/auth/current-context'
 import { generateCampaignBrief, type CampaignBrief } from '@/lib/ads/campaign-brief'
 import { launchCampaignFromWizard } from '@/lib/ads/launch'
 import type { AdCampaignProvider } from '@/lib/ads/connected-providers'
+import { answerWizardQuestion } from '@/lib/search/marketing-search'
 import { AuthenticationError } from '@/lib/rbac/errors'
 import { actionOk, formString, runAction, type ActionResult } from '@/lib/actions/result'
 
@@ -52,6 +53,32 @@ export async function generateBriefAction(input: GenerateBriefActionInput): Prom
     return { ok: true, brief, aiRunId }
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : 'Could not generate a campaign brief.' }
+  }
+}
+
+export interface AskWizardHelpInput {
+  clientId: string
+  step: string
+  formSoFar?: string
+  question: string
+}
+
+export type AskWizardHelpResult = { ok: true; answer: string } | { ok: false; error: string }
+
+/** The wizard's "not sure? ask" helper - same not-ActionResult shape as generateBriefAction, for the same reason. */
+export async function askWizardHelpAction(input: AskWizardHelpInput): Promise<AskWizardHelpResult> {
+  try {
+    const ctx = await requireCtx()
+    const { answer } = await answerWizardQuestion({
+      ctx,
+      clientId: input.clientId,
+      step: input.step,
+      formSoFar: input.formSoFar,
+      question: input.question,
+    })
+    return { ok: true, answer }
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : 'Could not answer that right now.' }
   }
 }
 

@@ -1,13 +1,16 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, type FormEvent } from 'react'
 import Link from 'next/link'
 import {
   ArrowLeft,
   ArrowRight,
   Check,
+  DollarSign,
+  HelpCircle,
   Loader2,
   Megaphone,
+  MessageCircleQuestion,
   Plug,
   RefreshCw,
   Search,
@@ -15,16 +18,19 @@ import {
   Sparkles,
   Users,
 } from 'lucide-react'
-import { generateBriefAction, launchCampaignAction } from '@/app/dashboard/ads/new/actions'
+import { askWizardHelpAction, generateBriefAction, launchCampaignAction } from '@/app/dashboard/ads/new/actions'
 import type { CampaignBrief } from '@/lib/ads/campaign-brief'
 import { AD_CAMPAIGN_PROVIDERS, type AdCampaignProvider } from '@/lib/ads/connected-providers'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { HelpHint } from '@/components/ui/help-hint'
 import { Input, Label, Textarea } from '@/components/ui/input'
 import { ActionForm, SubmitButton } from '@/components/ui/action-form'
 import { EmptyState } from '@/components/ui/empty-state'
 import { useToast } from '@/components/ui/toast'
 import { cn } from '@/lib/utils'
+
+const STEP_ICONS = [Megaphone, Search, DollarSign, Sparkles]
 
 const STEPS = ['What it\'s about', 'Where to run it', 'Budget & audience', 'Review & create'] as const
 
@@ -39,6 +45,62 @@ const PLATFORM_INFO: Record<AdCampaignProvider, { label: string; description: st
   META_ADS: { label: 'Facebook & Instagram', description: 'Great for reaching people by interest as they scroll', icon: Users },
   GOOGLE_ADS: { label: 'Google Search', description: 'Shows up when someone searches for what you offer', icon: Search },
   AMAZON_ADS: { label: 'Amazon', description: 'Puts your product in front of Amazon shoppers', icon: ShoppingBag },
+}
+
+/**
+ * The wizard's persistent "not sure? ask" helper (BRD Section 19 still
+ * holds - this only ever answers a question, never fills in or submits
+ * anything on the user's behalf). A real AI call
+ * (`src/lib/search/marketing-search.ts`'s `answerWizardQuestion`), unlike
+ * `HelpHint` above - open-ended questions ("which platform for a local
+ * bakery?") can't be pre-scripted the way a fixed field explanation can.
+ */
+function WizardAskAI({ clientId, step, formSoFar }: { clientId: string; step: string; formSoFar: string }) {
+  const [question, setQuestion] = useState('')
+  const [asking, setAsking] = useState(false)
+  const [answer, setAnswer] = useState<string | null>(null)
+  const [askError, setAskError] = useState<string | null>(null)
+
+  async function handleAsk(e: FormEvent) {
+    e.preventDefault()
+    const q = question.trim()
+    if (!q || asking) return
+    setAsking(true)
+    setAskError(null)
+    setAnswer(null)
+    const result = await askWizardHelpAction({ clientId, step, formSoFar, question: q })
+    setAsking(false)
+    if (!result.ok) {
+      setAskError(result.error)
+      return
+    }
+    setAnswer(result.answer)
+    setQuestion('')
+  }
+
+  return (
+    <div className="space-y-2">
+      <form onSubmit={handleAsk} className="flex items-center gap-2">
+        <MessageCircleQuestion className="h-4 w-4 shrink-0 text-muted-foreground" />
+        <input
+          type="text"
+          value={question}
+          onChange={(e) => setQuestion(e.target.value)}
+          placeholder="Not sure about something? Ask a quick question…"
+          className="min-w-0 flex-1 bg-transparent text-xs text-foreground placeholder:text-muted-foreground focus:outline-none"
+        />
+        <button
+          type="submit"
+          disabled={asking || !question.trim()}
+          className="flex shrink-0 items-center gap-1 text-xs font-medium text-primary hover:underline disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {asking ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Ask'}
+        </button>
+      </form>
+      {answer && <p className="animate-fade-in-up rounded-md bg-primary/5 px-3 py-2 text-xs leading-relaxed text-foreground">{answer}</p>}
+      {askError && <p className="text-xs text-destructive">{askError}</p>}
+    </div>
+  )
 }
 
 export interface NewCampaignWizardProps {
@@ -83,6 +145,16 @@ export function NewCampaignWizard({
   const budgetCap = budgetCapByClient[clientId]
   const resolvedProvider = platformChoice === 'AI_RECOMMEND' ? brief?.recommendedProvider ?? connected[0] : platformChoice
   const clientName = clients.find((c) => c.id === clientId)?.name ?? ''
+
+  const formSoFar = [
+    about && `About: ${about}`,
+    `Goal: ${goal}`,
+    `Platform: ${platformChoice === 'AI_RECOMMEND' ? 'not chosen yet, connected options are ' + connected.join(', ') : PLATFORM_INFO[platformChoice].label}`,
+    `Daily budget: $${dailyBudget}`,
+    audience && `Who they want to reach: ${audience}`,
+  ]
+    .filter(Boolean)
+    .join('; ')
 
   function handleClientChange(id: string) {
     setClientId(id)
@@ -155,10 +227,18 @@ export function NewCampaignWizard({
         })}
       </ol>
 
-      <Card>
+      <Card className="overflow-hidden">
         <CardContent className="space-y-5 p-5">
+          <div key={step} className="animate-fade-in-up space-y-5">
           {step === 1 && (
             <div className="space-y-5">
+              <div className="flex items-center gap-2 text-primary">
+                {(() => {
+                  const StepIcon = STEP_ICONS[0]!
+                  return <StepIcon className="h-5 w-5" />
+                })()}
+                <span className="text-xs font-semibold uppercase tracking-wide">Step 1 of 4</span>
+              </div>
               <div>
                 <Label htmlFor="clientId">Which client is this for?</Label>
                 <select
@@ -176,7 +256,9 @@ export function NewCampaignWizard({
               </div>
 
               <div>
-                <Label htmlFor="about">What are you advertising?</Label>
+                <Label htmlFor="about">
+                  What are you advertising? <HelpHint>Tell us what you sell and what makes you different, in your own words - AI uses this to write your ad copy and pick your audience, so the more specific, the better.</HelpHint>
+                </Label>
                 <Textarea
                   id="about"
                   rows={4}
@@ -188,7 +270,9 @@ export function NewCampaignWizard({
               </div>
 
               <div>
-                <Label>What&apos;s the goal?</Label>
+                <Label>
+                  What&apos;s the goal? <HelpHint>This tells AI what &quot;success&quot; looks like for this campaign, so it can write ads and pick a platform aimed at that outcome instead of just general visibility.</HelpHint>
+                </Label>
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   {GOALS.map((g) => (
                     <label
@@ -216,8 +300,17 @@ export function NewCampaignWizard({
 
           {step === 2 && (
             <div className="space-y-5">
+              <div className="flex items-center gap-2 text-primary">
+                {(() => {
+                  const StepIcon = STEP_ICONS[1]!
+                  return <StepIcon className="h-5 w-5" />
+                })()}
+                <span className="text-xs font-semibold uppercase tracking-wide">Step 2 of 4</span>
+              </div>
               <div>
-                <Label>Where do you want to run it?</Label>
+                <Label>
+                  Where do you want to run it? <HelpHint>Each platform reaches people differently - Google Search shows your ad when someone actively searches for what you offer, while Facebook/Instagram and Amazon show it as people browse. Not sure? Let AI recommend based on what you told us.</HelpHint>
+                </Label>
                 <p className="mb-2 text-xs text-caption">Only platforms already connected for {clientName || 'this client'} can be used.</p>
 
                 {connected.length === 0 ? (
@@ -302,8 +395,17 @@ export function NewCampaignWizard({
 
           {step === 3 && (
             <div className="space-y-5">
+              <div className="flex items-center gap-2 text-primary">
+                {(() => {
+                  const StepIcon = STEP_ICONS[2]!
+                  return <StepIcon className="h-5 w-5" />
+                })()}
+                <span className="text-xs font-semibold uppercase tracking-wide">Step 3 of 4</span>
+              </div>
               <div>
-                <Label htmlFor="dailyBudget">How much do you want to spend per day?</Label>
+                <Label htmlFor="dailyBudget">
+                  How much do you want to spend per day? <HelpHint>This is the most you&apos;ll spend on this campaign each day - the platform won&apos;t go over it. You can raise, lower, or pause it any time after the campaign is live.</HelpHint>
+                </Label>
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-muted-foreground">$</span>
                   <Input
@@ -326,7 +428,9 @@ export function NewCampaignWizard({
               </div>
 
               <div>
-                <Label htmlFor="audience">Who are you trying to reach? (optional)</Label>
+                <Label htmlFor="audience">
+                  Who are you trying to reach? (optional) <HelpHint>Describe your ideal customer in plain words - where they are, what they&apos;re like, anything relevant. This helps AI target the right people instead of everyone.</HelpHint>
+                </Label>
                 <Textarea
                   id="audience"
                   rows={3}
@@ -368,6 +472,13 @@ export function NewCampaignWizard({
               successMessage="Campaign created."
               className="space-y-5"
             >
+              <div className="flex items-center gap-2 text-primary">
+                {(() => {
+                  const StepIcon = STEP_ICONS[3]!
+                  return <StepIcon className="h-5 w-5" />
+                })()}
+                <span className="text-xs font-semibold uppercase tracking-wide">Step 4 of 4</span>
+              </div>
               <div className="rounded-md border border-primary/30 bg-primary/5 px-3 py-2.5 text-sm text-foreground">
                 <p className="font-medium">Here&apos;s the plan AI put together. Nothing is live yet.</p>
                 <p className="mt-1 text-xs text-muted-foreground">
@@ -443,7 +554,13 @@ export function NewCampaignWizard({
               </div>
             </ActionForm>
           )}
+          </div>
         </CardContent>
+        {step < 4 && (
+          <div className="border-t border-border bg-muted/20 px-5 py-3">
+            <WizardAskAI clientId={clientId} step={STEPS[step - 1]!} formSoFar={formSoFar} />
+          </div>
+        )}
       </Card>
     </div>
   )

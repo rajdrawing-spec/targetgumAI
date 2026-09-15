@@ -2,6 +2,7 @@
 
 import { getCurrentAuthContext } from '@/lib/auth/current-context'
 import { searchAccessibleClients, type ClientSearchResult } from '@/lib/clients/search'
+import { answerMarketingQuestion, type MarketingSearchResult } from '@/lib/search/marketing-search'
 
 /**
  * Backs the header's universal search client results
@@ -21,5 +22,25 @@ export async function searchClientsForHeaderAction(query: string): Promise<Clien
     return await searchAccessibleClients(ctx, query)
   } catch {
     return []
+  }
+}
+
+export type MarketingSearchActionResult = { ok: true; result: MarketingSearchResult } | { ok: false; error: string }
+
+/**
+ * The main dashboard's "ask anything about your marketing" bar
+ * (src/components/dashboard/marketing-search-bar.tsx). Same
+ * not-`ActionResult` shape as the header search above - a question/answer
+ * exchange has nothing to do with a form's pending/success/error
+ * convention.
+ */
+export async function askMarketingSearchAction(query: string): Promise<MarketingSearchActionResult> {
+  try {
+    const ctx = await getCurrentAuthContext()
+    if (!ctx || ctx.isClientUser) return { ok: false, error: 'Sign in as staff to search.' }
+    const result = await answerMarketingQuestion(ctx, query)
+    return { ok: true, result }
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : 'Could not answer that right now.' }
   }
 }

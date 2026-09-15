@@ -33,6 +33,7 @@ import { StatusBadge } from '@/components/ui/badge'
 import { EmptyState } from '@/components/ui/empty-state'
 import { PostScheduleDialog } from '@/components/content/post-schedule-dialog'
 import { CommandCenterTelemetry } from '@/components/dashboard/command-center-telemetry'
+import { MarketingSearchBar } from '@/components/dashboard/marketing-search-bar'
 import { formatDate, formatRelative, initials } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
@@ -213,6 +214,9 @@ export default async function DashboardOverviewPage() {
           )}
         </div>
       </div>
+
+      {/* AI marketing search */}
+      <MarketingSearchBar />
 
       {/* Action-Required & Approval Gate Alert */}
       {(totalPendingApprovals > 0 || pendingApprovals.length > 0) && (

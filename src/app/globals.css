@@ -290,3 +290,60 @@
   font-family: var(--font-ibm-plex-mono), monospace;
   font-size: 11px;
 }
+
+/* ------------------------------------------------------------------
+ * Small motion utilities - the guided ad campaign wizard's step
+ * transitions and the AI search bar's answer panel. Plain CSS, no
+ * animation library: keyed to a React `key` change so the browser
+ * replays the animation on its own whenever the content it's attached
+ * to actually changes, no JS-driven timing needed.
+ * ------------------------------------------------------------------ */
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-fade-in-up {
+  animation: fade-in-up 0.22s ease-out;
+}
+
+@keyframes fade-in-scale {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+.animate-fade-in-scale {
+  animation: fade-in-scale 0.18s ease-out;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+.animate-shimmer {
+  background: linear-gradient(90deg, transparent, hsl(var(--primary) / 0.12), transparent);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-in-up,
+  .animate-fade-in-scale,
+  .animate-shimmer {
+    animation: none;
+  }
+}
