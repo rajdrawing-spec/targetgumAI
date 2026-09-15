@@ -66,6 +66,19 @@ agent's allowlist on every call, independent of what the model requests.
 
 SEO Agent and Competitor Agent (BRD Section 25's "Later" list) are also
 implemented, brought forward as Phase 2 items - see docs/DECISIONS.md.
+
+**Campaign Brief Agent** ✅ implemented (`src/lib/ads/campaign-brief.ts`) -
+not in the original BRD list; backs the guided "Create Ad Campaign" wizard
+(`/dashboard/ads/new`) built for someone with no digital marketing
+experience. Turns three plain-language answers (what the campaign is
+about, which platform, budget + audience) into a reviewable brief - a
+campaign name, a jargon-free strategy note, and one draft ad. Empty tool
+allowlist, same as the Creative/Competitor agents - it never executes
+anything; the human-reviewed brief is handed to a separate, deterministic
+step (`src/lib/ads/launch.ts`'s `launchCampaignFromWizard`) that calls the
+real `{provider}.create_campaign` tool only once the human clicks
+"Create." See docs/DECISIONS.md.
+
 There is no standalone Advertising (execution) agent - Phase 3 gave the
 Marketing Analytics Agent's own output an executable `proposedActions`
 shape instead (see above), dispatched by deterministic (non-AI) code, not

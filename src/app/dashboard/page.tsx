@@ -177,20 +177,12 @@ export default async function DashboardOverviewPage() {
         {/* Action Command Bar */}
         <div className="flex flex-wrap items-center gap-2">
           {canManageAds && (
-            <>
-              <Link
-                href="/dashboard/ads/new"
-                className="btn-brand inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm transition-all"
-              >
-                <Plus className="h-3.5 w-3.5" /> New Ad Brief
-              </Link>
-              <Link
-                href="/dashboard/ads/new?platform=AMAZON_ADS"
-                className="inline-flex items-center gap-1.5 rounded border border-amber-500/40 bg-amber-500/10 px-3 py-1.5 text-xs font-semibold text-amber-300 hover:bg-amber-500/20 transition-colors"
-              >
-                <ShoppingBag className="h-3.5 w-3.5 text-amber-400" /> Amazon PPC
-              </Link>
-            </>
+            <Link
+              href="/dashboard/ads/new"
+              className="btn-brand inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm transition-all"
+            >
+              <Plus className="h-3.5 w-3.5" /> New Ad Campaign
+            </Link>
           )}
 
           <Link

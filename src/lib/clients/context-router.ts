@@ -16,12 +16,16 @@ import type { BrainSectionKey } from './brain-schemas'
  * full ClientBrain row into a prompt directly; go through this instead.
  */
 
-export type ContextCategory = 'analytics' | 'content' | 'reporting'
+export type ContextCategory = 'analytics' | 'content' | 'reporting' | 'campaign'
 
 const SECTIONS_BY_CATEGORY: Record<ContextCategory, BrainSectionKey[]> = {
   analytics: ['business', 'marketing'],
   content: ['business', 'audience', 'brand'],
   reporting: ['business', 'marketing'],
+  // The guided campaign wizard (src/lib/ads/campaign-brief.ts) needs all
+  // four: business (what to advertise), audience (who to reach), brand
+  // (so the ad copy sounds right), marketing (budget/objective history).
+  campaign: ['business', 'audience', 'brand', 'marketing'],
 }
 
 export interface AssembledClientContext {

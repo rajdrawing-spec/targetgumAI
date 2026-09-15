@@ -3003,6 +3003,121 @@ have no delivery implementation - add them as new branches in
 
 ---
 
+## 2026-09-15 — Guided "Create Ad Campaign" wizard, replacing two fabricated flows
+
+**Decision:** Replaced `/dashboard/ads/new` (a single dense form full of
+jargon - "Target ACoS", "Manual Keyword Targeting (Exact/Phrase/Broad)",
+"Sub-Placement") and the Ads Hub's "AI Ad Creator Studio" tab with one
+guided, four-step wizard aimed at someone who has never run a digital ad
+before: **What it's about → Where to run it → Budget & audience → Review
+& create**. Each step asks a plain question, no acronyms, no assumed
+platform knowledge.
+
+While building this, found that **both flows it replaced were fabricating
+data**, not just badly designed:
+
+- The old form's `createCampaignAction` → `ads/service.ts`'s `createCampaign`
+  wrote a `Campaign` row directly to the database with a fake
+  `providerCampaignId` (`` `${provider}_${Date.now()}_${random}` ``) and a
+  zero-metrics `CampaignMetric` row - it never called a real ad platform,
+  despite real, write-capable Meta/Google/Amazon Ads adapters (Phases 1-2
+  of the automation roadmap) already existing and going completely unused
+  by this path. Defaulted `status` to `ACTIVE`, not `PAUSED` - contradicting
+  every real adapter's own invariant and BRD Section 21.
+- The Ads Hub's "AI Ad Creator Studio" tab (`AIAdCreatorStudio`) was pure
+  UI theater: `setTimeout(900)` in place of an AI call, a hardcoded
+  template string in place of AI-generated ad copy, and a "Publish"
+  button that only ever set local React state - never called a server
+  action, never touched the database, never called `executeTool`. It
+  displayed "Campaign Successfully Staged & Queued! ... submitted to the
+  Approvals Gate" when nothing had been submitted anywhere. Both are
+  direct violations of this file's own rule 5 ("Never fabricate external
+  data... Do not invent metrics or provider data") - removed outright
+  rather than kept alongside a real replacement.
+
+The new wizard is real end to end:
+
+- `src/lib/ads/campaign-brief.ts` - a new, empty-tool-allowlist
+  "Campaign Brief Agent" (same shape as the Creative/Competitor agents)
+  turns the wizard's plain-language answers + Client Brain context
+  (`prompts/campaign-brief/v1.md`, a new prompt category added to the
+  Context Router: `business`/`audience`/`brand`/`marketing`) into a
+  structured brief - campaign name, jargon-free strategy note, audience
+  summary, an honest budget assessment (explicitly forbidden from
+  promising a specific numeric outcome - no data exists to base one on),
+  and one draft ad concept. Still just a proposal (BRD Section 19) - this
+  agent cannot execute anything.
+- `src/lib/ads/launch.ts`'s `launchCampaignFromWizard` is the real,
+  separate execution step, only reached after a human reviews (and can
+  edit) the brief. Calls the actual `{provider}.create_campaign` tool
+  through `executeTool` - the same MEDIUM-risk, always-PAUSED path every
+  other caller of that tool already goes through - then upserts the local
+  `Campaign` row from the tool's genuine response (the exact pattern
+  `src/lib/integrations/meta-ads/sync.ts` already uses for campaigns a
+  sync discovers), and persists the reviewed ad copy as a `DRAFT`
+  `CreativeAsset` linked via the (already-existing, previously
+  never-populated) `campaignId` column.
+- `src/lib/ads/connected-providers.ts` - the wizard's platform step only
+  ever offers platforms actually connected (`CONNECTED`/`DEGRADED` health)
+  for the chosen client, one batched query for every accessible client so
+  changing the client selector mid-wizard needs no extra round trip; an
+  unconnected platform is shown, grayed out, with a direct link to connect
+  it rather than hidden outright. Also surfaces `ClientPolicy.
+  maxDailyAdBudget` as a plain-language warning (never a hard block - a
+  human is reviewing every launch here) when the entered daily budget
+  exceeds it.
+- Budget is asked and stored consistently as a **daily** amount across all
+  three platforms, matching what `budget` actually means to every real
+  adapter (Meta's `dailyBudget`, Amazon's explicit `dailyBudget`, Google's
+  standard-delivery `CampaignBudget.amount_micros`) - the old form asked
+  for a "Monthly Ad Spend Budget" and silently handed that number to a
+  field every platform treats as daily.
+
+**Rationale:** The user's explicit ask was a genuinely significant UX
+change - a step-by-step, AI-integrated flow for someone with zero
+marketing background, "like scheduling a post." That's incompatible with
+either prior flow: one was expert-only by design, the other was a
+convincing-looking demo with nothing real behind it. Building the real
+version on top of the already-real Tool Registry/Approval Engine/Creative
+Asset lifecycle (all built in earlier phases) rather than inventing new
+plumbing meant the actual new surface area is small - one new AI call
+shape, one new execution function, one new UI flow - everything else
+(risk gating, audit, the pause/resume toggle, the Approvals Gate) already
+existed and needed zero changes to work correctly with a wizard-launched
+campaign.
+
+**Alternative(s) considered:** Keeping the detailed form alongside the
+wizard for power users - considered and explicitly rejected by the user in
+favor of a clean replacement, given the detailed form's own execution path
+was fake. Reusing the Creative Agent's `runCreativeConceptGeneration` for
+the wizard's draft ad instead of generating it inside the same call as the
+campaign strategy - rejected: a second AI Gateway round trip would slow
+down what should feel like an instant "next, next" wizard step, and the
+two outputs (campaign name/strategy/budget assessment vs. an ad concept)
+are naturally grounded by the same context in one call. Enforcing
+`ClientPolicy.requireApprovalForCampaignLaunch` in this wizard - not
+needed: that field is about **launching** (activating) a campaign, which
+this wizard never does - it only ever creates a paused draft, and
+activating one already goes through `toggleCampaignStatus`'s existing
+HIGH-risk `update_campaign` approval gate (BRD Section 21: "launch
+campaign" is HIGH risk regardless of how the paused draft was created).
+Applying Phase 3's `Client.automationLevel`/`ClientPolicy.autoChangeAds`
+gating to this flow - rejected: that gate exists for the AI analysis
+agent's own autonomous proposals, a different trust boundary from a staff
+member explicitly using a guided tool with full review at every step,
+exactly as the un-gated old form worked.
+
+**Revisit if:** A `create_ad_group`/`create_ad`-level write tool is ever
+added per provider - today only campaign-level `create_campaign` (name +
+budget) is real, so the wizard cannot set real keyword/audience targeting
+on the platform itself; it captures the audience description as AI
+context only, never as a platform-level targeting parameter. Client Brain
+prefill (auto-filling "what's this about" from `ClientBrain.business.
+productsServices`) was scoped out of this pass to keep it contained - a
+reasonable next addition, not a gap being ignored.
+
+---
+
 ## Template for future entries
 
 ```text

@@ -10,15 +10,12 @@ import {
   MousePointerClick,
   Percent,
   Sparkles,
-  ShoppingBag,
   RefreshCw,
 } from 'lucide-react'
 import { getCurrentAuthContext } from '@/lib/auth/current-context'
 import { listCampaigns } from '@/lib/ads/service'
-import { listAccessibleClients } from '@/lib/clients/list'
 import { EmptyState } from '@/components/ui/empty-state'
 import { ActionForm, SubmitButton } from '@/components/ui/action-form'
-import { AIAdCreatorStudio } from '@/components/ads/ai-ad-creator-studio'
 import { toggleCampaignStatusAction, syncMetaAdsAction } from './actions'
 import { cn } from '@/lib/utils'
 
@@ -40,17 +37,12 @@ const PROVIDER_BADGE: Record<string, { label: string; className: string }> = {
 export default async function AdsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ platform?: string; clientId?: string; tab?: string }>
+  searchParams: Promise<{ platform?: string; clientId?: string }>
 }) {
   const [sp, ctx] = await Promise.all([searchParams, getCurrentAuthContext()])
   if (!ctx) redirect('/sign-in')
 
-  const [campaigns, clients] = await Promise.all([
-    listCampaigns(ctx, sp.clientId),
-    listAccessibleClients(ctx),
-  ])
-
-  const activeTab = sp.tab ?? 'campaigns'
+  const campaigns = await listCampaigns(ctx, sp.clientId)
 
   const filtered = sp.platform
     ? campaigns.filter((c) => c.provider === sp.platform)
@@ -120,16 +112,10 @@ export default async function AdsPage({
                 </SubmitButton>
               </ActionForm>
               <Link
-                href="/dashboard/ads/new?platform=AMAZON_ADS"
-                className="inline-flex items-center gap-1.5 rounded border border-amber-500/40 bg-amber-500/10 px-3 py-1.5 text-xs font-semibold text-amber-300 hover:bg-amber-500/20 transition-colors"
-              >
-                <ShoppingBag className="h-3.5 w-3.5 text-amber-400" /> Amazon PPC Builder
-              </Link>
-              <Link
-                href="/dashboard/ads?tab=studio"
+                href="/dashboard/ads/new"
                 className="btn-brand inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm"
               >
-                <Sparkles className="h-3.5 w-3.5" /> AI Ad Studio
+                <Sparkles className="h-3.5 w-3.5" /> Create Ad Campaign
               </Link>
             </>
           )}
@@ -224,92 +210,62 @@ export default async function AdsPage({
         </div>
       </div>
 
-      {/* Main View Switcher: Live Campaigns vs AI Ad Studio */}
+      {/* Platform filter */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border-hairline)] pb-2">
-        <div className="flex items-center gap-2">
+        <span className="px-1 text-xs font-mono-data font-semibold text-[var(--text-primary-hex)]">Live Campaigns ({campaigns.length})</span>
+
+        <div className="flex items-center gap-1.5 text-xs font-mono-data overflow-x-auto">
           <Link
             href="/dashboard/ads"
             className={cn(
-              'px-3.5 py-1.5 text-xs font-mono-data rounded transition-all',
-              activeTab === 'campaigns'
-                ? 'bg-[var(--surface-subtle)] text-[var(--text-primary-hex)] font-semibold border-b-2 border-[#E5252A]'
-                : 'text-[var(--text-muted-hex)] hover:text-[var(--text-primary-hex)]'
+              'px-2.5 py-1 rounded text-[11px] transition-colors',
+              !sp.platform ? 'bg-[var(--border-hairline)] text-white' : 'text-[var(--text-muted-hex)] hover:text-white'
             )}
           >
-            Live Campaigns ({campaigns.length})
+            All
           </Link>
-
           <Link
-            href="/dashboard/ads?tab=studio"
+            href="/dashboard/ads?platform=AMAZON_ADS"
             className={cn(
-              'flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-mono-data rounded transition-all',
-              activeTab === 'studio'
-                ? 'bg-[var(--surface-subtle)] text-[var(--text-primary-hex)] font-semibold border-b-2 border-[#E5252A]'
-                : 'text-[var(--text-muted-hex)] hover:text-[var(--text-primary-hex)]'
+              'px-2.5 py-1 rounded text-[11px] transition-colors',
+              sp.platform === 'AMAZON_ADS' ? 'bg-amber-600/30 text-amber-300 border border-amber-500/40' : 'text-[var(--text-muted-hex)] hover:text-white'
             )}
           >
-            <Sparkles className="h-3 w-3 text-[#E5252A]" />
-            <span>AI Ad Creator Studio</span>
+            Amazon
+          </Link>
+          <Link
+            href="/dashboard/ads?platform=GOOGLE_ADS"
+            className={cn(
+              'px-2.5 py-1 rounded text-[11px] transition-colors',
+              sp.platform === 'GOOGLE_ADS' ? 'bg-blue-600/30 text-blue-300 border border-blue-500/40' : 'text-[var(--text-muted-hex)] hover:text-white'
+            )}
+          >
+            Google
+          </Link>
+          <Link
+            href="/dashboard/ads?platform=META_ADS"
+            className={cn(
+              'px-2.5 py-1 rounded text-[11px] transition-colors',
+              sp.platform === 'META_ADS' ? 'bg-[#E5252A]/25 text-[var(--danger-text-hex)] border border-[#E5252A]/40' : 'text-[var(--text-muted-hex)] hover:text-white'
+            )}
+          >
+            Meta
           </Link>
         </div>
-
-        {activeTab === 'campaigns' && (
-          <div className="flex items-center gap-1.5 text-xs font-mono-data overflow-x-auto">
-            <Link
-              href="/dashboard/ads"
-              className={cn(
-                'px-2.5 py-1 rounded text-[11px] transition-colors',
-                !sp.platform ? 'bg-[var(--border-hairline)] text-white' : 'text-[var(--text-muted-hex)] hover:text-white'
-              )}
-            >
-              All
-            </Link>
-            <Link
-              href="/dashboard/ads?platform=AMAZON_ADS"
-              className={cn(
-                'px-2.5 py-1 rounded text-[11px] transition-colors',
-                sp.platform === 'AMAZON_ADS' ? 'bg-amber-600/30 text-amber-300 border border-amber-500/40' : 'text-[var(--text-muted-hex)] hover:text-white'
-              )}
-            >
-              Amazon
-            </Link>
-            <Link
-              href="/dashboard/ads?platform=GOOGLE_ADS"
-              className={cn(
-                'px-2.5 py-1 rounded text-[11px] transition-colors',
-                sp.platform === 'GOOGLE_ADS' ? 'bg-blue-600/30 text-blue-300 border border-blue-500/40' : 'text-[var(--text-muted-hex)] hover:text-white'
-              )}
-            >
-              Google
-            </Link>
-            <Link
-              href="/dashboard/ads?platform=META_ADS"
-              className={cn(
-                'px-2.5 py-1 rounded text-[11px] transition-colors',
-                sp.platform === 'META_ADS' ? 'bg-[#E5252A]/25 text-[var(--danger-text-hex)] border border-[#E5252A]/40' : 'text-[var(--text-muted-hex)] hover:text-white'
-              )}
-            >
-              Meta
-            </Link>
-          </div>
-        )}
       </div>
 
-      {/* Render Active View */}
-      {activeTab === 'studio' ? (
-        <AIAdCreatorStudio clients={clients} />
-      ) : filtered.length === 0 ? (
+      {filtered.length === 0 ? (
         <EmptyState
           icon={Megaphone}
-          title="No campaigns found"
-          description="Connect your Meta Ads account to stream live campaigns and performance telemetry, or create a new campaign brief."
+          title="No campaigns yet"
+          description="Connect an ad account to stream in live campaigns, or use the guided wizard to create your first one - no marketing experience needed."
         >
           <div className="flex gap-2 justify-center mt-2">
             <Link href="/dashboard/ads/new" className="btn-brand px-3.5 py-1.5 text-xs flex items-center gap-1 font-semibold">
-              <Plus className="h-4 w-4" /> Create Ad Set
+              <Plus className="h-4 w-4" /> Create Ad Campaign
             </Link>
             <Link href="/dashboard/integrations" className="btn-outline-hairline px-3.5 py-1.5 text-xs flex items-center gap-1 font-medium">
-              <BarChart3 className="h-4 w-4 text-[#E5252A]" /> Connect Meta Ads
+              <BarChart3 className="h-4 w-4 text-[#E5252A]" /> Connect an ad account
             </Link>
           </div>
         </EmptyState>

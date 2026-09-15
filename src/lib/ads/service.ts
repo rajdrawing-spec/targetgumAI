@@ -4,7 +4,7 @@ import type { AuthContext } from '@/lib/rbac/types'
 import { executeTool } from '@/lib/tools/execute'
 import { ApprovalRequiredError } from '@/lib/tools/errors'
 import type { IntegrationProvider } from '@prisma/client'
-import type { CreateCampaignInput, CampaignSummary } from './types'
+import type { CampaignSummary } from './types'
 
 export async function listCampaigns(ctx: AuthContext, clientId?: string): Promise<CampaignSummary[]> {
   if (clientId) {
@@ -80,56 +80,12 @@ export async function listCampaigns(ctx: AuthContext, clientId?: string): Promis
   })
 }
 
-export async function createCampaign(ctx: AuthContext, input: CreateCampaignInput) {
-  assertClientAccess(ctx, { id: input.clientId, organizationId: ctx.organizationId })
-
-  const providerCampaignId = `${input.provider.toLowerCase()}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
-
-  const campaign = await db.campaign.create({
-    data: {
-      organizationId: ctx.organizationId,
-      clientId: input.clientId,
-      provider: input.provider,
-      providerCampaignId,
-      name: input.name,
-      channel: input.channel ?? (input.provider === 'AMAZON_ADS' ? 'Amazon Sponsored Products' : 'Search'),
-      status: input.status ?? 'ACTIVE',
-      budget: input.budget,
-      startDate: input.startDate ?? new Date(),
-    },
-  })
-
-  // Newly created campaign starts clean with zero metrics until genuine telemetry streams from the ad platform
-  await db.campaignMetric.create({
-    data: {
-      organizationId: ctx.organizationId,
-      clientId: input.clientId,
-      campaignId: campaign.id,
-      date: new Date(),
-      source: input.provider,
-      retrievedAt: new Date(),
-      period: 'initial',
-      impressions: 0,
-      clicks: 0,
-      spend: 0,
-      ctr: 0,
-      cpc: 0,
-      conversions: 0,
-      revenue: 0,
-      roas: 0,
-      raw: {
-        targetAcos: input.targetAcos,
-        amazonType: input.amazonType,
-        amazonTargeting: input.amazonTargeting,
-        keywords: input.keywords,
-        negativeKeywords: input.negativeKeywords,
-        adCopy: input.adCopy,
-      },
-    },
-  })
-
-  return campaign
-}
+// Real campaign creation is src/lib/ads/launch.ts's launchCampaignFromWizard
+// - calls the real per-provider create_campaign tool and upserts this
+// table from its genuine response. A local-only createCampaign used to
+// live here, fabricating a providerCampaignId and writing straight to the
+// database with no real ad platform ever involved - removed, see
+// docs/DECISIONS.md.
 
 /**
  * The pause/resume tool keys for providers with a real, write-capable
