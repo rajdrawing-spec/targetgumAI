@@ -253,6 +253,17 @@ shipped hourly and broke every deployment until this was caught - see the
 correction in `docs/DECISIONS.md`, 2026-09-13.) Upgrading to a paid plan is
 what it would take to sync more often than daily.
 
+The same "Hobby rejects the deployment, it doesn't degrade" trap applies to
+function **duration**, not just schedule frequency: Hobby caps
+`maxDuration` at 60s (Pro allows up to 300s+). The meta-ads-sync route
+shipped with `maxDuration = 300` until 2026-09-15 - on a Hobby deployment
+that meant the route simply never worked (the deploy either fails outright
+or the function is killed well short of what the code assumed it had), not
+a slow sync, a *broken* one. Fixed by pinning it to 60 and cutting the sync
+loop short via a wall-clock time budget once several connections are due
+in the same run, so a single invocation never risks the hard timeout -
+see docs/DECISIONS.md, 2026-09-15.
+
 ## 5. Security Risks Identified (see `docs/SECURITY.md` for the full model)
 
 1. **Cross-tenant data leakage** — mitigated by mandatory `organization_id`/

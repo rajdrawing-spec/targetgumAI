@@ -18,9 +18,18 @@ import { resolveAutomationActor } from '@/lib/queue/resolve-actor'
  * fast and has no LLM cost, so it comfortably fits inside one serverless
  * invocation without needing the separate always-on worker process the
  * weekly job requires (that job calls Claude and can run long; this one
- * doesn't). `maxDuration` is raised for the (likely) case of syncing many
- * connections in one run - see docs/ARCHITECTURE.md's Scheduled Automation
- * section for the two-process topology this deliberately avoids needing.
+ * doesn't). See docs/ARCHITECTURE.md's Scheduled Automation section for
+ * the two-process topology this deliberately avoids needing.
+ *
+ * `maxDuration` is pinned to 60s, not raised further - Vercel's Hobby plan
+ * caps function duration at 60s and *rejects the deployment outright* if
+ * `maxDuration` exceeds what the plan allows (this ran at 300 until
+ * 2026-09-15, silently breaking every sync on a Hobby deployment - see
+ * docs/DECISIONS.md). If there are more due connections than fit in that
+ * budget, `TIME_BUDGET_MS` below cuts the loop short rather than risking
+ * the hard timeout mid-request: the untouched connections stay "due" and
+ * get priority on tomorrow's run (`findMetaAdsConnectionsDueForSync`
+ * already orders stalest-first). Raise both once on a paid plan.
  *
  * Meant to be called on a schedule by Vercel Cron (a `crons` entry in
  * vercel.json pointing at this path - see there for the configured
@@ -37,7 +46,12 @@ import { resolveAutomationActor } from '@/lib/queue/resolve-actor'
  * audited as DENIED, same as the weekly intelligence job - not treated as
  * a sync failure.
  */
-export const maxDuration = 300
+export const maxDuration = 60
+
+// Leaves a buffer under the hard 60s cap for the in-flight request's own
+// wrap-up (the JSON response, whatever's left of the current iteration) -
+// see the file doc comment.
+const TIME_BUDGET_MS = 45_000
 
 export async function GET(request: Request) {
   const secret = process.env.CRON_SECRET
@@ -46,12 +60,19 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
+  const startedAt = Date.now()
   const due = await findMetaAdsConnectionsDueForSync()
   let synced = 0
   let failed = 0
   let skipped = 0
+  let deferred = 0
 
   for (const { connectionId, clientId, organizationId } of due) {
+    if (Date.now() - startedAt > TIME_BUDGET_MS) {
+      deferred = due.length - synced - failed - skipped
+      break
+    }
+
     const ctx = await resolveAutomationActor(organizationId, clientId)
     if (!ctx) {
       skipped++
@@ -75,5 +96,5 @@ export async function GET(request: Request) {
     }
   }
 
-  return NextResponse.json({ due: due.length, synced, failed, skipped })
+  return NextResponse.json({ due: due.length, synced, failed, skipped, deferred })
 }

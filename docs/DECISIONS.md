@@ -3315,6 +3315,53 @@ checklist.
 
 ---
 
+## 2026-09-15 — meta-ads-sync cron's maxDuration silently broke it on Vercel Hobby
+
+**Decision:** After connecting a real Meta ad account (see the App Review
+fix above), the daily sync still wasn't running - traced to
+`src/app/api/cron/meta-ads-sync/route.ts`'s `export const maxDuration =
+300`. Vercel's Hobby plan caps function duration at 60s and *rejects the
+deployment* when a route declares more than the plan allows - the same
+"Hobby rejects outright, it doesn't downgrade" behavior already documented
+for cron schedule frequency (2026-09-13), just for duration instead of
+cadence, and not caught until now because nothing in this environment
+exercises an actual Hobby-plan deploy. Fixed by pinning `maxDuration` to
+60 and adding a wall-clock time budget (`TIME_BUDGET_MS = 45_000`) inside
+the sync loop: once several connections are due in the same run, the loop
+stops well before the hard cap and reports the rest as `deferred` in the
+response rather than letting Vercel kill the function mid-request.
+`findMetaAdsConnectionsDueForSync` already orders stalest-first, so a
+deferred connection gets priority on tomorrow's run - nothing is ever
+permanently skipped, just delayed by at most a day if there's ever a
+backlog.
+
+**Rationale:** A time-budget cutoff is more robust than a fixed
+connections-per-run cap: each connection's real cost varies with how many
+campaigns it has (including the 4b fallback's per-campaign insights
+calls), so a count-based limit would either be too conservative most days
+or still risk the timeout on a client with unusually many campaigns. Tying
+the cutoff to actual elapsed time is what the underlying constraint
+(Vercel's wall-clock cap) actually is.
+
+**Alternative(s) considered:** Moving this cron to the same enqueue-to-
+BullMQ pattern as the weekly intelligence job (a separate always-on worker
+process) - rejected for the same reason the file's own doc comment already
+gives: no LLM cost and no expensive/long-running Claude call per
+connection, so the inline-in-one-invocation shape is still right; the
+actual problem was the declared duration exceeding the plan, not the
+architecture. Upgrading to Vercel Pro to just raise the cap back to 300 -
+left as the user's call, not assumed here; the fix works correctly on
+Hobby as-is and the constants are called out in the file's own comment for
+whoever upgrades later.
+
+**Revisit if:** The agency's client count grows enough that 45s regularly
+isn't enough to sync every due connection in one run (i.e. `deferred` is
+consistently non-zero in the cron's response) - at that point either
+upgrade to a paid plan (raise `maxDuration`/`TIME_BUDGET_MS` back up) or
+split the due connections across multiple scheduled invocations.
+
+---
+
 ## Template for future entries
 
 ```text
