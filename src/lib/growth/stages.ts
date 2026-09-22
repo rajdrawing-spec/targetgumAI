@@ -10,7 +10,7 @@ import { FIRST_GROWTH_STAGE, GROWTH_STAGE_DEFS, GROWTH_STAGE_ORDER, type GrowthS
 
 export { FIRST_GROWTH_STAGE, GROWTH_STAGE_DEFS, GROWTH_STAGE_ORDER, type GrowthStageDef } from './stage-defs'
 
-const STAGE_XP_REWARD = 100
+export const STAGE_XP_REWARD = 100
 
 /** done/current/locked node states for the map UI, derived from completion history. */
 export async function getStageStates(

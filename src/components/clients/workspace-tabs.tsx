@@ -25,7 +25,7 @@ export function WorkspaceTabs({ clientId }: { clientId: string }) {
     <nav aria-label="Client sections" className="flex gap-1 overflow-x-auto border-b border-border">
       {TABS.map((tab) => {
         const href = `${base}${tab.href}`
-        const active = tab.href === '' ? pathname === base : pathname === href
+        const active = tab.href === '' ? pathname === base : pathname === href || pathname.startsWith(`${href}/`)
         return (
           <Link
             key={tab.href}

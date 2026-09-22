@@ -30,7 +30,7 @@ export async function completeStageAction(clientId: string, stage: GrowthStageKe
     const ctx = await requireCtx()
     await completeStage(ctx, clientId, stage)
     revalidateGrowth(clientId)
-    return actionOk('Stage complete! On to the next one.')
+    return actionOk('Stage complete! On to the next one.', { redirectTo: `/dashboard/clients/${clientId}/growth` })
   })
 }
 

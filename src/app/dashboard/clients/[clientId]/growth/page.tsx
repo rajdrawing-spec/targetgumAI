@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation'
+import Link from 'next/link'
 import { CheckCircle2, Flame, Lock, Target, Zap } from 'lucide-react'
 import { getCurrentAuthContext } from '@/lib/auth/current-context'
 import { getGrowthProgress, xpToNextLevel } from '@/lib/growth/progress'
@@ -7,10 +8,11 @@ import { getMissionProgress, getWeeklyMissionCompletionCount } from '@/lib/growt
 import { listAchievements } from '@/lib/growth/achievements'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ActionForm, SubmitButton } from '@/components/ui/action-form'
+import { buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { GummyMascot } from '@/components/growth/mascot'
 import { CloudIcon, RockIcon, TreeIcon, TrophyIcon } from '@/components/growth/scenery'
-import { completeStageAction, recordMissionProgressAction } from './actions'
+import { recordMissionProgressAction } from './actions'
 
 /**
  * Growth Map - the guided-onboarding wizard tab (docs/DECISIONS.md
@@ -101,11 +103,14 @@ function PlainStageList({ stages, clientId, canWrite }: { stages: StageState[]; 
               <p className="text-xs text-muted-foreground">{stage.description}</p>
             </div>
             {stage.status === 'current' && canWrite && (
-              <ActionForm action={completeStageAction.bind(null, clientId, stage.key)}>
-                <SubmitButton size="sm" pendingLabel="Completing…">
-                  Complete
-                </SubmitButton>
-              </ActionForm>
+              <Link href={`/dashboard/clients/${clientId}/growth/lesson/${stage.key}`} className={buttonVariants({ size: 'sm' })}>
+                Start lesson
+              </Link>
+            )}
+            {stage.status === 'done' && (
+              <Link href={`/dashboard/clients/${clientId}/growth/lesson/${stage.key}`} className="shrink-0 text-xs font-medium text-muted-foreground hover:text-foreground">
+                Review
+              </Link>
             )}
           </li>
         )
@@ -212,11 +217,18 @@ export default async function ClientGrowthPage({ params }: { params: Promise<{ c
                       </p>
                       <p className="text-xs text-muted-foreground">{stage.description}</p>
                       {stage.status === 'current' && canWrite && (
-                        <ActionForm action={completeStageAction.bind(null, clientId, stage.key)} className={cn('mt-1.5', !onRight && 'flex justify-end')}>
-                          <SubmitButton size="sm" pendingLabel="Completing…">
-                            Complete stage
-                          </SubmitButton>
-                        </ActionForm>
+                        <div className={cn('mt-1.5', !onRight && 'flex justify-end')}>
+                          <Link href={`/dashboard/clients/${clientId}/growth/lesson/${stage.key}`} className={buttonVariants({ size: 'sm' })}>
+                            Start lesson
+                          </Link>
+                        </div>
+                      )}
+                      {stage.status === 'done' && (
+                        <div className={cn('mt-1', !onRight && 'flex justify-end')}>
+                          <Link href={`/dashboard/clients/${clientId}/growth/lesson/${stage.key}`} className="text-xs font-medium text-muted-foreground hover:text-foreground">
+                            Review lesson
+                          </Link>
+                        </div>
                       )}
                     </div>
                   </div>

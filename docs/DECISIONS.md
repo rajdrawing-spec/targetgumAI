@@ -5,6 +5,54 @@ Newest entries at the top.
 
 ---
 
+## 2026-09-22 — Growth Map stage completion moved behind a mascot-hosted lesson/quiz, no new tables
+
+**Decision:** Each of the 10 Growth Map stages now has a short Duolingo-style
+lesson (`src/lib/growth/lesson-defs.ts`) - 4 multiple-choice questions with
+instant right/wrong feedback and an explanation, reached via a new route
+(`.../growth/lesson/[stage]`). The one-click "Complete stage" button is gone;
+`completeStage`/`completeStageAction` (unchanged - same permission check,
+tenant check, and in-order enforcement as before) is now only reachable from
+a lesson's "Claim XP & complete stage" button. A lesson is always
+completable - there's no pass/fail gate blocking progress, since this is
+self-directed onboarding, not a graded exam; right/wrong feedback is for the
+learning value and the Duolingo feel.
+
+**Rationale:** Lesson content (questions, options, correct answer,
+explanation) is fixed editorial copy written for this app, not client or
+provider data, so it lives in code the same way `stage-defs.ts` and the
+achievement catalog already do - no new Prisma model or migration needed.
+Stage completion state is exactly what `client_growth_stage_completions`
+already tracked; the lesson is a new UI/interaction layer in front of an
+existing, already-tested mutation, not a new one.
+
+**A real bug found and fixed along the way:** the lesson page's "Claim XP"
+button is an `ActionForm` whose `redirectTo` effect calls `router.push()` on
+success. Next.js also auto-refreshes the *current* route's Server Component
+data the instant a Server Action resolves - which here flips
+`alreadyCompleted` to `true` and swaps the `ActionForm` out for a plain
+"Back to map" link before the form's own pending `router.push()` gets a
+chance to fire, silently dropping the redirect (confirmed via a Playwright
+run: the URL never left the lesson page even though the claim itself
+succeeded). Fixed by freezing the "can still claim" decision and the bound
+action reference in `useState(() => ...)` on first render inside
+`LessonQuiz`, so a mid-flight server refresh can't rip the form out from
+under its own pending navigation.
+
+**Alternative(s) considered:** A new `ClientGrowthLessonAttempt` table to
+record per-attempt score/history - rejected for this increment since nothing
+in the product yet reads "how many times did they retry" or "what was their
+score history"; the map only needs "is this stage done", which the existing
+completion table covers. Can be added later if attempt analytics become a
+real requirement. Gating stage progress on a passing score - rejected as
+unnecessary friction for self-directed onboarding content.
+
+**Revisit if:** Lesson content needs to be editable by agency admins rather
+than fixed per-app copy (would need a real table + editor, not a TS file),
+or per-attempt analytics become a real requirement.
+
+---
+
 ## 2026-09-22 — Growth Map schema is additive, not a nav restructure
 
 **Decision:** Added five new tables (`client_growth_progress`,
