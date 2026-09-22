@@ -5,6 +5,49 @@ Newest entries at the top.
 
 ---
 
+## 2026-09-22 — Growth Map schema is additive, not a nav restructure
+
+**Decision:** Added five new tables (`client_growth_progress`,
+`client_growth_stage_completions`, `growth_missions`,
+`client_growth_mission_progress`, `client_growth_achievements`) plus
+`GrowthStageKey`/`GrowthMissionCadence` enums, backing a new Duolingo-style
+guided-onboarding wizard. No existing table was altered; `Client` only
+gained four new back-relations. The wizard is a separate route that funnels
+into the existing Client Workspace on completion - it does not replace the
+Organization→Client dashboard/nav, and Recommendation/Task/Approval flows
+are untouched.
+
+**Rationale:** The wizard's "Start Mission" buttons deep-link into real
+existing screens (Audience Lab, Creative Studio, etc.) rather than
+duplicating them, so no new tables were needed for the underlying work
+itself - only for tracking progress through the map (XP/level/streak per
+client, which of the 10 fixed stages are done, and daily/weekly mission
+completion). Stage history is a separate append-style table
+(`client_growth_stage_completions`) rather than an array column on
+`client_growth_progress`, matching this schema's existing normalized-child-
+table pattern (e.g. `ClientContact`, `ClientAssignment`) and so streak/
+achievement logic can query "when was each stage completed" directly.
+Achievement *definitions* (icon, color, unlock rule) live in application
+code keyed by `achievementKey`, not a new table - the catalog is a fixed
+handful of badges, not per-organization content; only the unlock event is
+persisted.
+
+**Alternative(s) considered:** Restructuring the whole app's navigation
+around the Growth Map (rejected per user direction - keep the existing
+dashboard, add this as an additive onboarding layer, see this file's
+"Where to look" table and CLAUDE.md rule 1's unrelated-features guard).
+Storing per-stage completion as a `GrowthStageKey[]` array on
+`client_growth_progress` instead of a child table - rejected because it
+loses `completedAt`/`completedBy` per stage, which the streak calculation
+and audit trail both need.
+
+**Revisit if:** The onboarding wizard's stage-to-feature mapping (which
+real screen each of the 10 stages deep-links to) turns out to need
+per-organization customization rather than one fixed sequence - at that
+point `GrowthStageKey` stops being a good fit as a fixed enum.
+
+---
+
 ## 2026-09-14 — Amazon Ads adapter built from scratch (Phase 2 of the Full Automation Roadmap)
 
 **Decision:** `src/lib/integrations/amazon-ads/` is a brand-new integration

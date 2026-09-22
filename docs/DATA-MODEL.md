@@ -124,6 +124,33 @@ approval_id, result, error, timestamp
 Append-only: no `UPDATE`/`DELETE` grants for the application role on
 `audit_events`; only `INSERT` + `SELECT` (scoped by RBAC for read).
 
+## Growth Map (guided onboarding wizard)
+
+Added 2026-09-22 (see `docs/DECISIONS.md`) - an additive layer behind the
+Duolingo-style guided onboarding wizard. Does not replace or restructure
+the Organization→Client dashboard model above.
+
+```text
+ClientGrowthProgress:      client_id (unique), current_stage, xp, level,
+                            streak_count, last_activity_at
+ClientGrowthStageCompletion: client_id, stage, completed_by, completed_at
+                            (one row per client per stage, unique)
+GrowthMission:              key (unique), cadence [DAILY|WEEKLY], title,
+                            description, xp_reward, target_count, is_active
+ClientGrowthMissionProgress: client_id, mission_id, period_start,
+                            progress_count, completed_at
+                            (one row per client per mission per period)
+ClientGrowthAchievement:    client_id, achievement_key, unlocked_at
+                            (unlock event only - badge catalog is code, not DB)
+```
+
+`GrowthStageKey` is a fixed 10-value enum (`DEFINE_BUSINESS` →
+`SCALE_GROW`) matching the Growth Map's path nodes. Every table carries
+`organization_id` + `client_id` per the tenancy invariant above and
+cascades from `Client`. "Start Mission" UI actions deep-link into the
+existing screens (Audience Lab, Creative Studio, etc.) rather than
+duplicating their data here.
+
 ## Next Step
 
 Day 3 (`docs/MVP-CHECKLIST.md`) builds the tenant-scoped query helpers in

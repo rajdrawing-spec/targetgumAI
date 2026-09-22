@@ -219,27 +219,27 @@ enum MembershipStatus {
 /// invitee's browser, never logged or persisted in plaintext
 /// (docs/SECURITY.md - never expose secrets).
 model Invitation {
-  id     String @id @default(cuid())
-  organizationId String
-  email  String
+  id              String           @id @default(cuid())
+  organizationId  String
+  email           String
   /// One of INVITABLE_ROLES ('employee' | 'client') - src/lib/rbac/permissions.ts.
   /// A plain string, not a DB enum, matching Role.key's own pattern.
-  role   String
+  role            String
   /// Employee invites only: clients to assign (ClientAssignment) once
   /// accepted. May be empty - a Super Admin can invite an employee before
   /// deciding which clients they work on, and assign clients later from
   /// the client's own Team tab.
-  clientIds String[] @default([])
+  clientIds       String[]         @default([])
   /// Client invites only: the single client this portal user belongs to
   /// (BRD Section 4.4 - never implicitly multi-client).
-  clientId  String?
-  tokenHash String   @unique
-  status    InvitationStatus @default(PENDING)
+  clientId        String?
+  tokenHash       String           @unique
+  status          InvitationStatus @default(PENDING)
   invitedByUserId String
-  expiresAt DateTime
-  acceptedAt DateTime?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  expiresAt       DateTime
+  acceptedAt      DateTime?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
@@ -314,6 +314,10 @@ model Client {
   contentCalendarItems   ContentCalendarItem[]
   creativeAssets         CreativeAsset[]
   notifications          Notification[]
+  growthProgress         ClientGrowthProgress?
+  growthStageCompletions ClientGrowthStageCompletion[]
+  growthMissionProgress  ClientGrowthMissionProgress[]
+  growthAchievements     ClientGrowthAchievement[]
 
   @@unique([organizationId, slug])
   @@index([organizationId, status])
@@ -1291,4 +1295,127 @@ model CreativeAsset {
 
   @@index([organizationId, clientId, status])
   @@map("creative_assets")
+}
+
+// ============================================================================
+// Growth Map (guided onboarding UI) - progress, missions, achievements
+//
+// Additive layer for the Duolingo-style guided onboarding wizard: it does
+// not replace or restructure the existing Client Workspace/dashboard nav.
+// "Start Mission" actions in the wizard deep-link into the real screens
+// (Audience Lab, Creative Studio, etc.) rather than duplicating them here.
+// ============================================================================
+
+/// The 10 stages shown on the Growth Map path, in fixed order.
+enum GrowthStageKey {
+  DEFINE_BUSINESS
+  UNDERSTAND_AUDIENCE
+  RESEARCH_MARKET
+  CREATE_OFFER
+  CREATE_CREATIVE_ASSETS
+  BUILD_CAMPAIGN
+  LAUNCH_CAMPAIGN
+  ANALYZE_RESULTS
+  OPTIMIZE
+  SCALE_GROW
+}
+
+/// One row per client - the map's XP/level/streak header state. Per-stage
+/// history lives in ClientGrowthStageCompletion, not here.
+model ClientGrowthProgress {
+  id             String         @id @default(cuid())
+  organizationId String
+  clientId       String         @unique
+  currentStage   GrowthStageKey @default(DEFINE_BUSINESS)
+  xp             Int            @default(0)
+  level          Int            @default(1)
+  streakCount    Int            @default(0)
+  lastActivityAt DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@map("client_growth_progress")
+}
+
+/// Audit trail of when each stage was completed and by whom - drives the
+/// map's done/current/locked node states and the streak calculation.
+model ClientGrowthStageCompletion {
+  id             String         @id @default(cuid())
+  organizationId String
+  clientId       String
+  stage          GrowthStageKey
+  completedBy    String
+  completedAt    DateTime       @default(now())
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@unique([clientId, stage])
+  @@index([organizationId, clientId])
+  @@map("client_growth_stage_completions")
+}
+
+enum GrowthMissionCadence {
+  DAILY
+  WEEKLY
+}
+
+/// Static-ish catalog of daily/weekly missions (BRD-style "Find 3 high-intent
+/// audience segments" cards). Seeded/managed by the platform team, not
+/// per-organization content.
+model GrowthMission {
+  id          String               @id @default(cuid())
+  key         String               @unique
+  cadence     GrowthMissionCadence
+  title       String
+  description String?
+  xpReward    Int
+  targetCount Int                  @default(1)
+  isActive    Boolean              @default(true)
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+
+  clientProgress ClientGrowthMissionProgress[]
+
+  @@map("growth_missions")
+}
+
+/// A client's progress against one mission for one daily/weekly period
+/// (periodStart = start of that day/week, UTC). New row per period.
+model ClientGrowthMissionProgress {
+  id             String    @id @default(cuid())
+  organizationId String
+  clientId       String
+  missionId      String
+  periodStart    DateTime
+  progressCount  Int       @default(0)
+  completedAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  client  Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  mission GrowthMission @relation(fields: [missionId], references: [id], onDelete: Cascade)
+
+  @@unique([clientId, missionId, periodStart])
+  @@index([organizationId, clientId])
+  @@map("client_growth_mission_progress")
+}
+
+/// Unlocked badges (BRD-style "First Campaign", "7-Day Streak"). The badge
+/// catalog (icon, color, unlock rule) lives in application code, keyed by
+/// achievementKey - this table only records the unlock event.
+model ClientGrowthAchievement {
+  id             String   @id @default(cuid())
+  organizationId String
+  clientId       String
+  achievementKey String
+  unlockedAt     DateTime @default(now())
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@unique([clientId, achievementKey])
+  @@index([organizationId, clientId])
+  @@map("client_growth_achievements")
 }
