@@ -100,6 +100,40 @@ async function main() {
     },
   })
 
+  // Growth Map mission catalog (2026-09-22, docs/DATA-MODEL.md) - platform
+  // content like the permission rows above, not per-organization/client
+  // dummy data, so seeding it here doesn't run against the "eliminate
+  // dummy data" decision below.
+  const growthMissions: Array<{ key: string; cadence: 'DAILY' | 'WEEKLY'; title: string; description: string; xpReward: number; targetCount: number }> = [
+    {
+      key: 'find-3-audience-segments',
+      cadence: 'DAILY',
+      title: 'Find 3 high-intent audience segments',
+      description: 'Use Audience Lab to identify segments worth targeting today.',
+      xpReward: 100,
+      targetCount: 3,
+    },
+    {
+      key: 'review-campaign-performance',
+      cadence: 'DAILY',
+      title: 'Review a campaign’s performance',
+      description: 'Open Analytics and check in on at least one live campaign.',
+      xpReward: 50,
+      targetCount: 1,
+    },
+    {
+      key: 'audit-creative-library',
+      cadence: 'WEEKLY',
+      title: 'Audit your creative library',
+      description: 'Review Creative Studio assets and retire anything stale.',
+      xpReward: 150,
+      targetCount: 1,
+    },
+  ]
+  for (const m of growthMissions) {
+    await prisma.growthMission.upsert({ where: { key: m.key }, update: m, create: m })
+  }
+
   // No seeded "client" (portal) user or demo clients (docs/DECISIONS.md,
   // 2026-09-13 "eliminate dummy data") - a client-role account only makes
   // sense tied to a real client, and this script deliberately seeds zero

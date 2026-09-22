@@ -47,6 +47,8 @@ export const PERMISSIONS = [
   'content.manage',
   'ads.manage',
   'creative.manage',
+  'growth.read',
+  'growth.write',
 ] as const
 
 export type Permission = (typeof PERMISSIONS)[number]
@@ -84,6 +86,12 @@ export type Permission = (typeof PERMISSIONS)[number]
  * employee-only - "approve allowed actions" means recommendations, via
  * `recommendations.review`, not that gate) and no `tasks.create`
  * (internal-only).
+ *
+ * `growth.read`/`growth.write` (2026-09-22, Growth Map guided-onboarding
+ * wizard - see docs/DECISIONS.md): staff drive the wizard on a client's
+ * behalf, same as Client Brain, so `employee` gets both. `client` gets only
+ * `growth.read` (can see their own progress) - matches the no-self-editing
+ * pattern above; revisit if the wizard becomes self-serve for client users.
  */
 export const ROLE_PERMISSIONS: Record<SystemRoleKey, readonly Permission[]> = {
   super_admin: PERMISSIONS,
@@ -100,8 +108,10 @@ export const ROLE_PERMISSIONS: Record<SystemRoleKey, readonly Permission[]> = {
     'content.manage',
     'ads.manage',
     'creative.manage',
+    'growth.read',
+    'growth.write',
   ],
-  client: ['clients.read', 'reports.read', 'recommendations.review', 'feedback.create'],
+  client: ['clients.read', 'reports.read', 'recommendations.review', 'feedback.create', 'growth.read'],
 }
 
 /**
