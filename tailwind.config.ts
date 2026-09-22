@@ -83,6 +83,28 @@ const config: Config = {
         popover: '0 10px 25px -5px rgb(0 0 0 / 0.5), 0 8px 10px -6px rgb(0 0 0 / 0.5)',
         glow: '0 0 25px -4px rgba(229, 37, 42, 0.45)',
       },
+      // Growth Map (docs/DECISIONS.md 2026-09-22) - the mascot's idle bob,
+      // the "current stage" node's pulse, and the streak flame's flicker.
+      // Reached only via `motion-safe:` at call sites, never applied bare.
+      keyframes: {
+        sway: {
+          '0%, 100%': { transform: 'rotate(0deg) translateY(0)' },
+          '50%': { transform: 'rotate(-2.5deg) translateY(-4px)' },
+        },
+        'glow-pulse': {
+          '0%, 100%': { boxShadow: '0 0 0 0 rgba(229, 37, 42, 0.45)' },
+          '50%': { boxShadow: '0 0 0 8px rgba(229, 37, 42, 0)' },
+        },
+        flicker: {
+          '0%, 100%': { transform: 'scale(1) rotate(-3deg)' },
+          '50%': { transform: 'scale(1.12) rotate(3deg)' },
+        },
+      },
+      animation: {
+        sway: 'sway 3.6s ease-in-out infinite',
+        'glow-pulse': 'glow-pulse 1.8s ease-in-out infinite',
+        flicker: 'flicker 1.8s ease-in-out infinite',
+      },
     },
   },
   plugins: [],
