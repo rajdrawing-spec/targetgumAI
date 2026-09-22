@@ -12,6 +12,7 @@ import {
   submitContentForReviewAction,
 } from '../actions'
 import { StatusBadge } from '@/components/ui/badge'
+import { Card } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/empty-state'
 import { ActionForm, FieldError, SubmitButton } from '@/components/ui/action-form'
 import { PostScheduleDialog } from '@/components/content/post-schedule-dialog'
@@ -52,32 +53,28 @@ export default async function ContentCalendarPage({
   return (
     <div className="space-y-6">
       {/* Top View Toggle */}
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--border-hairline)] pb-3">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-3">
         <div className="flex flex-wrap items-center gap-2">
           <Link
             href="/dashboard/content-calendar?view=calendar"
             className={cn(
-              'flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono-data rounded transition-all',
-              activeView === 'calendar'
-                ? 'bg-[var(--surface-subtle)] text-white font-semibold border-b-2 border-[#E5252A]'
-                : 'text-[var(--text-muted-hex)] hover:text-white'
+              'flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors',
+              activeView === 'calendar' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted hover:text-foreground',
             )}
           >
-            <Grid className="h-3.5 w-3.5 text-[#E5252A]" />
-            <span>Interactive 30-Day Grid Hub</span>
+            <Grid className="h-3.5 w-3.5" />
+            <span>Calendar</span>
           </Link>
 
           <Link
             href="/dashboard/content-calendar?view=list"
             className={cn(
-              'flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono-data rounded transition-all',
-              activeView === 'list'
-                ? 'bg-[var(--surface-subtle)] text-white font-semibold border-b-2 border-[#E5252A]'
-                : 'text-[var(--text-muted-hex)] hover:text-white'
+              'flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors',
+              activeView === 'list' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted hover:text-foreground',
             )}
           >
             <ListFilter className="h-3.5 w-3.5" />
-            <span>Operational List Feed ({items.length})</span>
+            <span>List ({items.length})</span>
           </Link>
         </div>
 
@@ -94,10 +91,8 @@ export default async function ContentCalendarPage({
                 key={tab.value}
                 href={`/dashboard/content-calendar?view=list&window=${tab.value}`}
                 className={cn(
-                  'px-3 py-1 rounded text-xs font-mono-data transition-colors',
-                  window === tab.value
-                    ? 'bg-[#E5252A]/20 text-[var(--danger-text-hex)] border border-[#E5252A]/40 font-semibold'
-                    : 'bg-[var(--surface-subtle)] text-[var(--text-muted-hex)] hover:text-white'
+                  'rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors',
+                  window === tab.value ? 'bg-primary-tint text-primary' : 'bg-muted text-muted-foreground hover:text-foreground',
                 )}
               >
                 {tab.label}
@@ -119,28 +114,28 @@ export default async function ContentCalendarPage({
             <div className="space-y-4">
               {Array.from(byDay.entries()).map(([day, dayItems]) => (
                 <section key={day} className="space-y-2">
-                  <h2 className="text-xs font-mono-data uppercase tracking-wider text-[var(--text-muted-hex)] pl-1">
+                  <h2 className="text-xs font-semibold text-muted-foreground pl-1">
                     {formatDay(day)}
                   </h2>
                   {dayItems.map((item) => (
-                    <div key={item.id} className="terminal-card p-4 space-y-2">
+                    <Card key={item.id} className="p-4 space-y-2">
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div className="flex items-center gap-2">
                           <Link
                             href={`/dashboard/clients/${item.clientId}`}
-                            className="text-sm font-medium text-[var(--text-primary-hex)] hover:text-[#E5252A]"
+                            className="text-sm font-medium text-foreground hover:text-primary"
                           >
                             {item.client?.name ?? item.clientId}
                           </Link>
-                          <span className="text-xs font-mono-data text-[var(--text-faint-hex)] uppercase">
+                          <span className="text-xs text-muted-foreground">
                             · {item.platform}
                           </span>
                         </div>
                         <StatusBadge status={item.status} />
                       </div>
-                      {item.caption && <p className="text-xs text-[var(--text-primary-hex)]">{item.caption}</p>}
+                      {item.caption && <p className="text-xs text-foreground">{item.caption}</p>}
                       {item.providerPostId && (
-                        <p className="text-[10px] font-mono-data text-[var(--text-faint-hex)]">
+                        <p className="text-[10px] text-muted-foreground">
                           Metricool draft id: {item.providerPostId}
                         </p>
                       )}
@@ -177,21 +172,21 @@ export default async function ContentCalendarPage({
                           className="mt-3 space-y-2"
                         >
                           <fieldset>
-                            <legend className="mb-1.5 text-xs font-medium text-[var(--text-muted-hex)]">
+                            <legend className="mb-1.5 text-xs font-medium text-muted-foreground">
                               Schedule to networks
                             </legend>
                             <div className="flex flex-wrap gap-x-4 gap-y-1.5">
                               {NETWORKS.map((network) => (
                                 <label
                                   key={network}
-                                  className="flex items-center gap-1.5 text-xs text-[var(--text-primary-hex)] cursor-pointer"
+                                  className="flex items-center gap-1.5 text-xs text-foreground cursor-pointer"
                                 >
                                   <input
                                     type="checkbox"
                                     name="networks"
                                     value={network}
                                     defaultChecked={network === item.platform.toLowerCase()}
-                                    className="rounded border-[var(--border-hairline)] bg-[var(--surface-subtle)] text-[#E5252A]"
+                                    className="rounded border-border bg-card text-primary"
                                   />
                                   <span>{network}</span>
                                 </label>
@@ -207,9 +202,9 @@ export default async function ContentCalendarPage({
 
                       {canManage && item.status === 'SCHEDULED' && (
                         item.approvalId ? (
-                          <p className="mt-2 text-xs text-[var(--text-muted-hex)]">
+                          <p className="mt-2 text-xs text-muted-foreground">
                             Publish requested - awaiting approval on{' '}
-                            <Link href="/dashboard/approvals" className="text-[#E5252A] hover:underline">
+                            <Link href="/dashboard/approvals" className="text-primary hover:underline">
                               Approvals Gate
                             </Link>.
                           </p>
@@ -224,7 +219,7 @@ export default async function ContentCalendarPage({
                           </ActionForm>
                         )
                       )}
-                    </div>
+                    </Card>
                   ))}
                 </section>
               ))}

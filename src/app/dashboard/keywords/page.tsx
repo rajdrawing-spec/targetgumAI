@@ -92,13 +92,13 @@ export default async function KeywordResearchPage({ searchParams }: { searchPara
       {/* Metrics Strip */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <Card className="p-4 border-border shadow-subtle">
-          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Search Term</span>
+          <span className="text-xs font-medium text-muted-foreground">Search Term</span>
           <p className="mt-1 text-lg font-bold text-foreground capitalize truncate">{result.query}</p>
           <span className="text-xs text-muted-foreground">{result.totalResults} high-intent ideas found</span>
         </Card>
 
         <Card className="p-4 border-border shadow-subtle">
-          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Total Search Volume</span>
+          <span className="text-xs font-medium text-muted-foreground">Total Search Volume</span>
           <p className="mt-1 text-2xl font-bold text-foreground tabular-nums">{result.totalVolume.toLocaleString()}</p>
           <span className="text-xs text-emerald-600 font-semibold inline-flex items-center gap-1">
             <TrendingUp className="h-3 w-3" /> Combined monthly queries
@@ -106,13 +106,13 @@ export default async function KeywordResearchPage({ searchParams }: { searchPara
         </Card>
 
         <Card className="p-4 border-border shadow-subtle">
-          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Average CPC</span>
+          <span className="text-xs font-medium text-muted-foreground">Average CPC</span>
           <p className="mt-1 text-2xl font-bold text-indigo-600 tabular-nums">${result.avgCpc}</p>
           <span className="text-xs text-muted-foreground">Estimated auction benchmark</span>
         </Card>
 
         <Card className="p-4 border-border shadow-subtle">
-          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Negative Wasted Risk</span>
+          <span className="text-xs font-medium text-muted-foreground">Negative Wasted Risk</span>
           <p className="mt-1 text-2xl font-bold text-rose-600 tabular-nums">{result.negativeKeywords.length} terms</p>
           <span className="text-xs text-rose-600 font-medium">Potential wasted spend detected</span>
         </Card>
