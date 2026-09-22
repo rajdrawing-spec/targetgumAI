@@ -62,7 +62,11 @@
     --blush-text: 359 72% 42%;
     --surface-hover: 220 25% 95%;
 
-    --radius: 0.25rem;
+    /* 2026-09-22 (docs/DECISIONS.md) - bumped from 0.25rem as part of the
+       Duolingo-style visual redesign: this single token drives Tailwind's
+       `rounded-lg`/`md`/`sm` (tailwind.config.ts borderRadius), so it softens
+       every Card/Button/input across the whole app at once. */
+    --radius: 1rem;
 
     /* Raw hex mirror of the tokens above, for the components that use
        Tailwind arbitrary-value classes (`bg-[var(--bg-ink)]`) instead of
@@ -196,42 +200,44 @@
 }
 ::-webkit-scrollbar-thumb {
   background: var(--border-hairline);
-  border-radius: 2px;
+  border-radius: 999px;
 }
 ::-webkit-scrollbar-thumb:hover {
   background: var(--text-dim-hex);
 }
 
-/* Terminal & Ledger Surface Panels */
+/* Surface Panels (renamed in spirit from "Terminal" 2026-09-22, docs/DECISIONS.md -
+   radius softened from 4px to match the app-wide Duolingo-style redesign; class
+   names kept as-is since many pages already reference them). */
 .terminal-panel {
   background-color: var(--surface-base);
   border: 1px solid var(--border-hairline);
-  border-radius: 4px;
+  border-radius: 0.875rem;
 }
 
 .terminal-panel-subtle {
   background-color: var(--surface-subtle);
   border: 1px solid var(--border-hairline);
-  border-radius: 4px;
+  border-radius: 0.875rem;
 }
 
 .terminal-card {
   background-color: var(--surface-base);
   border: 1px solid var(--border-hairline);
-  border-radius: 4px;
+  border-radius: 0.875rem;
 }
 
 .terminal-dropdown {
   background-color: var(--surface-base);
   border: 1px solid var(--border-hairline);
-  border-radius: 4px;
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+  border-radius: 0.875rem;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.25);
 }
 
 .terminal-alert-rust {
   background-color: var(--surface-base);
   border: 1px solid var(--alert-rust);
-  border-radius: 4px;
+  border-radius: 0.875rem;
 }
 
 /* Hairline Dividers */
@@ -251,30 +257,36 @@
   border-left: 1px solid var(--border-hairline);
 }
 
-/* TargetGum Crimson Action Button */
+/* TargetGum Crimson Action Button - tactile "press" style (2026-09-22
+   Duolingo-style redesign, docs/DECISIONS.md): a bottom-offset shadow that
+   collapses on press, like button.tsx's `primary` variant, for the pages
+   that still use this raw class instead of <Button>. */
 .btn-brand,
 .btn-gold {
   background-color: var(--btn-accent-bg);
   color: var(--btn-accent-text);
-  font-weight: 600;
-  border-radius: 4px;
-  border: 1px solid var(--btn-accent-bg);
-  transition: opacity 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
-  box-shadow: 0 0 15px -3px rgba(229, 37, 42, 0.35);
+  font-weight: 700;
+  border-radius: 0.75rem;
+  border: none;
+  transition: transform 0.08s ease, box-shadow 0.08s ease, filter 0.15s ease;
+  box-shadow: 0 3px 0 0 hsl(var(--primary-hover));
 }
 .btn-brand:hover,
 .btn-gold:hover {
-  opacity: 0.94;
-  transform: translateY(-0.5px);
-  box-shadow: 0 0 20px -2px rgba(229, 37, 42, 0.5);
+  filter: brightness(1.05);
+}
+.btn-brand:active,
+.btn-gold:active {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 0 hsl(var(--primary-hover));
 }
 
 /* Secondary Hairline Outline Button */
 .btn-outline-hairline {
   background-color: transparent;
   color: var(--text-primary-hex);
-  border: 1px solid var(--border-hairline);
-  border-radius: 4px;
+  border: 1.5px solid var(--border-hairline);
+  border-radius: 0.75rem;
   transition: background-color 0.15s ease, border-color 0.15s ease;
 }
 .btn-outline-hairline:hover {
@@ -285,7 +297,7 @@
 /* Outlined Chip / Badge */
 .chip-outlined {
   border: 1px solid var(--border-hairline);
-  border-radius: 3px;
+  border-radius: 999px;
   color: var(--text-muted-hex);
   font-family: var(--font-ibm-plex-mono), monospace;
   font-size: 11px;

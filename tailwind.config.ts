@@ -77,11 +77,18 @@ const config: Config = {
         sm: 'calc(var(--radius) - 2px)',
       },
       boxShadow: {
-        subtle: '0 1px 2px 0 rgb(0 0 0 / 0.25)',
-        card: '0 1px 3px 0 rgb(0 0 0 / 0.35), 0 1px 2px -1px rgb(0 0 0 / 0.35)',
-        'card-hover': '0 10px 30px -5px rgba(0, 0, 0, 0.5), 0 4px 10px -2px rgba(0, 0, 0, 0.3)',
-        popover: '0 10px 25px -5px rgb(0 0 0 / 0.5), 0 8px 10px -6px rgb(0 0 0 / 0.5)',
+        subtle: '0 1px 2px 0 rgb(0 0 0 / 0.06)',
+        // 2026-09-22 (docs/DECISIONS.md, Duolingo-style redesign) - softened
+        // from a near-opaque dark shadow (0.35 alpha) to a gentle lift that
+        // reads on light AND dark surfaces, matching the mockup's soft cards
+        // instead of the previous "ops terminal" hard-edged panels.
+        card: '0 1px 2px 0 rgb(0 0 0 / 0.05), 0 8px 20px -12px rgb(0 0 0 / 0.18)',
+        'card-hover': '0 2px 4px 0 rgb(0 0 0 / 0.06), 0 16px 32px -12px rgb(0 0 0 / 0.22)',
+        popover: '0 10px 25px -5px rgb(0 0 0 / 0.25), 0 8px 10px -6px rgb(0 0 0 / 0.15)',
         glow: '0 0 25px -4px rgba(229, 37, 42, 0.45)',
+        // Tactile "press" shadow for primary buttons - see button.tsx.
+        press: '0 3px 0 0 hsl(var(--primary-hover))',
+        'press-sm': '0 1px 0 0 hsl(var(--primary-hover))',
       },
       // Growth Map (docs/DECISIONS.md 2026-09-22) - the mascot's idle bob,
       // the "current stage" node's pulse, and the streak flame's flicker.

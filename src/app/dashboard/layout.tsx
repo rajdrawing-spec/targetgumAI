@@ -70,35 +70,35 @@ export default async function DashboardLayout({ children }: { children: React.Re
           <label
             htmlFor="mobile-nav-toggle"
             aria-label="Toggle menu"
-            className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded text-[var(--text-faint-hex)] transition-colors hover:bg-[var(--surface-subtle)] hover:text-[var(--text-primary-hex)] lg:hidden"
+            className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-xl text-[var(--text-faint-hex)] transition-colors hover:bg-[var(--surface-subtle)] hover:text-[var(--text-primary-hex)] lg:hidden"
           >
             <Menu className="h-4 w-4" />
           </label>
           <label
             htmlFor="sidebar-collapse-toggle"
             aria-label="Toggle sidebar"
-            className="hidden h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded text-[var(--text-faint-hex)] transition-colors hover:bg-[var(--surface-subtle)] hover:text-[var(--text-primary-hex)] lg:flex"
+            className="hidden h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-xl text-[var(--text-faint-hex)] transition-colors hover:bg-[var(--surface-subtle)] hover:text-[var(--text-primary-hex)] lg:flex"
           >
             <Menu className="h-4 w-4" />
           </label>
 
           <Link href="/dashboard" className="group flex shrink-0 items-center gap-2.5">
-            <div className="relative flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-md border border-[var(--border-hairline)] bg-[var(--bg-ink)] shadow-sm transition-colors group-hover:border-[#E5252A]">
+            <div className="relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl border-2 border-[var(--border-hairline)] bg-[var(--bg-ink)] transition-colors group-hover:border-[#E5252A]">
               <Image src="/logo.jpg" alt="TargetGum" width={32} height={32} className="object-contain" priority />
             </div>
             <div className="hidden min-w-0 sm:block">
-              <div className="flex items-center gap-1 font-display text-sm font-bold leading-tight tracking-tight text-[var(--text-primary-hex)]">
+              <div className="flex items-center gap-1 font-display text-base font-extrabold leading-tight tracking-tight text-[var(--text-primary-hex)]">
                 Target<span className="text-[#E5252A]">Gum</span>
               </div>
-              <span className="block truncate text-[9px] font-mono-data font-semibold uppercase leading-tight tracking-wider text-[var(--text-muted-hex)]">
+              <span className="block truncate text-[9px] font-semibold uppercase leading-tight tracking-wider text-[var(--text-muted-hex)]">
                 Precision Marketing
               </span>
             </div>
           </Link>
 
-          <div className="hidden items-center gap-1.5 rounded-full border border-[#E5252A]/30 bg-[#E5252A]/10 px-2.5 py-0.5 text-[11px] font-mono-data font-medium text-[var(--danger-text-hex)] xl:flex">
+          <div className="hidden items-center gap-1.5 rounded-full bg-primary-tint px-3 py-1 text-[11px] font-bold text-primary xl:flex">
             <span className="h-1.5 w-1.5 rounded-full bg-[#E5252A] animate-pulse" />
-            <span>AI ENGINE ONLINE</span>
+            <span>AI Engine Online</span>
           </div>
 
           <div className="hidden min-w-0 flex-1 justify-center px-2 md:flex">
@@ -106,11 +106,11 @@ export default async function DashboardLayout({ children }: { children: React.Re
           </div>
 
           <div className="ml-auto flex shrink-0 items-center gap-3">
-            <span className="hidden text-xs font-mono-data uppercase tracking-wider text-[var(--text-faint-hex)] sm:inline">
+            <span className="hidden text-xs font-semibold uppercase tracking-wider text-[var(--text-faint-hex)] sm:inline">
               {ROLE_LABEL[ctx.roleKey] ?? ctx.roleKey}
             </span>
             <NotificationBell unreadCount={unreadCount} items={recentNotifications} />
-            <ThemeToggle className="flex h-8 w-8 items-center justify-center rounded text-[var(--text-faint-hex)] transition-colors hover:bg-[var(--surface-subtle)] hover:text-[var(--text-primary-hex)]" />
+            <ThemeToggle className="flex h-9 w-9 items-center justify-center rounded-xl text-[var(--text-faint-hex)] transition-colors hover:bg-[var(--surface-subtle)] hover:text-[var(--text-primary-hex)]" />
           </div>
         </header>
 
@@ -134,12 +134,12 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
               {/* User & Org Session Footer */}
               <div className="mt-auto border-t border-[var(--border-hairline)] bg-[var(--surface-footer)] p-3">
-                <div className="flex items-center justify-between gap-2 rounded border border-[var(--border-hairline)] bg-[var(--surface-base)] px-2.5 py-1.5">
+                <div className="flex items-center justify-between gap-2 rounded-xl border border-[var(--border-hairline)] bg-[var(--surface-base)] px-3 py-2">
                   <div className="min-w-0">
-                    <p className="truncate text-xs font-semibold text-[var(--text-primary-hex)]">
+                    <p className="truncate text-xs font-bold text-[var(--text-primary-hex)]">
                       {ROLE_LABEL[ctx.roleKey] ?? ctx.roleKey}
                     </p>
-                    <p className="truncate text-[11px] font-mono-data text-[var(--text-muted-hex)]">
+                    <p className="truncate text-[11px] text-[var(--text-muted-hex)]">
                       {ctx.organizationId ? `Org: ${ctx.organizationId.slice(0, 8)}...` : 'System Mode'}
                     </p>
                   </div>
@@ -152,7 +152,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
                     <button
                       type="submit"
                       title="Sign out"
-                      className="flex h-7 w-7 items-center justify-center rounded text-[var(--text-faint-hex)] transition-colors hover:bg-[#E5252A]/15 hover:text-[var(--danger-text-hex)]"
+                      className="flex h-8 w-8 items-center justify-center rounded-lg text-[var(--text-faint-hex)] transition-colors hover:bg-[#E5252A]/15 hover:text-[var(--danger-text-hex)]"
                     >
                       <LogOut className="h-3.5 w-3.5" />
                     </button>
