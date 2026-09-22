@@ -58,16 +58,16 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
         <EmptyState icon={ScrollText} title="No audit events yet" description="Events are recorded as soon as anyone - or any agent - acts on a client." />
       ) : (
         <Card className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
+          <table className="w-full min-w-[760px] text-left text-sm">
             <thead className="text-xs text-caption">
               <tr className="border-b border-border">
-                <th className="px-4 py-3 font-medium">When</th>
-                <th className="px-4 py-3 font-medium">Client</th>
-                <th className="px-4 py-3 font-medium">Actor</th>
-                <th className="px-4 py-3 font-medium">Action</th>
-                <th className="px-4 py-3 font-medium">Result</th>
-                <th className="px-4 py-3 font-medium">Provider / tool</th>
-                <th className="px-4 py-3 font-medium">Error</th>
+                <th className="whitespace-nowrap px-4 py-3 font-medium">When</th>
+                <th className="whitespace-nowrap px-4 py-3 font-medium">Client</th>
+                <th className="whitespace-nowrap px-4 py-3 font-medium">Actor</th>
+                <th className="whitespace-nowrap px-4 py-3 font-medium">Action</th>
+                <th className="whitespace-nowrap px-4 py-3 font-medium">Result</th>
+                <th className="whitespace-nowrap px-4 py-3 font-medium">Provider / tool</th>
+                <th className="whitespace-nowrap px-4 py-3 font-medium">Error</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">

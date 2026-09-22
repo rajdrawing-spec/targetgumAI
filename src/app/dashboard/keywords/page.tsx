@@ -134,15 +134,15 @@ export default async function KeywordResearchPage({ searchParams }: { searchPara
           </div>
 
           <div className="overflow-x-auto rounded-xl border border-border bg-card shadow-card">
-            <table className="w-full text-left text-sm">
+            <table className="w-full min-w-[680px] text-left text-sm">
               <thead className="bg-muted/40 text-xs font-semibold text-muted-foreground border-b border-border">
                 <tr>
-                  <th className="px-4 py-3">Keyword Query</th>
-                  <th className="px-3 py-3 text-right">Volume</th>
-                  <th className="px-3 py-3 text-right">Est. CPC</th>
-                  <th className="px-3 py-3">Intent</th>
-                  <th className="px-3 py-3">Competition</th>
-                  <th className="px-3 py-3 text-right">Trend</th>
+                  <th className="whitespace-nowrap px-4 py-3">Keyword Query</th>
+                  <th className="whitespace-nowrap px-3 py-3 text-right">Volume</th>
+                  <th className="whitespace-nowrap px-3 py-3 text-right">Est. CPC</th>
+                  <th className="whitespace-nowrap px-3 py-3">Intent</th>
+                  <th className="whitespace-nowrap px-3 py-3">Competition</th>
+                  <th className="whitespace-nowrap px-3 py-3 text-right">Trend</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">

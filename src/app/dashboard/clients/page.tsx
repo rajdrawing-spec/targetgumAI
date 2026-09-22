@@ -73,13 +73,13 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
           <table className="w-full min-w-[960px] text-left text-sm">
             <thead>
               <tr className="border-b border-border bg-[var(--surface-header-row)]/60 text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted-hex)]">
-                <th className="px-4 py-3 font-semibold">Client</th>
-                <th className="px-4 py-3 font-semibold">Account manager</th>
-                <th className="px-4 py-3 font-semibold">Status</th>
-                <th className="px-4 py-3 font-semibold">Automation</th>
-                <th className="px-4 py-3 font-semibold">Integrations</th>
-                <th className="px-4 py-3 font-semibold">Attention</th>
-                <th className="px-4 py-3 font-semibold">Last activity</th>
+                <th className="whitespace-nowrap px-4 py-3 font-semibold">Client</th>
+                <th className="whitespace-nowrap px-4 py-3 font-semibold">Account manager</th>
+                <th className="whitespace-nowrap px-4 py-3 font-semibold">Status</th>
+                <th className="whitespace-nowrap px-4 py-3 font-semibold">Automation</th>
+                <th className="whitespace-nowrap px-4 py-3 font-semibold">Integrations</th>
+                <th className="whitespace-nowrap px-4 py-3 font-semibold">Attention</th>
+                <th className="whitespace-nowrap px-4 py-3 font-semibold">Last activity</th>
                 <th className="px-4 py-3 font-semibold"></th>
               </tr>
             </thead>

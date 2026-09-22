@@ -40,15 +40,15 @@ export default async function IntegrationsPage({ searchParams }: { searchParams:
         />
       ) : (
         <Card className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
+          <table className="w-full min-w-[820px] text-left text-sm">
             <thead className="text-xs text-caption">
               <tr className="border-b border-border">
-                <th className="px-4 py-3 font-medium">Client</th>
-                <th className="px-4 py-3 font-medium">Provider</th>
-                <th className="px-4 py-3 font-medium">Connected account</th>
-                <th className="px-4 py-3 font-medium">Status</th>
-                <th className="px-4 py-3 font-medium">Last successful sync</th>
-                <th className="px-4 py-3 font-medium">Last error</th>
+                <th className="whitespace-nowrap px-4 py-3 font-medium">Client</th>
+                <th className="whitespace-nowrap px-4 py-3 font-medium">Provider</th>
+                <th className="whitespace-nowrap px-4 py-3 font-medium">Connected account</th>
+                <th className="whitespace-nowrap px-4 py-3 font-medium">Status</th>
+                <th className="whitespace-nowrap px-4 py-3 font-medium">Last successful sync</th>
+                <th className="whitespace-nowrap px-4 py-3 font-medium">Last error</th>
                 <th className="px-4 py-3 font-medium"></th>
               </tr>
             </thead>

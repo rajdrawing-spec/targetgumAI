@@ -22,17 +22,17 @@ export default async function AiRunsPage() {
         <EmptyState icon={Bot} title="No AI runs yet" />
       ) : (
         <Card className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
+          <table className="w-full min-w-[760px] text-left text-sm">
             <thead className="text-xs text-caption">
               <tr className="border-b border-border">
-                <th className="px-4 py-3 font-medium">Client</th>
-                <th className="px-4 py-3 font-medium">Model</th>
-                <th className="px-4 py-3 font-medium">Prompt</th>
-                <th className="px-4 py-3 font-medium">Status</th>
-                <th className="px-4 py-3 font-medium">Tokens (in/out)</th>
-                <th className="px-4 py-3 font-medium">Cost</th>
-                <th className="px-4 py-3 font-medium">Duration</th>
-                <th className="px-4 py-3 font-medium">When</th>
+                <th className="whitespace-nowrap px-4 py-3 font-medium">Client</th>
+                <th className="whitespace-nowrap px-4 py-3 font-medium">Model</th>
+                <th className="whitespace-nowrap px-4 py-3 font-medium">Prompt</th>
+                <th className="whitespace-nowrap px-4 py-3 font-medium">Status</th>
+                <th className="whitespace-nowrap px-4 py-3 font-medium">Tokens (in/out)</th>
+                <th className="whitespace-nowrap px-4 py-3 font-medium">Cost</th>
+                <th className="whitespace-nowrap px-4 py-3 font-medium">Duration</th>
+                <th className="whitespace-nowrap px-4 py-3 font-medium">When</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">

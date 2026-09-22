@@ -274,16 +274,16 @@ export default async function AdsPage({
           <table className="w-full min-w-[1000px] text-left text-xs font-mono-data">
             <thead className="bg-[var(--surface-subtle)] text-[var(--text-muted-hex)] border-b border-[var(--border-hairline)]">
               <tr>
-                <th className="px-4 py-3 font-semibold">Campaign / Ad Set</th>
-                <th className="px-4 py-3 font-semibold">Platform</th>
-                <th className="px-4 py-3 font-semibold">Client Workspace</th>
-                <th className="px-4 py-3 font-semibold">Status</th>
-                <th className="px-4 py-3 text-right font-semibold">Budget</th>
-                <th className="px-4 py-3 text-right font-semibold">Impressions</th>
-                <th className="px-4 py-3 text-right font-semibold">Clicks (CTR)</th>
-                <th className="px-4 py-3 text-right font-semibold">Spend (CPC)</th>
-                <th className="px-4 py-3 text-right font-semibold">ROAS / ACoS</th>
-                <th className="px-4 py-3 text-right font-semibold">State</th>
+                <th className="whitespace-nowrap px-4 py-3 font-semibold">Campaign / Ad Set</th>
+                <th className="whitespace-nowrap px-4 py-3 font-semibold">Platform</th>
+                <th className="whitespace-nowrap px-4 py-3 font-semibold">Client Workspace</th>
+                <th className="whitespace-nowrap px-4 py-3 font-semibold">Status</th>
+                <th className="whitespace-nowrap px-4 py-3 text-right font-semibold">Budget</th>
+                <th className="whitespace-nowrap px-4 py-3 text-right font-semibold">Impressions</th>
+                <th className="whitespace-nowrap px-4 py-3 text-right font-semibold">Clicks (CTR)</th>
+                <th className="whitespace-nowrap px-4 py-3 text-right font-semibold">Spend (CPC)</th>
+                <th className="whitespace-nowrap px-4 py-3 text-right font-semibold">ROAS / ACoS</th>
+                <th className="whitespace-nowrap px-4 py-3 text-right font-semibold">State</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--border-hairline)]">

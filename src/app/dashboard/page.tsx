@@ -520,14 +520,14 @@ export default async function DashboardOverviewPage() {
             />
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs font-mono-data">
+              <table className="w-full min-w-[560px] text-left text-xs font-mono-data">
                 <thead className="text-[var(--text-faint-hex)] border-b border-[var(--border-hairline)]">
                   <tr>
-                    <th className="pb-2 font-medium">Client Workspace</th>
-                    <th className="pb-2 font-medium">Model</th>
-                    <th className="pb-2 font-medium">Status</th>
-                    <th className="pb-2 font-medium">Compute Cost</th>
-                    <th className="pb-2 font-medium text-right">Timestamp</th>
+                    <th className="whitespace-nowrap pb-2 font-medium">Client Workspace</th>
+                    <th className="whitespace-nowrap pb-2 font-medium">Model</th>
+                    <th className="whitespace-nowrap pb-2 font-medium">Status</th>
+                    <th className="whitespace-nowrap pb-2 font-medium">Compute Cost</th>
+                    <th className="whitespace-nowrap pb-2 font-medium text-right">Timestamp</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[var(--border-hairline)]">
