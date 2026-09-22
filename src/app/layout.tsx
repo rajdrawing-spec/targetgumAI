@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { Inter, Plus_Jakarta_Sans, JetBrains_Mono } from 'next/font/google'
+import { Inter, Baloo_2, JetBrains_Mono } from 'next/font/google'
 import './globals.css'
 
 const inter = Inter({
@@ -9,10 +9,14 @@ const inter = Inter({
   fallback: ['-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', 'sans-serif'],
 })
 
-const plusJakartaSans = Plus_Jakarta_Sans({
+// 2026-09-22 (docs/DECISIONS.md, Duolingo-style redesign): swapped from Plus
+// Jakarta Sans - this is the single biggest lever for the app actually
+// *reading* as playful/Duolingo-like rather than corporate, since it's the
+// font every heading and CardTitle uses app-wide via --font-display.
+const baloo2 = Baloo_2({
   variable: '--font-display',
   subsets: ['latin'],
-  weight: ['500', '600', '700', '800'],
+  weight: ['600', '700', '800'],
   display: 'swap',
   fallback: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
 })
@@ -51,7 +55,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html
       lang="en"
-      className={`${inter.variable} ${plusJakartaSans.variable} ${jetbrainsMono.variable} h-full bg-[var(--bg-ink)]`}
+      className={`${inter.variable} ${baloo2.variable} ${jetbrainsMono.variable} h-full bg-[var(--bg-ink)]`}
       suppressHydrationWarning
     >
       <head>
