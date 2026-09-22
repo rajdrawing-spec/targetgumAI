@@ -14,6 +14,7 @@ import {
 } from 'recharts'
 import { TrendingUp, PieChart as PieIcon, Plug, ArrowUpRight } from 'lucide-react'
 import Link from 'next/link'
+import { Card } from '@/components/ui/card'
 
 export interface DailyTrendPoint {
   day: string
@@ -70,29 +71,25 @@ export function CommandCenterTelemetry({
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
       {/* 7-Day Performance Velocity Chart */}
-      <div className="lg:col-span-2 terminal-card p-4 space-y-3">
-        <div className="flex items-center justify-between border-b border-[var(--border-hairline)] pb-3">
+      <Card className="lg:col-span-2 p-4 space-y-3">
+        <div className="flex items-center justify-between border-b border-border pb-3">
           <div className="flex items-center gap-2">
-            <div className="flex h-6 w-6 items-center justify-center rounded bg-[#E5252A]/15 text-[#E5252A]">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary-tint text-primary">
               <TrendingUp className="h-3.5 w-3.5" />
             </div>
             <div>
-              <h3 className="text-xs font-display font-semibold uppercase tracking-wider text-[var(--text-primary-hex)]">
-                Performance Velocity (7-Day Trend)
-              </h3>
-              <p className="text-[10px] font-mono-data text-[var(--text-muted-hex)]">
-                Live telemetry: Daily Ad Spend vs Gross Return
-              </p>
+              <h3 className="text-sm font-semibold text-foreground">Performance Velocity (7-Day Trend)</h3>
+              <p className="text-xs text-muted-foreground">Live telemetry: Daily Ad Spend vs Gross Return</p>
             </div>
           </div>
-          <div className="flex items-center gap-3 text-[11px] font-mono-data">
+          <div className="flex items-center gap-3 text-xs">
             <div className="flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-full bg-[#E5252A]" />
-              <span className="text-[var(--text-muted-hex)]">Ad Spend (${totalSpend.toLocaleString()})</span>
+              <span className="h-2 w-2 rounded-full bg-primary" />
+              <span className="text-muted-foreground">Ad Spend (${totalSpend.toLocaleString()})</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-full bg-[var(--text-primary-hex)]" />
-              <span className="text-[var(--text-muted-hex)]">Gross Return (${totalRevenue.toLocaleString()})</span>
+              <span className="h-2 w-2 rounded-full bg-foreground" />
+              <span className="text-muted-foreground">Gross Return (${totalRevenue.toLocaleString()})</span>
             </div>
           </div>
         </div>
@@ -130,7 +127,7 @@ export function CommandCenterTelemetry({
                 contentStyle={{
                   backgroundColor: 'var(--surface-base)',
                   borderColor: 'var(--border-hairline)',
-                  borderRadius: '4px',
+                  borderRadius: '12px',
                   fontSize: '11px',
                   fontFamily: 'var(--font-mono)',
                   color: 'var(--text-primary-hex)',
@@ -159,41 +156,32 @@ export function CommandCenterTelemetry({
           </ResponsiveContainer>
 
           {!hasGenuineSpend && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center bg-[var(--surface-base)]/60 backdrop-blur-[1px] rounded">
-              <p className="text-xs text-[var(--text-primary-hex)] font-medium mb-1">
-                No active ad spend telemetry recorded yet
-              </p>
-              <p className="text-[11px] text-[var(--text-muted-hex)] max-w-sm text-center mb-3">
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-card/60 backdrop-blur-[1px] rounded-2xl">
+              <p className="text-xs text-foreground font-medium mb-1">No active ad spend telemetry recorded yet</p>
+              <p className="text-xs text-muted-foreground max-w-sm text-center mb-3">
                 Connect your genuine Meta Ads or Google Ads account to start streaming daily live spend and return metrics.
               </p>
-              <Link
-                href="/dashboard/integrations"
-                className="inline-flex items-center gap-1 text-xs font-semibold text-[#E5252A] hover:underline"
-              >
+              <Link href="/dashboard/integrations" className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline">
                 <Plug className="h-3.5 w-3.5" /> Connect Meta Ads Account <ArrowUpRight className="h-3 w-3" />
               </Link>
             </div>
           )}
         </div>
-      </div>
+      </Card>
 
       {/* Multi-Channel Spend Allocation Donut */}
-      <div className="terminal-card p-4 space-y-3 flex flex-col justify-between">
-        <div className="flex items-center justify-between border-b border-[var(--border-hairline)] pb-3">
+      <Card className="p-4 space-y-3 flex flex-col justify-between">
+        <div className="flex items-center justify-between border-b border-border pb-3">
           <div className="flex items-center gap-2">
-            <div className="flex h-6 w-6 items-center justify-center rounded bg-[var(--border-hairline)] text-[var(--text-muted-hex)]">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-muted-foreground">
               <PieIcon className="h-3.5 w-3.5" />
             </div>
             <div>
-              <h3 className="text-xs font-display font-semibold uppercase tracking-wider text-[var(--text-primary-hex)]">
-                Channel Mix
-              </h3>
-              <p className="text-[10px] font-mono-data text-[var(--text-muted-hex)]">
-                Multi-platform budget weighting
-              </p>
+              <h3 className="text-sm font-semibold text-foreground">Channel Mix</h3>
+              <p className="text-xs text-muted-foreground">Multi-platform budget weighting</p>
             </div>
           </div>
-          <span className="font-mono-data text-xs text-[#E5252A] font-semibold">
+          <span className="text-xs text-primary font-semibold">
             {avgRoas > 0 ? `${avgRoas.toFixed(1)}x ROAS` : '0.0x ROAS'}
           </span>
         </div>
@@ -219,7 +207,7 @@ export function CommandCenterTelemetry({
                   contentStyle={{
                     backgroundColor: 'var(--surface-base)',
                     borderColor: 'var(--border-hairline)',
-                    borderRadius: '4px',
+                    borderRadius: '12px',
                     fontSize: '11px',
                     fontFamily: 'var(--font-mono)',
                     color: 'var(--text-primary-hex)',
@@ -230,27 +218,27 @@ export function CommandCenterTelemetry({
             </ResponsiveContainer>
           ) : (
             <div className="text-center p-4">
-              <div className="h-16 w-16 mx-auto rounded-full border-2 border-dashed border-[var(--border-hairline)] flex items-center justify-center text-[10px] font-mono-data text-[var(--text-muted-hex)] mb-2">
+              <div className="h-16 w-16 mx-auto rounded-full border-2 border-dashed border-border flex items-center justify-center text-xs font-medium text-muted-foreground mb-2">
                 0%
               </div>
-              <p className="text-xs text-[var(--text-muted-hex)]">No ad platform spend allocated yet</p>
+              <p className="text-xs text-muted-foreground">No ad platform spend allocated yet</p>
             </div>
           )}
         </div>
 
         {/* Legend Breakdown */}
-        <div className="grid grid-cols-2 gap-2 pt-2 border-t border-[var(--border-hairline)]">
+        <div className="grid grid-cols-2 gap-2 pt-2 border-t border-border">
           {displayChannelMix.map((channel) => (
-            <div key={channel.name} className="flex items-center justify-between text-[11px] font-mono-data">
+            <div key={channel.name} className="flex items-center justify-between text-xs">
               <div className="flex items-center gap-1.5 truncate">
                 <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: channel.color }} />
-                <span className="text-[var(--text-muted-hex)] truncate">{channel.name}</span>
+                <span className="text-muted-foreground truncate">{channel.name}</span>
               </div>
-              <span className="text-[var(--text-primary-hex)] font-semibold ml-1">{channel.value}%</span>
+              <span className="text-foreground font-semibold ml-1">{channel.value}%</span>
             </div>
           ))}
         </div>
-      </div>
+      </Card>
     </div>
   )
 }

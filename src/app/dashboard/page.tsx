@@ -29,6 +29,8 @@ import { listContentCalendarItemsForOrg } from '@/lib/content-calendar/persist'
 import { listCampaigns } from '@/lib/ads/service'
 import { listAccessibleClients } from '@/lib/clients/list'
 import { db } from '@/lib/db/client'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { buttonVariants } from '@/components/ui/button'
 import { StatusBadge } from '@/components/ui/badge'
 import { EmptyState } from '@/components/ui/empty-state'
 import { PostScheduleDialog } from '@/components/content/post-schedule-dialog'
@@ -159,18 +161,13 @@ export default async function DashboardOverviewPage() {
 
   return (
     <div className="space-y-6">
-      {/* Precision Command Header */}
-      <div className="terminal-panel p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      {/* Command Header */}
+      <Card className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2 font-mono-data text-[10px] text-[var(--text-muted-hex)] mb-1">
-            <span className="font-semibold text-[var(--text-primary-hex)] tracking-wider">TARGETGUM OPERATING SYSTEM</span>
-            <span>•</span>
-            <span className="text-[#E5252A] font-semibold">PRECISION MARKETING TERMINAL</span>
-          </div>
-          <h1 className="text-xl font-display font-bold tracking-tight text-[var(--text-primary-hex)] flex items-center gap-2">
+          <h1 className="text-2xl font-display font-bold tracking-tight text-foreground">
             Marketing Command Center
           </h1>
-          <p className="text-xs text-[var(--text-muted-hex)] mt-1">
+          <p className="text-sm text-muted-foreground mt-1">
             Real-time telemetry, campaign velocities, AI optimization agents, and client approval pipelines.
           </p>
         </div>
@@ -178,26 +175,17 @@ export default async function DashboardOverviewPage() {
         {/* Action Command Bar */}
         <div className="flex flex-wrap items-center gap-2">
           {canManageAds && (
-            <Link
-              href="/dashboard/ads/new"
-              className="btn-brand inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm transition-all"
-            >
+            <Link href="/dashboard/ads/new" className={buttonVariants({ size: 'sm' })}>
               <Plus className="h-3.5 w-3.5" /> New Ad Campaign
             </Link>
           )}
 
-          <Link
-            href="/dashboard/keywords"
-            className="btn-outline-hairline inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium"
-          >
-            <KeyRound className="h-3.5 w-3.5 text-[#E5252A]" /> Keyword Engine
+          <Link href="/dashboard/keywords" className={buttonVariants({ variant: 'outline', size: 'sm' })}>
+            <KeyRound className="h-3.5 w-3.5 text-primary" /> Keyword Engine
           </Link>
 
-          <Link
-            href="/dashboard/ads/analytics"
-            className="btn-outline-hairline inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium"
-          >
-            <BarChart3 className="h-3.5 w-3.5 text-[#E5252A]" /> Ad Telemetry
+          <Link href="/dashboard/ads/analytics" className={buttonVariants({ variant: 'outline', size: 'sm' })}>
+            <BarChart3 className="h-3.5 w-3.5 text-primary" /> Ad Telemetry
           </Link>
 
           {accessibleClients.length > 0 && (
@@ -207,37 +195,32 @@ export default async function DashboardOverviewPage() {
           {campaigns.length === 0 && accessibleClients.length > 0 && (
             <Link
               href={`/dashboard/clients/${accessibleClients[0]?.id}/integrations`}
-              className="btn-outline-hairline inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-[#E5252A] border-[#E5252A]/40 hover:bg-[#E5252A]/10"
+              className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'text-primary border-primary/40 hover:bg-primary-tint')}
             >
               <Plug className="h-3.5 w-3.5" /> Connect Meta Ads
             </Link>
           )}
         </div>
-      </div>
+      </Card>
 
       {/* AI marketing search */}
       <MarketingSearchBar />
 
       {/* Action-Required & Approval Gate Alert */}
       {(totalPendingApprovals > 0 || pendingApprovals.length > 0) && (
-        <div className="terminal-alert-rust p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#E5252A]/10 border border-[#E5252A]/40 rounded">
+        <div className="rounded-2xl border border-primary/25 bg-primary-tint p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded bg-[#E5252A]/20 text-[var(--danger-text-hex)]">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary">
               <AlertCircle className="h-4 w-4" />
             </div>
             <div>
-              <span className="font-mono-data text-xs font-bold uppercase tracking-wider text-[var(--danger-text-hex)] mr-2">
-                Approval Gate Active:
-              </span>
-              <span className="text-xs text-[var(--text-primary-hex)]">
+              <span className="text-sm font-bold text-primary mr-1.5">Approval Gate Active:</span>
+              <span className="text-sm text-foreground">
                 {totalPendingApprovals || pendingApprovals.length} action{totalPendingApprovals === 1 ? '' : 's'} awaiting client or manager authorization before execution.
               </span>
             </div>
           </div>
-          <Link
-            href="/dashboard/approvals"
-            className="btn-brand inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold shrink-0"
-          >
+          <Link href="/dashboard/approvals" className={cn(buttonVariants({ size: 'sm' }), 'shrink-0')}>
             <ShieldCheck className="h-3.5 w-3.5" /> Review Approvals ({totalPendingApprovals || pendingApprovals.length})
           </Link>
         </div>
@@ -302,22 +285,17 @@ export default async function DashboardOverviewPage() {
       />
 
       {/* Attention Required Client Ledger */}
-      <div className="terminal-card">
-        <div className="flex items-center justify-between border-b border-[var(--border-hairline)] px-4 py-3">
+      <Card>
+        <CardHeader className="flex-row items-center justify-between border-b border-border">
           <div className="flex items-center gap-2">
-            <Activity className="h-4 w-4 text-[#E5252A]" />
-            <h2 className="text-sm font-display font-semibold uppercase tracking-wider text-[var(--text-primary-hex)]">
-              Client Workspace Health & Attention
-            </h2>
+            <Activity className="h-4 w-4 text-primary" />
+            <CardTitle>Client Workspace Health & Attention</CardTitle>
           </div>
-          <Link
-            href="/dashboard/clients"
-            className="flex items-center gap-1 font-mono-data text-xs text-[#E5252A] hover:underline"
-          >
+          <Link href="/dashboard/clients" className="flex items-center gap-1 text-xs font-semibold text-primary hover:underline">
             All Clients <ArrowUpRight className="h-3 w-3" />
           </Link>
-        </div>
-        <div className="p-4">
+        </CardHeader>
+        <CardContent className="pt-4">
           {clientsNeedingAttention.length === 0 ? (
             <EmptyState
               icon={ShieldCheck}
@@ -325,7 +303,7 @@ export default async function DashboardOverviewPage() {
               description="Zero pending approvals, blocked integrations, or critical recommendations."
             />
           ) : (
-            <div className="divide-y divide-[var(--border-hairline)]">
+            <div className="divide-y divide-border">
               {clientsNeedingAttention.map((client) => (
                 <div
                   key={client.id}
@@ -335,43 +313,31 @@ export default async function DashboardOverviewPage() {
                     href={`/dashboard/clients/${client.id}`}
                     className="flex min-w-0 items-center gap-3 group"
                   >
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded bg-[var(--surface-subtle)] border border-[var(--border-hairline)] text-xs font-mono-data font-bold text-[var(--text-primary-hex)] group-hover:border-[#E5252A] transition-colors">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent text-xs font-bold text-accent-foreground transition-colors">
                       {initials(client.name)}
                     </div>
-                    <span className="truncate text-sm font-medium text-[var(--text-primary-hex)] group-hover:text-[#E5252A] transition-colors">
+                    <span className="truncate text-sm font-medium text-foreground group-hover:text-primary transition-colors">
                       {client.name}
                     </span>
                   </Link>
 
                   <div className="flex flex-wrap items-center gap-2">
                     {client.attention.pendingApprovals > 0 && (
-                      <Link
-                        href="/dashboard/approvals"
-                        className="rounded px-2 py-0.5 text-xs font-mono-data font-medium bg-[#E5252A]/15 text-[var(--danger-text-hex)] border border-[#E5252A]/30 hover:bg-[#E5252A]/25"
-                      >
+                      <Link href="/dashboard/approvals" className="rounded-full px-2.5 py-0.5 text-xs font-semibold bg-destructive-bg text-destructive hover:opacity-80">
                         {client.attention.pendingApprovals} approval{client.attention.pendingApprovals === 1 ? '' : 's'}
                       </Link>
                     )}
                     {client.attention.highPriorityRecommendations > 0 && (
-                      <Link
-                        href="/dashboard/recommendations"
-                        className="rounded px-2 py-0.5 text-xs font-mono-data font-medium bg-blue-500/15 text-blue-300 border border-blue-500/30 hover:bg-blue-500/25"
-                      >
+                      <Link href="/dashboard/recommendations" className="rounded-full px-2.5 py-0.5 text-xs font-semibold bg-info-bg text-info hover:opacity-80">
                         {client.attention.highPriorityRecommendations} rec{client.attention.highPriorityRecommendations === 1 ? '' : 's'}
                       </Link>
                     )}
                     {client.attention.integrationIssues > 0 && (
-                      <Link
-                        href={`/dashboard/clients/${client.id}/integrations`}
-                        className="rounded px-2 py-0.5 text-xs font-mono-data font-medium bg-amber-500/15 text-amber-300 border border-amber-500/30 hover:bg-amber-500/25"
-                      >
+                      <Link href={`/dashboard/clients/${client.id}/integrations`} className="rounded-full px-2.5 py-0.5 text-xs font-semibold bg-warning-bg text-warning hover:opacity-80">
                         {client.attention.integrationIssues} issue{client.attention.integrationIssues === 1 ? '' : 's'}
                       </Link>
                     )}
-                    <Link
-                      href={`/dashboard/clients/${client.id}`}
-                      className="ml-2 font-mono-data text-xs text-[#E5252A] hover:underline"
-                    >
+                    <Link href={`/dashboard/clients/${client.id}`} className="ml-2 text-xs font-semibold text-primary hover:underline">
                       Open Workspace →
                     </Link>
                   </div>
@@ -379,139 +345,104 @@ export default async function DashboardOverviewPage() {
               ))}
             </div>
           )}
-        </div>
-      </div>
+        </CardContent>
+      </Card>
 
       {/* Split Columns: Approvals Gate & Scheduled Operations */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {/* Pending Approvals */}
-        <div className="terminal-card">
-          <div className="flex items-center justify-between border-b border-[var(--border-hairline)] px-4 py-3">
+        <Card>
+          <CardHeader className="flex-row items-center justify-between border-b border-border">
             <div className="flex items-center gap-2">
-              <ShieldCheck className="h-4 w-4 text-[var(--text-muted-hex)]" />
-              <h3 className="text-xs font-display font-semibold uppercase tracking-wider text-[var(--text-primary-hex)]">
-                Pending Approvals Gate
-              </h3>
+              <ShieldCheck className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm">Pending Approvals Gate</CardTitle>
             </div>
-            <Link
-              href="/dashboard/approvals"
-              className="flex items-center gap-1 font-mono-data text-xs text-[#E5252A] hover:underline"
-            >
+            <Link href="/dashboard/approvals" className="flex items-center gap-1 text-xs font-semibold text-primary hover:underline">
               View all <ArrowUpRight className="h-3 w-3" />
             </Link>
-          </div>
-          <div className="p-4">
+          </CardHeader>
+          <CardContent className="pt-4">
             {pendingApprovals.length === 0 ? (
               <EmptyState icon={ShieldCheck} title="No pending approvals" />
             ) : (
-              <ul className="divide-y divide-[var(--border-hairline)]">
+              <ul className="divide-y divide-border">
                 {pendingApprovals.map((approval) => (
-                  <li
-                    key={approval.id}
-                    className="flex items-center justify-between gap-2 py-2.5 text-sm first:pt-0 last:pb-0"
-                  >
+                  <li key={approval.id} className="flex items-center justify-between gap-2 py-2.5 text-sm first:pt-0 last:pb-0">
                     <div className="min-w-0">
-                      <Link
-                        href={`/dashboard/clients/${approval.clientId}`}
-                        className="font-medium text-[var(--text-primary-hex)] hover:text-[#E5252A] transition-colors"
-                      >
+                      <Link href={`/dashboard/clients/${approval.clientId}`} className="font-medium text-foreground hover:text-primary transition-colors">
                         {approval.client.name}
                       </Link>
-                      <p className="truncate text-xs text-[var(--text-muted-hex)]">{approval.actionSummary}</p>
+                      <p className="truncate text-xs text-muted-foreground">{approval.actionSummary}</p>
                     </div>
                     <StatusBadge status={approval.riskLevel} className="shrink-0" />
                   </li>
                 ))}
               </ul>
             )}
-          </div>
-        </div>
+          </CardContent>
+        </Card>
 
         {/* Scheduled Content & Work */}
-        <div className="terminal-card">
-          <div className="flex items-center justify-between border-b border-[var(--border-hairline)] px-4 py-3">
+        <Card>
+          <CardHeader className="flex-row items-center justify-between border-b border-border">
             <div className="flex items-center gap-2">
-              <CalendarDays className="h-4 w-4 text-[var(--text-muted-hex)]" />
-              <h3 className="text-xs font-display font-semibold uppercase tracking-wider text-[var(--text-primary-hex)]">
-                Upcoming Scheduled Work
-              </h3>
+              <CalendarDays className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm">Upcoming Scheduled Work</CardTitle>
             </div>
-            <Link
-              href="/dashboard/content-calendar"
-              className="flex items-center gap-1 font-mono-data text-xs text-[#E5252A] hover:underline"
-            >
+            <Link href="/dashboard/content-calendar" className="flex items-center gap-1 text-xs font-semibold text-primary hover:underline">
               Calendar Hub <ArrowUpRight className="h-3 w-3" />
             </Link>
-          </div>
-          <div className="p-4 space-y-3">
+          </CardHeader>
+          <CardContent className="space-y-3 pt-4">
             <div>
-              <p className="mb-1.5 font-mono-data text-[10px] uppercase tracking-wider text-[var(--text-faint-hex)]">
-                Active Tasks
-              </p>
+              <p className="mb-1.5 text-xs font-semibold text-muted-foreground">Active Tasks</p>
               {openTasks.length === 0 ? (
-                <p className="text-xs text-[var(--text-muted-hex)]">No open tasks right now.</p>
+                <p className="text-xs text-muted-foreground">No open tasks right now.</p>
               ) : (
                 <ul className="space-y-1.5">
                   {openTasks.map((task) => (
-                    <li
-                      key={task.id}
-                      className="flex items-center justify-between gap-2 text-xs rounded bg-[var(--surface-subtle)] px-2.5 py-1.5 border border-[var(--border-hairline)]"
-                    >
-                      <span className="truncate text-[var(--text-primary-hex)]">{task.title}</span>
-                      <span className="shrink-0 font-mono-data text-[10px] text-[var(--text-muted-hex)]">
-                        {task.client?.name}
-                      </span>
+                    <li key={task.id} className="flex items-center justify-between gap-2 text-xs rounded-xl bg-muted px-3 py-2">
+                      <span className="truncate text-foreground">{task.title}</span>
+                      <span className="shrink-0 text-muted-foreground">{task.client?.name}</span>
                     </li>
                   ))}
                 </ul>
               )}
             </div>
 
-            <div className="pt-2 border-t border-[var(--border-hairline)]">
-              <p className="mb-1.5 font-mono-data text-[10px] uppercase tracking-wider text-[var(--text-faint-hex)]">
-                Scheduled Posts
-              </p>
+            <div className="pt-2 border-t border-border">
+              <p className="mb-1.5 text-xs font-semibold text-muted-foreground">Scheduled Posts</p>
               {upcomingContent.length === 0 ? (
-                <p className="text-xs text-[var(--text-muted-hex)]">Nothing scheduled.</p>
+                <p className="text-xs text-muted-foreground">Nothing scheduled.</p>
               ) : (
                 <ul className="space-y-1.5">
                   {upcomingContent.map((item) => (
-                    <li
-                      key={item.id}
-                      className="flex items-center justify-between gap-2 text-xs rounded bg-[var(--surface-subtle)] px-2.5 py-1.5 border border-[var(--border-hairline)]"
-                    >
-                      <span className="truncate text-[var(--text-primary-hex)]">
+                    <li key={item.id} className="flex items-center justify-between gap-2 text-xs rounded-xl bg-muted px-3 py-2">
+                      <span className="truncate text-foreground">
                         {item.client?.name} · {item.platform}
                       </span>
-                      <span className="shrink-0 font-mono-data text-[10px] text-[#E5252A]">
-                        {formatDate(item.publishDate)}
-                      </span>
+                      <span className="shrink-0 font-medium text-primary">{formatDate(item.publishDate)}</span>
                     </li>
                   ))}
                 </ul>
               )}
             </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Recent AI Engine Runs */}
-      <div className="terminal-card">
-        <div className="flex items-center justify-between border-b border-[var(--border-hairline)] px-4 py-3">
+      <Card>
+        <CardHeader className="flex-row items-center justify-between border-b border-border">
           <div className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-[#E5252A]" />
-            <h3 className="text-xs font-display font-semibold uppercase tracking-wider text-[var(--text-primary-hex)]">
-              Recent AI Engine Executions
-            </h3>
+            <Sparkles className="h-4 w-4 text-primary" />
+            <CardTitle className="text-sm">Recent AI Engine Executions</CardTitle>
           </div>
-          <Link
-            href="/dashboard/ai-runs"
-            className="flex items-center gap-1 font-mono-data text-xs text-[#E5252A] hover:underline"
-          >
+          <Link href="/dashboard/ai-runs" className="flex items-center gap-1 text-xs font-semibold text-primary hover:underline">
             Engine Logs <ArrowUpRight className="h-3 w-3" />
           </Link>
-        </div>
-        <div className="p-4">
+        </CardHeader>
+        <CardContent className="pt-4">
           {recentAiRuns.length === 0 ? (
             <EmptyState
               icon={Sparkles}
@@ -520,8 +451,8 @@ export default async function DashboardOverviewPage() {
             />
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[560px] text-left text-xs font-mono-data">
-                <thead className="text-[var(--text-faint-hex)] border-b border-[var(--border-hairline)]">
+              <table className="w-full min-w-[560px] text-left text-sm">
+                <thead className="text-muted-foreground border-b border-border">
                   <tr>
                     <th className="whitespace-nowrap pb-2 font-medium">Client Workspace</th>
                     <th className="whitespace-nowrap pb-2 font-medium">Model</th>
@@ -530,30 +461,26 @@ export default async function DashboardOverviewPage() {
                     <th className="whitespace-nowrap pb-2 font-medium text-right">Timestamp</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[var(--border-hairline)]">
+                <tbody className="divide-y divide-border">
                   {recentAiRuns.map((run) => (
-                    <tr key={run.id} className="hover:bg-[var(--surface-subtle)] transition-colors">
-                      <td className="py-2.5 font-medium text-[var(--text-primary-hex)]">{run.client?.name ?? '—'}</td>
-                      <td className="py-2.5 text-[var(--text-muted-hex)]">{run.model}</td>
+                    <tr key={run.id} className="hover:bg-muted/50 transition-colors">
+                      <td className="py-2.5 font-medium text-foreground">{run.client?.name ?? '—'}</td>
+                      <td className="py-2.5 text-muted-foreground">{run.model}</td>
                       <td className="py-2.5">
                         <StatusBadge status={run.status} />
                       </td>
-                      <td className="py-2.5 text-[var(--text-muted-hex)]">
-                        {run.estimatedCostCents != null
-                          ? `$${(run.estimatedCostCents / 100).toFixed(3)}`
-                          : '—'}
+                      <td className="py-2.5 tabular-nums text-muted-foreground">
+                        {run.estimatedCostCents != null ? `$${(run.estimatedCostCents / 100).toFixed(3)}` : '—'}
                       </td>
-                      <td className="py-2.5 text-[var(--text-faint-hex)] text-right">
-                        {formatRelative(run.createdAt)}
-                      </td>
+                      <td className="py-2.5 tabular-nums text-muted-foreground text-right">{formatRelative(run.createdAt)}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
           )}
-        </div>
-      </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }
@@ -574,18 +501,14 @@ function StatCard({
   subtitle?: string
 }) {
   return (
-    <Link href={href} className="group">
-      <div className="terminal-card p-3.5 space-y-1.5 transition-all duration-150 group-hover:border-[#E5252A]/60">
+    <Link href={href} className="group block">
+      <Card className="p-3.5 space-y-1.5 transition-colors group-hover:border-primary/50">
         <div className="flex items-center justify-between">
-          <span className="text-[10px] font-mono-data uppercase tracking-wider text-[var(--text-muted-hex)]">
-            {label}
-          </span>
+          <span className="text-xs font-medium text-muted-foreground">{label}</span>
           <div
             className={cn(
-              'flex h-5 w-5 items-center justify-center rounded border transition-colors',
-              isWarning
-                ? 'bg-[#E5252A]/15 text-[var(--danger-text-hex)] border-[#E5252A]/40'
-                : 'bg-[var(--surface-subtle)] text-[var(--text-muted-hex)] border-[var(--border-hairline)] group-hover:text-[#E5252A] group-hover:border-[#E5252A]/40'
+              'flex h-6 w-6 items-center justify-center rounded-full transition-colors',
+              isWarning ? 'bg-destructive-bg text-destructive' : 'bg-muted text-muted-foreground group-hover:bg-primary-tint group-hover:text-primary',
             )}
           >
             <Icon className="h-3 w-3" />
@@ -593,17 +516,11 @@ function StatCard({
         </div>
 
         <div className="flex items-baseline gap-2 pt-0.5">
-          <span className="text-xl font-mono-data font-bold text-[var(--text-primary-hex)] tracking-tight">
-            {value}
-          </span>
+          <span className="text-xl font-display font-bold text-foreground tracking-tight">{value}</span>
         </div>
 
-        {subtitle && (
-          <p className="text-[10px] font-mono-data text-[var(--text-faint-hex)] group-hover:text-[var(--text-muted-hex)] transition-colors">
-            {subtitle}
-          </p>
-        )}
-      </div>
+        {subtitle && <p className="text-xs text-muted-foreground">{subtitle}</p>}
+      </Card>
     </Link>
   )
 }
