@@ -37,6 +37,7 @@ import { StatusBadge } from '@/components/ui/badge'
 import { ActionForm, FieldError, SubmitButton } from '@/components/ui/action-form'
 import { Input } from '@/components/ui/input'
 import { EmptyState } from '@/components/ui/empty-state'
+import { GenerateConceptsDialog } from '@/components/creative/generate-concepts-dialog'
 import { HEALTH_DOT, HEALTH_LABEL, PROVIDER_LABEL } from '@/components/clients/labels'
 import { formatDate, formatDateTime, formatRelative } from '@/lib/format'
 import { cn } from '@/lib/utils'
@@ -110,6 +111,7 @@ export default async function ClientOverviewPage({ params }: { params: Promise<{
                 <Sparkles className="h-3.5 w-3.5" /> AI Client Audit
               </SubmitButton>
             </ActionForm>
+            <GenerateConceptsDialog clientId={clientId} />
           </>
         )}
       </div>
