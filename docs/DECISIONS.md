@@ -5,6 +5,51 @@ Newest entries at the top.
 
 ---
 
+## 2026-09-23 — Left sidebar removed; navigation moved to a 4-item top bar with dropdowns
+
+**Decision:** `src/components/dashboard-nav.tsx`'s old flat 18-item sidebar
+list is gone, along with the sidebar `<aside>`, its off-canvas mobile
+drawer, and its collapsible-column checkbox toggle in
+`src/app/dashboard/layout.tsx`. Navigation now lives entirely in the top
+bar: two direct links (**Command Center**, **Clients** - the two used
+constantly) plus two dropdown tabs (**Campaigns**: AI Ad Campaigns,
+Social Hub, Creative Studio, Keyword Research, SEO Intelligence;
+**Insights**: Unified Telemetry, Performance Reports, Recommendations,
+Action Items, Approvals Gate, AI Engine Runs, Ledger & Audit). The three
+account/org-scoped pages that lived in the sidebar's footer (Team,
+Integrations, My Account) moved into a new avatar `AccountMenu`, next to
+Sign out - the standard home for that kind of page once there's no
+sidebar to anchor a footer to. Below `lg`, `TopNav` hides and a
+`MobileMenu` hamburger opens the same grouped data as a dropdown panel
+(with the header's search bar, which itself hides below `xl` for room,
+folded in above the links) - one data source (`NAV_DIRECT`/`NAV_GROUPS`)
+drives both. `universal-search.tsx`'s existing `NAV_ITEMS` import still
+works unchanged - it's now a flattened view over the same groups.
+
+**Rationale:** Direct request: "there should be no left bar. it should be
+moved to top bar with proper segregations. in 3-4 tabs with dropdown." 18
+flat items were also genuinely more than a sidebar could present cleanly;
+grouping them under Campaigns/Insights is real categorization, not just a
+container change. The two dropdowns (`NavDropdown`, reused for
+`AccountMenu`) are click-to-open with outside-click/Escape-to-close and a
+fade/scale transition rather than a `<details>` disclosure - a floating
+menu that has to dismiss itself on an outside click needs that, unlike
+the Growth Map's inline expand/collapse sections which stayed native
+`<details>`.
+
+**Alternative(s) considered:** Keeping Notifications as a full nav item -
+dropped in favor of the existing `NotificationBell` header dropdown, which
+already links to `/dashboard/notifications` ("View all"), so the page
+stays reachable without a redundant top-level entry. A mega-menu showing
+every group at once - rejected as more visual weight than two short
+dropdowns for the same 12 grouped items.
+
+**Revisit if:** The Campaigns or Insights group grows enough that a
+5-item or 7-item dropdown stops being scannable at a glance - that's a
+signal to split further rather than let one dropdown keep growing.
+
+---
+
 ## 2026-09-23 — Growth Map path unified to one narrow layout for mobile and desktop
 
 **Decision:** `PhaseRoadmap` is now a single `max-w-xs` (320px) centered
