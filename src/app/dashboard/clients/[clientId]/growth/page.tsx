@@ -17,15 +17,16 @@ import { recordMissionProgressAction } from './actions'
 
 /**
  * Growth Map - the guided-onboarding wizard tab (docs/DECISIONS.md
- * 2026-09-22, restructured 2026-09-23 three times: plain collapsible list
- * -> a wide illustrated path with one stop per phase -> this version).
- * Direct feedback on round three: match real Duolingo's actual pattern
- * (narrow centered path, colored "unit" banner, compact nodes, no
- * separate mobile layout) rather than a wide desktop-only zigzag with a
- * completely different mobile fallback. `PhaseRoadmap` is now ONE
- * component/markup at every viewport width - it's narrow (`max-w-xs`) by
- * design, so it reads the same on a phone and centered inside the desktop
- * card, with no `sm:` branching anywhere in this file.
+ * 2026-09-22, restructured 2026-09-23 four times: plain collapsible list
+ * -> a wide illustrated path with one stop per phase -> a narrow unified
+ * path still collapsed to one stop per phase -> this version, which goes
+ * back to one full node per *stage* (matching the approved reference
+ * mockup exactly - number, title, description, action per stage) with
+ * phase banners inserted into the path as section dividers rather than
+ * folding stages into a phase-level summary. Still the same narrow,
+ * centered layout from the previous round - no `sm:` branching anywhere
+ * in this file, `GrowthRoadmap` is one component/markup at every
+ * viewport width.
  */
 
 function StatCard({ icon: Icon, label, value, sub }: { icon: React.ElementType; label: string; value: string; sub?: string }) {
@@ -72,60 +73,75 @@ function quadraticPath(points: Array<{ x: number; y: number }>): string {
   return d
 }
 
-/** One compact, centered stage row inside a phase node's stack. */
-function RoadmapStageRow({ stage, clientId, canWrite }: { stage: StageState; clientId: string; canWrite: boolean }) {
-  const Icon = stage.status === 'done' ? CheckCircle2 : stage.status === 'current' ? Target : Lock
-  return (
-    <div className="flex items-center justify-center gap-1.5 text-xs">
-      <Icon className={cn('h-3 w-3 shrink-0', stage.status === 'locked' ? 'text-muted-foreground' : 'text-primary')} />
-      <span className={cn('truncate', stage.status === 'locked' ? 'text-muted-foreground' : 'text-foreground')}>
-        {stage.order}. {stage.title}
-      </span>
-      {stage.status === 'current' && canWrite && (
-        <Link href={`/dashboard/clients/${clientId}/growth/lesson/${stage.key}`} className="shrink-0 font-semibold text-primary hover:underline">
-          Start
-        </Link>
-      )}
-      {stage.status === 'done' && (
-        <Link href={`/dashboard/clients/${clientId}/growth/lesson/${stage.key}`} className="shrink-0 font-medium text-muted-foreground hover:text-foreground">
-          Review
-        </Link>
-      )}
-    </div>
-  )
-}
+type PathItem =
+  | { kind: 'banner'; phase: GrowthPhaseDef; phaseStatus: GrowthPhaseStatus }
+  | { kind: 'stage'; stage: StageState; onLastStageOfPhase: boolean }
 
 /**
  * A narrow, centered winding path - the same markup at any viewport
- * width. Each phase is one node (so 4 stops, not 10) with a short caption
- * and its 2-3 stages listed compactly beneath, all centered on the node's
- * own x position rather than anchored left/right - that's what lets one
- * layout serve mobile and desktop identically. Node heights vary with
- * stage count, so vertical spacing is computed per-phase; still plain
- * server-side arithmetic, no client JS or DOM measurement.
+ * width. Every one of the 10 stages gets its own full node (number,
+ * title, description, action) like the approved reference mockup - a
+ * colored "PHASE N · TITLE" banner is inserted into the path before each
+ * phase's first stage as a section divider, the same idea as Duolingo's
+ * own unit banners, rather than collapsing multiple stages into one node.
+ * Everything stays centered on its own x position instead of anchored
+ * left/right, which is what lets one layout serve mobile and desktop
+ * identically. Per-item height varies with status (the current stage
+ * needs room for its "Continue" callout and action button), so vertical
+ * spacing is computed top-to-bottom in one pass - still plain server-side
+ * arithmetic, no client JS or DOM measurement.
  */
-function PhaseRoadmap({ phases, clientId, canWrite }: { phases: PhaseData[]; clientId: string; canWrite: boolean }) {
-  const TOP_PAD = 120
+function GrowthRoadmap({ phases, clientId, canWrite }: { phases: PhaseData[]; clientId: string; canWrite: boolean }) {
+  const TOP_PAD = 130
   const BOTTOM_PAD = 100
-  const GAP = 42
-  const NODE_D = 64
-  const CAPTION_H = 36 // "Phase N · Title" reliably wraps to 2 lines at this column width
-  const ROW_H = 20
-  const BLOCK_PAD = 14
-  const CONTINUE_BUBBLE_H = 34 // extra room for the "Continue" callout above the current phase's node
-  const PHASE_X = [36, 64, 36, 50] // gentle wobble, narrow - reads the same at any container width
+  const GAP = 54
+  const BANNER_H = 54
+  const BANNER_GAP = 30
+  const NODE_D = 60
+  // Fixed, worst-case budgets rather than guessed per-content estimates -
+  // a title/description that only needs one line just leaves extra
+  // whitespace, which is far safer than a two-line title/description
+  // that was budgeted for one and silently overlaps the next item. This
+  // is deliberately generous after the first version of this layout
+  // (docs/DECISIONS.md) undercounted wrapped text and the phase banners
+  // ended up overlapping the previous stage's content - confirmed fixed
+  // by measuring real getBoundingClientRect() gaps via Playwright, not
+  // just eyeballing a screenshot.
+  const TITLE_H = 42
+  const DESC_H = 60
+  const ACTION_H = 34
+  const CONTINUE_BUBBLE_H = 36
+  const STAGE_X = [34, 66, 34, 66, 34, 66, 34, 66, 34, 50] // gentle wobble, narrow - reads the same at any container width
+
+  const items: PathItem[] = []
+  for (const p of phases) {
+    items.push({ kind: 'banner', phase: p.phase, phaseStatus: p.status })
+    p.stages.forEach((stage, i) => items.push({ kind: 'stage', stage, onLastStageOfPhase: i === p.stages.length - 1 }))
+  }
 
   let cumulative = TOP_PAD
-  const blocks = phases.map((p, i) => {
-    const stackHeight = NODE_D + CAPTION_H + p.stages.length * ROW_H + BLOCK_PAD + (p.status === 'current' ? CONTINUE_BUBBLE_H : 0)
-    const y = cumulative + stackHeight / 2
-    const x = PHASE_X[i] ?? 50
-    cumulative += stackHeight + GAP
-    return { ...p, x, y }
+  let stageIndex = 0
+  const laidOut = items.map((item) => {
+    if (item.kind === 'banner') {
+      const y = cumulative + BANNER_H / 2
+      cumulative += BANNER_H + BANNER_GAP
+      return { ...item, x: 50, y }
+    }
+    const x = STAGE_X[stageIndex] ?? 50
+    stageIndex += 1
+    const hasAction = item.stage.status !== 'locked'
+    const blockHeight = NODE_D + TITLE_H + DESC_H + (hasAction ? ACTION_H : 16) + (item.stage.status === 'current' ? CONTINUE_BUBBLE_H : 0)
+    const y = cumulative + blockHeight / 2
+    cumulative += blockHeight + GAP
+    return { ...item, x, y }
   })
   const pathHeight = cumulative - GAP + BOTTOM_PAD
 
-  const wayPoints = [{ x: 50, y: TOP_PAD * 0.5 }, ...blocks.map((b) => ({ x: b.x, y: b.y })), { x: 50, y: pathHeight - BOTTOM_PAD * 0.5 }]
+  const wayPoints = [
+    { x: 50, y: TOP_PAD * 0.5 },
+    ...laidOut.filter((i) => i.kind === 'stage').map((i) => ({ x: i.x, y: i.y })),
+    { x: 50, y: pathHeight - BOTTOM_PAD * 0.5 },
+  ]
   const pathD = quadraticPath(wayPoints)
 
   return (
@@ -135,9 +151,10 @@ function PhaseRoadmap({ phases, clientId, canWrite }: { phases: PhaseData[]; cli
       </svg>
 
       {/* Decorative scenery - sparse, purely ornamental. */}
-      <TreeIcon className="absolute left-[4%] w-7 opacity-60" style={{ top: TOP_PAD * 0.3 }} />
-      <CloudIcon className="absolute left-[80%] w-14 opacity-60" style={{ top: pathHeight * 0.4 }} />
-      <RockIcon className="absolute left-[84%] w-6 opacity-50" style={{ top: pathHeight * 0.7 }} />
+      <TreeIcon className="absolute left-[2%] w-7 opacity-60" style={{ top: TOP_PAD * 0.25 }} />
+      <RockIcon className="absolute left-[90%] w-6 opacity-50" style={{ top: pathHeight * 0.3 }} />
+      <CloudIcon className="absolute left-[82%] w-14 opacity-60" style={{ top: pathHeight * 0.55 }} />
+      <TreeIcon className="absolute left-[4%] w-6 opacity-50" style={{ top: pathHeight * 0.78 }} />
 
       {/* Start platform */}
       <div className="absolute left-1/2 flex -translate-x-1/2 flex-col items-center gap-1.5" style={{ top: 0 }}>
@@ -150,59 +167,77 @@ function PhaseRoadmap({ phases, clientId, canWrite }: { phases: PhaseData[]; cli
         </div>
       </div>
 
-      {blocks.map(({ phase, status, stages, x, y }, i) => (
-        <div
-          key={phase.key}
-          className="absolute flex -translate-x-1/2 -translate-y-1/2 flex-col items-center motion-safe:animate-fade-in-up"
-          style={{ top: y, left: `${x}%`, animationDelay: `${i * 90}ms` }}
-        >
-          {status === 'current' && (
-            <div className="relative mb-1.5 rounded-lg border-2 border-border bg-card px-2.5 py-1 text-[10px] font-bold text-foreground shadow-popover">
-              Continue
-              <span className="absolute left-1/2 top-full h-2 w-2 -translate-x-1/2 -translate-y-1 rotate-45 border-b-2 border-r-2 border-border bg-card" />
+      {laidOut.map((item, i) => {
+        if (item.kind === 'banner') {
+          return (
+            <div
+              key={`banner-${item.phase.key}`}
+              className={cn(
+                'absolute left-1/2 flex w-64 -translate-x-1/2 -translate-y-1/2 items-center gap-2.5 rounded-xl px-3.5 py-2.5 shadow-press motion-safe:animate-fade-in-up',
+                item.phaseStatus === 'locked' ? 'bg-muted text-muted-foreground shadow-none' : 'bg-primary text-primary-foreground',
+              )}
+              style={{ top: item.y, animationDelay: `${i * 60}ms` }}
+            >
+              <span className="text-lg leading-none">{item.phaseStatus === 'locked' ? <Lock className="h-4 w-4" /> : item.phaseStatus === 'done' ? <CheckCircle2 className="h-4 w-4" /> : <Target className="h-4 w-4" />}</span>
+              <div className="min-w-0">
+                <p className="text-[9px] font-bold uppercase tracking-wider opacity-80">Phase {item.phase.order} of {GROWTH_PHASE_DEFS.length}</p>
+                <p className="truncate text-sm font-extrabold">{item.phase.title}</p>
+              </div>
             </div>
-          )}
-          <div
-            className={cn(
-              'flex h-16 w-16 items-center justify-center rounded-full border-4 transition-transform duration-200 hover:scale-105 active:scale-95',
-              status === 'done' && 'border-primary-tint bg-primary text-primary-foreground',
-              status === 'current' && 'border-primary-tint bg-primary text-primary-foreground motion-safe:animate-glow-pulse',
-              status === 'locked' && 'border-border bg-card text-muted-foreground',
-            )}
-          >
-            {status === 'done' ? <CheckCircle2 className="h-6 w-6" /> : status === 'locked' ? <Lock className="h-6 w-6" /> : <Target className="h-6 w-6" />}
+          )
+        }
+
+        const { stage, x, y } = item
+        const Icon = stage.status === 'done' ? CheckCircle2 : stage.status === 'current' ? Target : Lock
+        return (
+          <div key={stage.key}>
+            <div
+              className="pointer-events-none absolute h-6 w-[68px] -translate-x-1/2 rounded-[50%] bg-[radial-gradient(ellipse_at_50%_20%,#7BC24A,#4E9C2E_85%)]"
+              style={{ top: y + 20, left: `${x}%` }}
+            />
+            <div
+              className="absolute flex -translate-x-1/2 -translate-y-1/2 flex-col items-center motion-safe:animate-fade-in-up"
+              style={{ top: y, left: `${x}%`, animationDelay: `${i * 60}ms` }}
+            >
+              {stage.status === 'current' && (
+                <div className="relative mb-1.5 rounded-lg border-2 border-border bg-card px-2.5 py-1 text-[10px] font-bold text-foreground shadow-popover">
+                  Continue
+                  <span className="absolute left-1/2 top-full h-2 w-2 -translate-x-1/2 -translate-y-1 rotate-45 border-b-2 border-r-2 border-border bg-card" />
+                </div>
+              )}
+              <div
+                className={cn(
+                  'flex h-[60px] w-[60px] items-center justify-center rounded-full border-4 transition-transform duration-200 hover:scale-105 active:scale-95',
+                  stage.status === 'done' && 'border-primary-tint bg-primary text-primary-foreground',
+                  stage.status === 'current' && 'border-primary-tint bg-primary text-primary-foreground motion-safe:animate-glow-pulse',
+                  stage.status === 'locked' && 'border-border bg-card text-muted-foreground',
+                )}
+              >
+                <Icon className="h-6 w-6" />
+              </div>
+              <p className={cn('mt-1.5 max-w-[11rem] text-center text-sm font-bold leading-tight', stage.status === 'locked' ? 'text-muted-foreground' : 'text-foreground')}>
+                {stage.order}. {stage.title}
+              </p>
+              <p className="mt-0.5 max-w-[11rem] text-center text-[11px] leading-snug text-muted-foreground">{stage.description}</p>
+              {stage.status === 'current' && canWrite && (
+                <Link href={`/dashboard/clients/${clientId}/growth/lesson/${stage.key}`} className="mt-1.5 rounded-xl bg-primary px-3 py-1.5 text-xs font-bold text-primary-foreground shadow-press-sm transition-transform active:translate-y-[1px] active:shadow-none">
+                  Start Mission →
+                </Link>
+              )}
+              {stage.status === 'done' && (
+                <Link href={`/dashboard/clients/${clientId}/growth/lesson/${stage.key}`} className="mt-1 text-xs font-semibold text-muted-foreground hover:text-foreground">
+                  Review
+                </Link>
+              )}
+            </div>
           </div>
-          <p className={cn('mt-1.5 max-w-[9.5rem] text-center text-xs font-bold leading-tight', status === 'locked' ? 'text-muted-foreground' : 'text-foreground')}>
-            Phase {phase.order} · {phase.title}
-          </p>
-          <div className="mt-1 w-44 space-y-1">
-            {stages.map((stage) => (
-              <RoadmapStageRow key={stage.key} stage={stage} clientId={clientId} canWrite={canWrite} />
-            ))}
-          </div>
-        </div>
-      ))}
+        )
+      })}
 
       {/* Trophy finish */}
       <div className="absolute left-1/2 flex -translate-x-1/2 flex-col items-center gap-1 text-center" style={{ top: pathHeight - BOTTOM_PAD }}>
         <TrophyIcon className="h-14 w-14 drop-shadow" />
         <p className="text-[7px] font-bold tracking-widest text-warning">GROWTH MASTER</p>
-      </div>
-    </div>
-  )
-}
-
-/** Duolingo-style colored "unit" banner naming the client's current phase. */
-function CurrentPhaseBanner({ phases }: { phases: PhaseData[] }) {
-  const current = phases.find((p) => p.status === 'current') ?? phases[phases.length - 1]!
-  return (
-    <div className="flex items-center gap-3 rounded-2xl bg-primary px-4 py-3 text-primary-foreground shadow-press">
-      <GummyMascot className="h-10 w-9 shrink-0" />
-      <div className="min-w-0">
-        <p className="text-[10px] font-bold uppercase tracking-wider opacity-85">
-          Phase {current.phase.order} of {GROWTH_PHASE_DEFS.length}
-        </p>
-        <p className="truncate font-display text-base font-extrabold">{current.phase.title}</p>
       </div>
     </div>
   )
@@ -244,9 +279,15 @@ export default async function ClientGrowthPage({ params }: { params: Promise<{ c
         </div>
 
         <Card className="overflow-hidden">
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <GummyMascot className="h-8 w-7 shrink-0" />
+              <CardTitle>Marketing Growth Map</CardTitle>
+            </div>
+            <p className="text-sm text-muted-foreground">Complete missions. Earn XP. Grow your business.</p>
+          </CardHeader>
           <CardContent className="space-y-4">
-            <CurrentPhaseBanner phases={phases} />
-            <PhaseRoadmap phases={phases} clientId={clientId} canWrite={canWrite} />
+            <GrowthRoadmap phases={phases} clientId={clientId} canWrite={canWrite} />
 
             {allDone && (
               <div className="flex items-center gap-2 rounded-xl border border-warning/30 bg-warning-bg px-3.5 py-2.5 text-sm font-semibold text-warning">

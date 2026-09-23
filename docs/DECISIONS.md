@@ -5,6 +5,53 @@ Newest entries at the top.
 
 ---
 
+## 2026-09-23 — Growth Map path back to one full node per stage, phase banners as dividers
+
+**Decision:** `GrowthRoadmap` (renamed from `PhaseRoadmap`) goes back to
+rendering all 10 stages individually - number, title, description, and
+action (Start Mission / Review / locked), matching the approved reference
+mockup exactly - instead of the previous round's 4 phase-summary nodes.
+Phases are now section dividers: a colored "PHASE N OF 4 · Title" banner
+is inserted into the path before that phase's first stage, the same idea
+as a real Duolingo unit banner, rather than a container that swallows its
+stages' own detail. Still one narrow, centered layout at every viewport
+width (no `sm:` branching) and still has the hover/press micro-animations,
+glow-pulse and "Continue" callout from the previous round.
+
+**Rationale:** Direct feedback, again with the reference mockup attached:
+"where is that stages one? like duolingo" - the phase-summary version had
+traded away the individual stage detail (title + description + own node
+per stage) the reference image shows for every one of the 10 stages. The
+phase concept itself (multiple steps grouped under a named phase) was
+never in question; what was missing was the per-stage detail within each
+phase.
+
+**A real overlap bug found and fixed, the hard way:** the first pass at
+this version budgeted each stage's vertical slot from estimated per-line
+heights (title/description/action), and the very first live screenshot
+showed banners overlapping the previous stage's text - the exact bug this
+layout hit before (docs/DECISIONS.md, "Growth Map path unified...").
+Bumping the constants didn't visibly move the overlap in the next
+screenshot, which looked like the fix wasn't taking effect - a `rm -rf
+.next` + fresh dev server ruled out a stale build. What actually resolved
+it was abandoning eyeballed screenshots entirely for the last mile:
+`page.evaluate(() => el.getBoundingClientRect())` on every path item,
+sorted top-to-bottom, reporting the real gap between each consecutive
+pair. That immediately showed the true (small, ~4-9px) overlap and which
+specific pair caused it, rather than continuing to guess at CSS pixel
+budgets from a compressed screenshot. Re-verified after the fix: every
+one of the 13 consecutive gaps on the page measured positive.
+
+**Alternative(s) considered:** None - this is a return to the earlier
+per-stage approach with the improved narrow/unified layout mechanics kept.
+
+**Revisit if:** Any future spacing change to this component should be
+confirmed the same way - measured `getBoundingClientRect()` gaps, not a
+screenshot read by eye - given how easy it was to misjudge "did this
+change do anything" from a compressed image.
+
+---
+
 ## 2026-09-23 — Left sidebar removed; navigation moved to a 4-item top bar with dropdowns
 
 **Decision:** `src/components/dashboard-nav.tsx`'s old flat 18-item sidebar
