@@ -94,10 +94,10 @@ export async function listCreativeAssets(ctx: AuthContext, clientId: string, fil
 }
 
 /** Org-wide listing, scoped to the caller's authorized clients - mirrors listContentCalendarItemsForOrg. */
-export async function listCreativeAssetsForOrg(ctx: AuthContext, filter: { status?: CreativeStatus; limit?: number } = {}) {
+export async function listCreativeAssetsForOrg(ctx: AuthContext, filter: { status?: CreativeStatus; clientId?: string; limit?: number } = {}) {
   assertPermission(ctx, 'clients.read')
   return db.creativeAsset.findMany({
-    where: { ...scopedClientWhere(ctx), ...(filter.status && { status: filter.status }) },
+    where: { ...scopedClientWhere(ctx), ...(filter.status && { status: filter.status }), ...(filter.clientId && { clientId: filter.clientId }) },
     include: { client: { select: { id: true, name: true } } },
     orderBy: { createdAt: 'desc' },
     take: filter.limit ?? 50,

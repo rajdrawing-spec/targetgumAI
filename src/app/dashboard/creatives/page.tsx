@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { Check, Image as ImageIcon, Send, Sparkles, X } from 'lucide-react'
 import { getCurrentAuthContext } from '@/lib/auth/current-context'
 import { listCreativeAssetsForOrg } from '@/lib/creative/persist'
+import { listAccessibleClients } from '@/lib/clients/list'
 import {
   approveCreativeAction,
   generateCreativeDesignAction,
@@ -14,23 +15,61 @@ import { Card, CardContent } from '@/components/ui/card'
 import { StatusBadge } from '@/components/ui/badge'
 import { EmptyState } from '@/components/ui/empty-state'
 import { ActionForm, SubmitButton } from '@/components/ui/action-form'
+import { cn } from '@/lib/utils'
 
 /**
  * Creative asset review (BRD Section 67/85 Phase 2 - the Canva creative
  * workflow). Shows every `CreativeAsset` across every client the caller
  * can see, with the status-transition actions available at each stage.
- * Concept generation is triggered from a client's workspace.
+ * Concept generation is triggered from a client's workspace. The
+ * `clientId` filter exists so the Growth Map's "audit-creative-library"
+ * mission can deep-link straight to one client's assets instead of the
+ * full cross-client list (docs/DECISIONS.md).
  */
-export default async function CreativesPage() {
-  const ctx = await getCurrentAuthContext()
+export default async function CreativesPage({ searchParams }: { searchParams: Promise<{ clientId?: string }> }) {
+  const [{ clientId }, ctx] = await Promise.all([searchParams, getCurrentAuthContext()])
   if (!ctx) redirect('/sign-in')
 
-  const assets = await listCreativeAssetsForOrg(ctx, { limit: 100 })
+  const [assets, clients] = await Promise.all([
+    listCreativeAssetsForOrg(ctx, { limit: 100, clientId }),
+    listAccessibleClients(ctx),
+  ])
   const canManage = ctx.permissions.has('creative.manage')
+  const filteredClient = clientId ? clients.find((c) => c.id === clientId) : undefined
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Creatives" description="Review and approve AI-generated creative concepts before they become Canva designs." />
+      <PageHeader
+        title="Creatives"
+        description={filteredClient ? `Reviewing ${filteredClient.name}'s creative assets.` : 'Review and approve AI-generated creative concepts before they become Canva designs.'}
+      />
+
+      {clients.length > 0 && (
+        <div className="flex items-center gap-2 overflow-x-auto pb-1">
+          <span className="text-xs font-semibold text-muted-foreground whitespace-nowrap">Filter workspace:</span>
+          <Link
+            href="/dashboard/creatives"
+            className={cn(
+              'rounded-full px-3 py-1.5 text-xs font-semibold transition-colors whitespace-nowrap',
+              !clientId ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground',
+            )}
+          >
+            All clients
+          </Link>
+          {clients.map((c) => (
+            <Link
+              key={c.id}
+              href={`/dashboard/creatives?clientId=${c.id}`}
+              className={cn(
+                'rounded-full px-3 py-1.5 text-xs font-semibold transition-colors whitespace-nowrap',
+                clientId === c.id ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground',
+              )}
+            >
+              {c.name}
+            </Link>
+          ))}
+        </div>
+      )}
 
       {assets.length === 0 ? (
         <EmptyState

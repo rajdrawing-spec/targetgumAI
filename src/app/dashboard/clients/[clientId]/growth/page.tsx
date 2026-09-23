@@ -1,11 +1,12 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { CheckCircle2, Flame, Lock, Target, Zap } from 'lucide-react'
+import { ArrowUpRight, CheckCircle2, Flame, Lock, Target, Zap } from 'lucide-react'
 import { getCurrentAuthContext } from '@/lib/auth/current-context'
 import { getGrowthProgress, xpToNextLevel } from '@/lib/growth/progress'
 import { getStageStates } from '@/lib/growth/stages'
 import { getMissionProgress, getWeeklyMissionCompletionCount } from '@/lib/growth/missions'
 import { listAchievements } from '@/lib/growth/achievements'
+import { MISSION_SCREEN_LINKS } from '@/lib/growth/mission-links'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ActionForm, SubmitButton } from '@/components/ui/action-form'
 import { buttonVariants } from '@/components/ui/button'
@@ -270,6 +271,14 @@ export default async function ClientGrowthPage({ params }: { params: Promise<{ c
                   </div>
                   <span className="shrink-0 rounded-full bg-primary-tint px-2 py-0.5 text-xs font-medium text-primary">+{mission.xpReward} XP</span>
                 </div>
+                {MISSION_SCREEN_LINKS[mission.key] && (
+                  <Link
+                    href={MISSION_SCREEN_LINKS[mission.key]!.href(clientId)}
+                    className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                  >
+                    {MISSION_SCREEN_LINKS[mission.key]!.label} <ArrowUpRight className="h-3 w-3" />
+                  </Link>
+                )}
                 <ProgressBar value={progressCount} max={mission.targetCount} />
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-muted-foreground">
