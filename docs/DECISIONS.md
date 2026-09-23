@@ -5,6 +5,80 @@ Newest entries at the top.
 
 ---
 
+## 2026-09-23 — Growth Map content rewritten for a zero-marketing-background persona; Stage 1 becomes a plain-language intake form
+
+**Decision:** The Growth Map's lesson content and Stage 1 mechanic are
+rebuilt around a "someone who has never done any marketing" persona - the
+running example is a small independent maker (a potter selling handmade
+goods), not a marketing professional. Two changes:
+
+1. `src/lib/growth/lesson-defs.ts`'s 36 quiz questions across the 9
+   quiz-based stages (everything except `DEFINE_BUSINESS`) are rewritten in
+   plain, everyday language. No jargon anywhere - no "value proposition",
+   "ICP", "ROAS", "CTR", "funnel", "A/B test", "LTV:CAC", "SMART goals",
+   "negative keywords", etc. Every question and explanation uses a concrete,
+   relatable example from a small handmade-goods business. `LESSON_DEFS`
+   changed from `Record<GrowthStageKey, LessonDef>` to
+   `Partial<Record<...>>` and `getLessonForStage` now returns
+   `LessonDef | undefined`, since `DEFINE_BUSINESS` has no quiz entry at
+   all.
+2. Stage 1 ("Define Your Business") is no longer a quiz. It's a new
+   component, `BusinessIntakeForm` (`src/components/growth/business-intake-
+   form.tsx`), rendered by a branch in `growth/lesson/[stage]/page.tsx`: four
+   plain-language questions ("What do you make or sell?", "What makes your
+   work special?", "Where do people buy from you?", "What would you like
+   this to help you achieve?"), each with a short concrete example, that
+   write straight into the Client Brain's existing `business` section via a
+   new `completeBusinessIntakeAction`. Someone brand new to their own
+   business page shouldn't be quizzed on marketing terms before they've even
+   described what they make.
+
+The intake form is not a one-time gate the way the quiz stages are: since a
+business's own description of itself can change, the form stays open and
+resubmittable after Stage 1 is marked complete (shown as a "Saved - you can
+update this anytime" badge instead of being replaced by a read-only summary).
+`completeBusinessIntakeAction` only calls `completeStage` while
+`DEFINE_BUSINESS` is still the client's *current* stage (checked via
+`getStageStates`, matching how `completeStage` itself enforces one-stage-at-
+a-time); resubmitting later just updates the Brain section without trying
+to re-complete a stage that's already moved past.
+
+**Rationale:** Direct user feedback via a "village potter" persona
+description: the target user for this app has no digital marketing
+background at all - a small manufacturer or craftsperson with a unique
+product and no budget for a marketing agency. An app whose very first
+screen quizzes that person on terms like "value proposition" or "ideal
+customer profile" fails its actual audience before it's taught them
+anything. The fix has to be content-and-interaction-model, not visual:
+rewriting words in the existing quiz UI wasn't enough for Stage 1
+specifically, because a form (not a quiz) is the right mechanic for
+"describe your own business" - there's no right/wrong answer to grade, and
+the data needs to persist as structured Brain fields the AI Gateway reads,
+not just XP.
+
+**Alternative(s) considered:** Keeping `DEFINE_BUSINESS` as a quiz but
+simplifying its wording - rejected, since the user's own words were "we
+need to understand about his business and his basic info" first, which is
+fundamentally a data-collection step, not a knowledge check. A brand-new
+Client Brain data model specific to onboarding - rejected in favor of
+writing into the existing `business` Brain section directly, since that's
+already the exact data the Business tab and AI Gateway read; a parallel
+"onboarding answers" store would just need reconciling with it later.
+Gating the intake form as one-time-only (like the quiz stages) - rejected,
+since a business profile is exactly the kind of thing that should stay
+editable, and the Business tab already allows this; matching that instead
+of introducing a special "locked after first save" state keeps the two
+surfaces consistent.
+
+**Revisit if:** Client feedback surfaces specific words or examples in the
+rewritten lesson content that still read as jargon to a first-time user, or
+if agencies managing more sophisticated clients ask for a way to skip the
+plain-language framing (at that point, a client-type flag on the
+persona/tone rather than two parallel content sets is the more scalable
+fix).
+
+---
+
 ## 2026-09-23 — Growth Map path back to one full node per stage, phase banners as dividers
 
 **Decision:** `GrowthRoadmap` (renamed from `PhaseRoadmap`) goes back to

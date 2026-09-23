@@ -5,9 +5,15 @@ import { getCurrentAuthContext } from '@/lib/auth/current-context'
 import { getStageStates, STAGE_XP_REWARD } from '@/lib/growth/stages'
 import { GROWTH_STAGE_ORDER } from '@/lib/growth/stage-defs'
 import { getLessonForStage } from '@/lib/growth/lesson-defs'
+import { getClientBrainSection } from '@/lib/clients/brain'
+import type { BusinessSectionSchema } from '@/lib/clients/brain-schemas'
+import type { z } from 'zod'
 import { LessonQuiz } from '@/components/growth/lesson-quiz'
-import { completeStageAction } from '../../actions'
+import { BusinessIntakeForm } from '@/components/growth/business-intake-form'
+import { completeStageAction, completeBusinessIntakeAction } from '../../actions'
 import type { GrowthStageKey } from '@prisma/client'
+
+type Business = z.infer<typeof BusinessSectionSchema>
 
 /**
  * A single Growth Map stage's lesson - the Duolingo-style quiz mechanic
@@ -29,19 +35,49 @@ export default async function GrowthLessonPage({ params }: { params: Promise<{ c
   if (!stageState) notFound()
   if (stageState.status === 'locked') redirect(`/dashboard/clients/${clientId}/growth`)
 
-  const lesson = getLessonForStage(stage)
   const canWrite = ctx.permissions.has('growth.write')
   const alreadyCompleted = stageState.status === 'done'
+
+  const crumb = (
+    <Link
+      href={`/dashboard/clients/${clientId}/growth`}
+      className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground"
+    >
+      <ChevronLeft className="h-3.5 w-3.5" /> Growth Map
+    </Link>
+  )
+
+  if (stage === 'DEFINE_BUSINESS') {
+    const business = ((await getClientBrainSection(ctx, clientId, 'business')) ?? {}) as Business
+    return (
+      <div className="space-y-5">
+        {crumb}
+        <div className="mx-auto max-w-xl text-center">
+          <p className="text-xs font-semibold uppercase tracking-wider text-primary">
+            Stage {stageState.order} of {GROWTH_STAGE_ORDER.length}
+          </p>
+          <h1 className="mt-1 font-display text-2xl font-bold tracking-tight text-foreground">Define Your Business</h1>
+          <p className="mt-1.5 text-sm text-muted-foreground">
+            Before we can help you market, we need to understand your business - in plain, everyday words.
+          </p>
+        </div>
+        <BusinessIntakeForm
+          business={business}
+          completeAction={completeBusinessIntakeAction.bind(null, clientId)}
+          canWrite={canWrite}
+          alreadyCompleted={alreadyCompleted}
+        />
+      </div>
+    )
+  }
+
+  const lesson = getLessonForStage(stage)
+  if (!lesson) notFound()
   const completeAction = !alreadyCompleted && canWrite ? completeStageAction.bind(null, clientId, stage) : null
 
   return (
     <div className="space-y-5">
-      <Link
-        href={`/dashboard/clients/${clientId}/growth`}
-        className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground"
-      >
-        <ChevronLeft className="h-3.5 w-3.5" /> Growth Map
-      </Link>
+      {crumb}
 
       <div className="mx-auto max-w-xl text-center">
         <p className="text-xs font-semibold uppercase tracking-wider text-primary">
