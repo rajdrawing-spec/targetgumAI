@@ -1,31 +1,47 @@
 'use client'
 
-import React, { useState, useMemo } from 'react'
+import { useState, useMemo } from 'react'
 import {
   Calendar as CalendarIcon,
   Sparkles,
   CheckCircle2,
   Clock,
-  Send,
-  Eye,
-  Plus,
   Share2,
-  ChevronLeft,
-  ChevronRight,
   Heart,
   MessageCircle,
   Repeat,
   Bookmark,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { Card } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Input, Textarea } from '@/components/ui/input'
 
 interface SocialHubProps {
   clients?: Array<{ id: string; name: string }>
 }
 
+const PLATFORMS = ['INSTAGRAM', 'FACEBOOK', 'LINKEDIN', 'X'] as const
+
+const STATUS_STYLE: Record<string, string> = {
+  PUBLISHED: 'bg-success-bg text-success',
+  PENDING_APPROVAL: 'bg-destructive-bg text-destructive',
+  SCHEDULED: 'bg-info-bg text-info',
+  DRAFT: 'bg-muted text-muted-foreground',
+}
+
+/**
+ * The Social Hub's calendar + composer - rebuilt onto the app's design
+ * system (Card/Button/Input, semantic success/warning/destructive/info
+ * tokens) rather than the old dark "terminal" theme's `terminal-panel`/
+ * `font-mono-data`/raw hex classes, which had never been migrated (this was
+ * the one screen still rendering the pre-redesign look by default, since
+ * it's the Content Calendar page's default "Calendar" view - see
+ * docs/DECISIONS.md).
+ */
 export function SocialCalendarHub({ clients = [] }: SocialHubProps) {
   const [selectedClientId, setSelectedClientId] = useState(clients[0]?.id || '')
-  const [activePlatform, setActivePlatform] = useState<'INSTAGRAM' | 'FACEBOOK' | 'LINKEDIN' | 'X'>('INSTAGRAM')
+  const [activePlatform, setActivePlatform] = useState<(typeof PLATFORMS)[number]>('INSTAGRAM')
   const [caption, setCaption] = useState(
     'Precision targeting drives predictable customer acquisition. Discover how the TargetGum Operating System streamlines your multi-channel ad spend.'
   )
@@ -34,10 +50,9 @@ export function SocialCalendarHub({ clients = [] }: SocialHubProps) {
   const [isGeneratingCopy, setIsGeneratingCopy] = useState(false)
   const [isScheduled, setIsScheduled] = useState(false)
 
-  // September 2026 Calendar days simulation
+  // September 2026 calendar days (illustrative sample data)
   const calendarDays = useMemo(() => {
     const days = []
-    // Pad for Tuesday start
     for (let p = 0; p < 2; p++) {
       days.push({ day: 30 + p, isCurrentMonth: false, date: `2026-08-${30 + p}` })
     }
@@ -51,7 +66,6 @@ export function SocialCalendarHub({ clients = [] }: SocialHubProps) {
     return days
   }, [])
 
-  // Sample scheduled posts
   const samplePosts = [
     { date: '2026-09-04', platform: 'INSTAGRAM', title: 'Product Showcase Reel', status: 'PUBLISHED' },
     { date: '2026-09-08', platform: 'LINKEDIN', title: 'Q3 Agency ROAS Report', status: 'PUBLISHED' },
@@ -74,72 +88,63 @@ export function SocialCalendarHub({ clients = [] }: SocialHubProps) {
   return (
     <div className="space-y-6">
       {/* Hub Header */}
-      <div className="terminal-panel p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2 font-mono-data text-[10px] text-[var(--text-muted-hex)] mb-1">
-            <span className="font-semibold text-[#E5252A]">METRICOOL & SOCIAL ENGINE</span>
-            <span>•</span>
-            <span>MULTI-CHANNEL POST DISPATCHER</span>
+      <Card className="p-5">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wider text-primary">Metricool &amp; Social Engine</p>
+            <h2 className="mt-1 flex items-center gap-2 font-display text-lg font-bold text-foreground">
+              <CalendarIcon className="h-5 w-5 text-primary" /> Social Hub &amp; Visual Scheduler
+            </h2>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Plan, compose, and automate social media releases with multi-network Metricool integration.
+            </p>
           </div>
-          <h2 className="text-lg font-display font-bold text-[var(--text-primary-hex)] flex items-center gap-2">
-            <CalendarIcon className="h-5 w-5 text-[#E5252A]" /> Social Hub & Visual Scheduler
-          </h2>
-          <p className="text-xs text-[var(--text-muted-hex)] mt-0.5">
-            Plan, compose, and automate social media releases with multi-network Metricool integration.
-          </p>
+
+          <div className="flex items-center gap-2">
+            {clients.length > 0 && (
+              <select
+                value={selectedClientId}
+                onChange={(e) => setSelectedClientId(e.target.value)}
+                className="rounded-xl border-2 border-input bg-card px-3 py-1.5 text-xs text-foreground focus-visible:border-primary focus-visible:outline-none"
+              >
+                {clients.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            )}
+
+            <Button type="button" size="sm" onClick={handleEnhanceCopy} disabled={isGeneratingCopy} className="gap-1.5">
+              <Sparkles className="h-3.5 w-3.5" />
+              <span>AI Copy Enhancer</span>
+            </Button>
+          </div>
         </div>
+      </Card>
 
-        <div className="flex items-center gap-2">
-          {clients.length > 0 && (
-            <select
-              value={selectedClientId}
-              onChange={(e) => setSelectedClientId(e.target.value)}
-              className="rounded border border-[var(--border-hairline)] bg-[var(--surface-subtle)] px-3 py-1.5 text-xs text-[var(--text-primary-hex)] focus:border-[#E5252A] focus:outline-none"
-            >
-              {clients.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          )}
-
-          <button
-            type="button"
-            onClick={handleEnhanceCopy}
-            className="btn-brand flex items-center gap-1.5 px-3 py-1.5 text-xs"
-          >
-            <Sparkles className="h-3.5 w-3.5" />
-            <span>AI Copy Enhancer</span>
-          </button>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
         {/* Left: 30-Day Interactive Calendar Grid */}
-        <div className="lg:col-span-7 terminal-card p-4 space-y-3">
-          <div className="flex items-center justify-between border-b border-[var(--border-hairline)] pb-3">
+        <Card className="space-y-3 p-4 lg:col-span-7">
+          <div className="flex items-center justify-between border-b border-border pb-3">
             <div className="flex items-center gap-2">
-              <CalendarIcon className="h-4 w-4 text-[#E5252A]" />
-              <span className="font-display text-sm font-semibold text-[var(--text-primary-hex)]">
-                September 2026
-              </span>
+              <CalendarIcon className="h-4 w-4 text-primary" />
+              <span className="font-display text-sm font-semibold text-foreground">September 2026</span>
             </div>
-            <div className="flex items-center gap-3 text-[10px] font-mono-data">
-              <span className="flex items-center gap-1 text-emerald-400">
-                <span className="h-2 w-2 rounded-full bg-emerald-400" /> Published
+            <div className="flex items-center gap-3 text-[11px] font-medium">
+              <span className="flex items-center gap-1 text-success">
+                <span className="h-2 w-2 rounded-full bg-success" /> Published
               </span>
-              <span className="flex items-center gap-1 text-[var(--danger-text-hex)]">
-                <span className="h-2 w-2 rounded-full bg-[#E5252A]" /> Pending
+              <span className="flex items-center gap-1 text-destructive">
+                <span className="h-2 w-2 rounded-full bg-destructive" /> Pending
               </span>
-              <span className="flex items-center gap-1 text-blue-400">
-                <span className="h-2 w-2 rounded-full bg-blue-400" /> Scheduled
+              <span className="flex items-center gap-1 text-info">
+                <span className="h-2 w-2 rounded-full bg-info" /> Scheduled
               </span>
             </div>
           </div>
 
-          {/* Days of Week Header */}
-          <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-mono-data text-[var(--text-faint-hex)] py-1 border-b border-[var(--border-hairline)]">
+          <div className="grid grid-cols-7 gap-1 border-b border-border py-1 text-center text-[10px] font-semibold text-muted-foreground">
             <span>SUN</span>
             <span>MON</span>
             <span>TUE</span>
@@ -149,28 +154,23 @@ export function SocialCalendarHub({ clients = [] }: SocialHubProps) {
             <span>SAT</span>
           </div>
 
-          {/* Days Grid */}
           <div className="grid grid-cols-7 gap-1">
             {calendarDays.map((d, i) => {
               const postsOnDay = samplePosts.filter((p) => p.date === d.date)
               const isSelected = selectedDate === d.date
 
               return (
-                <div
+                <button
+                  type="button"
                   key={i}
                   onClick={() => d.isCurrentMonth && setSelectedDate(d.date)}
                   className={cn(
-                    'min-h-[58px] p-1.5 rounded border transition-all cursor-pointer flex flex-col justify-between',
-                    d.isCurrentMonth ? 'bg-[var(--surface-subtle)] border-[var(--border-hairline)]' : 'bg-[var(--surface-footer)] border-transparent opacity-40',
-                    isSelected && 'border-[#E5252A] ring-1 ring-[#E5252A]'
+                    'flex min-h-[58px] flex-col justify-between rounded-lg border p-1.5 text-left transition-colors',
+                    d.isCurrentMonth ? 'bg-muted/40 border-border hover:bg-muted' : 'border-transparent bg-muted/10 opacity-40',
+                    isSelected && 'border-primary ring-2 ring-primary/25',
                   )}
                 >
-                  <span
-                    className={cn(
-                      'text-[10px] font-mono-data font-semibold',
-                      isSelected ? 'text-[#E5252A]' : 'text-[var(--text-muted-hex)]'
-                    )}
-                  >
+                  <span className={cn('text-[10px] font-semibold', isSelected ? 'text-primary' : 'text-muted-foreground')}>
                     {d.day}
                   </span>
 
@@ -178,42 +178,34 @@ export function SocialCalendarHub({ clients = [] }: SocialHubProps) {
                     {postsOnDay.map((post, pIdx) => (
                       <div
                         key={pIdx}
-                        className={cn(
-                          'truncate px-1 py-0.2 rounded text-[8px] font-mono-data font-bold uppercase',
-                          post.status === 'PUBLISHED' && 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40',
-                          post.status === 'PENDING_APPROVAL' && 'bg-[#E5252A]/20 text-[var(--danger-text-hex)] border border-[#E5252A]/40',
-                          post.status === 'SCHEDULED' && 'bg-blue-500/20 text-blue-300 border border-blue-500/40',
-                          post.status === 'DRAFT' && 'bg-[var(--border-hairline)] text-[var(--text-muted-hex)]'
-                        )}
+                        className={cn('truncate rounded px-1 py-0.5 text-[8px] font-bold uppercase', STATUS_STYLE[post.status])}
                         title={post.title}
                       >
                         {post.platform.slice(0, 2)}: {post.title}
                       </div>
                     ))}
                   </div>
-                </div>
+                </button>
               )
             })}
           </div>
-        </div>
+        </Card>
 
         {/* Right: Live Composer & Platform Simulation */}
-        <div className="lg:col-span-5 terminal-card p-4 space-y-4">
-          <div className="flex items-center justify-between border-b border-[var(--border-hairline)] pb-3">
-            <span className="text-xs font-display font-semibold uppercase tracking-wider text-[var(--text-primary-hex)] flex items-center gap-1.5">
-              <Share2 className="h-3.5 w-3.5 text-[#E5252A]" /> Post Composer
+        <Card className="space-y-4 p-4 lg:col-span-5">
+          <div className="flex items-center justify-between border-b border-border pb-3">
+            <span className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-foreground">
+              <Share2 className="h-3.5 w-3.5 text-primary" /> Post Composer
             </span>
             <div className="flex items-center gap-1">
-              {(['INSTAGRAM', 'FACEBOOK', 'LINKEDIN', 'X'] as const).map((p) => (
+              {PLATFORMS.map((p) => (
                 <button
                   key={p}
                   type="button"
                   onClick={() => setActivePlatform(p)}
                   className={cn(
-                    'px-2 py-0.5 text-[10px] font-mono-data rounded transition-colors',
-                    activePlatform === p
-                      ? 'bg-[#E5252A] text-white font-bold'
-                      : 'text-[var(--text-muted-hex)] hover:text-white bg-[var(--surface-subtle)]'
+                    'rounded-md px-2 py-1 text-[10px] font-semibold transition-colors',
+                    activePlatform === p ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted hover:text-foreground',
                   )}
                 >
                   {p.slice(0, 2)}
@@ -223,29 +215,24 @@ export function SocialCalendarHub({ clients = [] }: SocialHubProps) {
           </div>
 
           {/* Live Mobile Feed Card Preview */}
-          <div className="rounded border border-[var(--border-hairline)] bg-[var(--surface-subtle)] p-3 space-y-2">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="h-6 w-6 rounded-full bg-[#E5252A] flex items-center justify-center text-[10px] font-bold text-white">
-                  TG
-                </div>
-                <div>
-                  <p className="text-xs font-semibold text-[var(--text-primary-hex)]">TargetGum Marketing</p>
-                  <p className="text-[9px] font-mono-data text-[var(--text-faint-hex)]">
-                    {activePlatform} · Scheduled for {selectedDate}
-                  </p>
-                </div>
+          <div className="space-y-2 rounded-xl border border-border bg-muted/30 p-3">
+            <div className="flex items-center gap-2">
+              <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
+                TG
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-foreground">TargetGum Marketing</p>
+                <p className="text-[10px] text-muted-foreground">
+                  {activePlatform} · Scheduled for {selectedDate}
+                </p>
               </div>
             </div>
 
-            <p className="text-xs text-[var(--text-primary-hex)] leading-relaxed whitespace-pre-line">
-              {caption}
-            </p>
+            <p className="whitespace-pre-line text-xs leading-relaxed text-foreground">{caption}</p>
 
-            <p className="text-[11px] font-mono-data text-[#E5252A]">{hashtags}</p>
+            <p className="text-[11px] font-medium text-primary">{hashtags}</p>
 
-            {/* Social Engagement Icons */}
-            <div className="flex items-center justify-between pt-1 border-t border-[var(--border-hairline)] text-[var(--text-faint-hex)]">
+            <div className="flex items-center justify-between border-t border-border pt-2 text-muted-foreground">
               <div className="flex items-center gap-3">
                 <Heart className="h-3.5 w-3.5" />
                 <MessageCircle className="h-3.5 w-3.5" />
@@ -258,53 +245,42 @@ export function SocialCalendarHub({ clients = [] }: SocialHubProps) {
           {/* Composer Inputs */}
           <div className="space-y-2.5">
             <div>
-              <label className="block text-[11px] font-mono-data text-[var(--text-muted-hex)] mb-1">
+              <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Post Caption
               </label>
-              <textarea
-                rows={3}
-                value={caption}
-                onChange={(e) => setCaption(e.target.value)}
-                className="w-full rounded border border-[var(--border-hairline)] bg-[var(--surface-subtle)] px-3 py-2 text-xs text-[var(--text-primary-hex)] focus:border-[#E5252A] focus:outline-none resize-none"
-              />
+              <Textarea rows={3} value={caption} onChange={(e) => setCaption(e.target.value)} />
             </div>
 
             <div>
-              <label className="block text-[11px] font-mono-data text-[var(--text-muted-hex)] mb-1">
-                Tags & Hashtags
+              <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Tags &amp; Hashtags
               </label>
-              <input
-                type="text"
-                value={hashtags}
-                onChange={(e) => setHashtags(e.target.value)}
-                className="w-full rounded border border-[var(--border-hairline)] bg-[var(--surface-subtle)] px-3 py-1.5 text-xs text-[var(--text-primary-hex)] focus:border-[#E5252A] focus:outline-none font-mono-data"
-              />
+              <Input type="text" value={hashtags} onChange={(e) => setHashtags(e.target.value)} />
             </div>
 
-            <div className="pt-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setIsScheduled(true)
-                  setTimeout(() => setIsScheduled(false), 2500)
-                }}
-                className="w-full btn-brand py-2 text-xs flex items-center justify-center gap-2"
-              >
-                {isScheduled ? (
-                  <>
-                    <CheckCircle2 className="h-4 w-4 text-white" />
-                    <span>Post Scheduled to Metricool Queue</span>
-                  </>
-                ) : (
-                  <>
-                    <Clock className="h-4 w-4" />
-                    <span>Schedule Post for {selectedDate}</span>
-                  </>
-                )}
-              </button>
-            </div>
+            <Button
+              type="button"
+              size="lg"
+              className="w-full gap-2"
+              onClick={() => {
+                setIsScheduled(true)
+                setTimeout(() => setIsScheduled(false), 2500)
+              }}
+            >
+              {isScheduled ? (
+                <>
+                  <CheckCircle2 className="h-4 w-4" />
+                  <span>Post Scheduled to Metricool Queue</span>
+                </>
+              ) : (
+                <>
+                  <Clock className="h-4 w-4" />
+                  <span>Schedule Post for {selectedDate}</span>
+                </>
+              )}
+            </Button>
           </div>
-        </div>
+        </Card>
       </div>
     </div>
   )

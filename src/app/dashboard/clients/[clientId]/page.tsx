@@ -83,9 +83,9 @@ export default async function ClientOverviewPage({ params }: { params: Promise<{
         </Link>
         <Link
           href={`/dashboard/ads/new?clientId=${clientId}&platform=AMAZON_ADS`}
-          className="inline-flex items-center gap-1.5 rounded-md border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-900 hover:bg-amber-100 transition-colors"
+          className="inline-flex items-center gap-1.5 rounded-md border border-warning/30 bg-warning-bg px-3 py-1.5 text-xs font-semibold text-warning hover:brightness-95 transition-colors"
         >
-          <ShoppingBag className="h-3.5 w-3.5 text-amber-600" /> Amazon PPC
+          <ShoppingBag className="h-3.5 w-3.5 text-warning" /> Amazon PPC
         </Link>
         <Link
           href={`/dashboard/ads/analytics?clientId=${clientId}`}

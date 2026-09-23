@@ -13,7 +13,7 @@ export function PageHeader({
     <div className="flex flex-wrap items-start justify-between gap-4">
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-foreground font-display">{title}</h1>
-        {description && <p className="mt-1.5 text-sm text-[var(--text-muted-hex)] leading-relaxed">{description}</p>}
+        {description && <p className="mt-1.5 text-sm text-muted-foreground leading-relaxed">{description}</p>}
       </div>
       {action}
     </div>

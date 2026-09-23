@@ -5,6 +5,72 @@ Newest entries at the top.
 
 ---
 
+## 2026-09-23 — Visual consistency audit: raw Tailwind colors and leftover "terminal" theme surfaces migrated to design tokens
+
+**Decision:** Swept the whole app for two classes of visual inconsistency and
+fixed every instance found, rather than just the two pages originally
+scoped (Keyword Research, Content Calendar):
+
+1. **Raw Tailwind palette utilities** (`text-emerald-600`, `bg-rose-50`,
+   `border-amber-300`, etc.) used instead of the app's semantic status
+   tokens (`text-success`/`bg-success-bg`, `text-warning`/`bg-warning-bg`,
+   `text-destructive`/`bg-destructive-bg`, `text-info`/`bg-info-bg`,
+   `tailwind.config.ts`). These don't move with the theme system and don't
+   match the brand palette - found and fixed across 10 files (Keyword
+   Research being the worst, 38 instances) via
+   `grep -rlE "(text|bg|border)-(emerald|indigo|rose|...)-[0-9]{2,3}"`.
+2. **Un-migrated "terminal" theme components** - four components/pages
+   still rendering the pre-redesign dark aesthetic (`terminal-panel`/
+   `terminal-card` classes, `font-mono-data`, the `--*-hex` CSS variable
+   mirrors used as literal Tailwind arbitrary values, raw `#E5252A`) instead
+   of the current Card/Button/semantic-token system: `SocialCalendarHub`
+   (the Content Calendar page's default view), `MarketingSearchBar` (the
+   dashboard home page's primary search bar), `UniversalSearch` and
+   `NotificationBell` (both in the top nav header on every page), and the
+   sign-in page. All five were rewritten onto the same design system as the
+   rest of the app - `Card`/`Button`/`Input`/`Textarea` primitives and
+   `bg-background`/`text-foreground`/`bg-muted`/`border-border` tokens -
+   with no functional changes.
+
+Also deleted `src/components/brand-brain/brand-brain-view.tsx` - a
+"terminal"-themed component with 31 raw-color instances that turned out to
+be **orphaned dead code**, never imported or rendered by any route (the
+real Brand tab, `clients/[clientId]/brand/page.tsx`, already covers this
+data with real persistence). Reskinning an unreachable mockup would have
+been wasted effort; deleting it is the correct fix.
+
+Left `command-center-telemetry.tsx`'s `var(--text-primary-hex)` /
+`var(--border-hairline)` / `var(--surface-base)` usages alone - those are
+inline Recharts SVG `stroke`/`fill`/`contentStyle` props, which cannot take
+Tailwind classes, and the raw-hex mirror tokens in `globals.css` exist
+specifically for this case (see that file's own "Raw hex mirror of the
+tokens above, for the components that use Tailwind arbitrary-value
+classes... instead of the semantic classes" comment). Not debt.
+
+**Rationale:** Direct user feedback that the app "should make sense, feel
+professional and easy to use" - the two page-scoped tasks
+(#30/#31 in the working punch list) undersold the actual problem: several
+of the *most-visible* surfaces (the header search bar and notification
+bell present on literally every page, the dashboard home page's own search
+bar, the sign-in screen) were still on the old dark theme, which reads as
+an unfinished, inconsistent product on first look - a bigger hit to
+"professional" than any single page's styling.
+
+**Alternative(s) considered:** Only fixing the two originally-scoped pages
+- rejected once the header components turned out to still be un-migrated;
+leaving them dark-themed while the rest of the app is light-themed would
+have been a more jarring inconsistency than either theme alone. Reskinning
+`BrandBrainView` instead of deleting it - rejected after confirming via
+`grep` that nothing imports it; effort spent polishing unreachable code is
+effort not available for surfaces users actually see.
+
+**Revisit if:** A future visual pass wants to re-introduce a "terminal"/
+dense-data aesthetic deliberately (e.g. for a power-user analytics view) -
+at that point it should be a named third variant in the design system, not
+a leftover from before the Duolingo-style redesign.
+
+---
+
 ## 2026-09-23 — Growth Map content rewritten for a zero-marketing-background persona; Stage 1 becomes a plain-language intake form
 
 **Decision:** The Growth Map's lesson content and Stage 1 mechanic are

@@ -72,11 +72,11 @@ export default function SignInPage() {
         className="pointer-events-none absolute -top-40 left-1/2 h-[36rem] w-[36rem] -translate-x-1/2 rounded-full bg-primary/10 blur-3xl"
       />
 
-      <ThemeToggle className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-md text-[var(--text-muted-hex)] transition-colors hover:bg-[var(--surface-subtle)] hover:text-[var(--text-primary-hex)] sm:right-6 sm:top-6" />
+      <ThemeToggle className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground sm:right-6 sm:top-6" />
 
       <div className="relative w-full max-w-sm">
         <div className="mb-6 flex flex-col items-center gap-2 text-center">
-          <div className="relative flex h-14 w-14 items-center justify-center overflow-hidden rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-ink)] shadow-glow">
+          <div className="relative flex h-14 w-14 items-center justify-center overflow-hidden rounded-xl border border-border bg-card shadow-glow">
             <img
               src="/logo.jpg"
               alt="TargetGum Logo"
@@ -84,10 +84,10 @@ export default function SignInPage() {
             />
           </div>
           <div>
-            <h1 className="text-xl font-display font-bold tracking-tight text-[var(--text-primary-hex)]">
-              Target<span className="text-[#E5252A]">Gum</span>
+            <h1 className="text-xl font-display font-bold tracking-tight text-foreground">
+              Target<span className="text-primary">Gum</span>
             </h1>
-            <p className="font-mono-data text-[10px] uppercase tracking-widest text-[var(--text-muted-hex)]">
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
               Precision Marketing. Real Results.
             </p>
           </div>

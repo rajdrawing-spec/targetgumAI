@@ -132,7 +132,7 @@ export function UniversalSearch({ className }: { className?: string }) {
   return (
     <div ref={containerRef} className={cn('relative w-full', className)}>
       <div className="relative">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-faint-hex)]" />
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <input
           ref={inputRef}
           type="text"
@@ -149,10 +149,10 @@ export function UniversalSearch({ className }: { className?: string }) {
           aria-expanded={showDropdown}
           aria-controls="universal-search-results"
           autoComplete="off"
-          className="h-9 w-full rounded-full border border-[var(--border-hairline)] bg-[var(--surface-subtle)] pl-9 pr-12 text-[13px] text-[var(--text-primary-hex)] placeholder:text-[var(--text-faint-hex)] outline-none transition-colors focus:border-[#E5252A]/60 focus:bg-[var(--surface-base)]"
+          className="h-9 w-full rounded-full border border-border bg-muted pl-9 pr-12 text-[13px] text-foreground placeholder:text-muted-foreground outline-none transition-colors focus:border-primary/60 focus:bg-card"
         />
         {!query && (
-          <kbd className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 rounded border border-[var(--border-hairline)] bg-[var(--surface-base)] px-1.5 py-0.5 font-mono-data text-[10px] text-[var(--text-faint-hex)]">
+          <kbd className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 rounded border border-border bg-card px-1.5 py-0.5 text-[10px] text-muted-foreground">
             /
           </kbd>
         )}
@@ -162,10 +162,10 @@ export function UniversalSearch({ className }: { className?: string }) {
         <div
           id="universal-search-results"
           role="listbox"
-          className="absolute left-0 right-0 top-full z-50 mt-2 max-h-96 overflow-y-auto rounded-lg border border-[var(--border-hairline)] bg-[var(--surface-base)] py-2 shadow-lg"
+          className="absolute left-0 right-0 top-full z-50 mt-2 max-h-96 overflow-y-auto rounded-xl border border-border bg-card py-2 shadow-popover"
         >
           {matches.length === 0 ? (
-            <p className="px-4 py-3 text-[13px] text-[var(--text-muted-hex)]">No results for &quot;{query}&quot;</p>
+            <p className="px-4 py-3 text-[13px] text-muted-foreground">No results for &quot;{query}&quot;</p>
           ) : (
             <>
               {navMatches.length > 0 && (
@@ -177,7 +177,7 @@ export function UniversalSearch({ className }: { className?: string }) {
                       onClick={() => go(m)}
                       onMouseEnter={() => setActiveIndex(matches.indexOf(m))}
                     >
-                      <m.icon className="h-4 w-4 shrink-0 text-[var(--text-dim-hex)]" />
+                      <m.icon className="h-4 w-4 shrink-0 text-muted-foreground" />
                       <span className="truncate">{m.label}</span>
                     </SearchRow>
                   ))}
@@ -192,11 +192,11 @@ export function UniversalSearch({ className }: { className?: string }) {
                       onClick={() => go(m)}
                       onMouseEnter={() => setActiveIndex(matches.indexOf(m))}
                     >
-                      <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-sm bg-[#E5252A]/10 text-[9px] font-bold text-[var(--danger-text-hex)]">
+                      <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-sm bg-primary-tint text-[9px] font-bold text-primary">
                         {m.label.charAt(0).toUpperCase()}
                       </span>
                       <span className="truncate">{m.label}</span>
-                      <span className="ml-auto shrink-0 truncate text-[11px] text-[var(--text-faint-hex)]">{m.sublabel}</span>
+                      <span className="ml-auto shrink-0 truncate text-[11px] text-muted-foreground">{m.sublabel}</span>
                     </SearchRow>
                   ))}
                 </SearchGroup>
@@ -212,7 +212,7 @@ export function UniversalSearch({ className }: { className?: string }) {
 function SearchGroup({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <div className="px-4 py-1 font-mono-data text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted-hex)]">
+      <div className="px-4 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
         {label}
       </div>
       {children}
@@ -239,12 +239,12 @@ function SearchRow({
       onClick={onClick}
       onMouseEnter={onMouseEnter}
       className={cn(
-        'flex w-full items-center gap-2.5 px-4 py-2 text-left text-[13px] text-[var(--text-secondary-hex)] transition-colors',
-        active && 'bg-[var(--surface-subtle)] text-[var(--text-primary-hex)]',
+        'flex w-full items-center gap-2.5 px-4 py-2 text-left text-[13px] text-muted-foreground transition-colors',
+        active && 'bg-muted text-foreground',
       )}
     >
       {children}
-      {active && <CornerDownLeft className="ml-auto h-3 w-3 shrink-0 text-[var(--text-faint-hex)]" />}
+      {active && <CornerDownLeft className="ml-auto h-3 w-3 shrink-0 text-muted-foreground" />}
     </button>
   )
 }

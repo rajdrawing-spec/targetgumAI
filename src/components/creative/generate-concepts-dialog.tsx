@@ -37,7 +37,7 @@ export function GenerateConceptsDialog({ clientId }: { clientId: string }) {
       <dialog
         ref={dialogRef}
         onClose={() => setOpen(false)}
-        className="w-full max-w-md rounded-2xl border-2 border-border bg-card p-0 text-foreground shadow-popover backdrop:bg-slate-950/40"
+        className="w-full max-w-md rounded-2xl border-2 border-border bg-card p-0 text-foreground shadow-popover backdrop:bg-foreground/40"
       >
         {open && (
           <div className="space-y-4 p-5">

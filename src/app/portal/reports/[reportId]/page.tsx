@@ -72,7 +72,7 @@ export default async function PortalReportDetailPage({ params }: { params: Promi
           </div>
           <div className="rounded-xl border border-border bg-card p-3.5 shadow-subtle">
             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">Return on Ad Spend</span>
-            <p className="mt-1 text-xl font-bold text-emerald-600 tabular-nums">{content.metrics.roas}x ROAS</p>
+            <p className="mt-1 text-xl font-bold text-success tabular-nums">{content.metrics.roas}x ROAS</p>
           </div>
         </div>
       )}
@@ -89,7 +89,7 @@ export default async function PortalReportDetailPage({ params }: { params: Promi
                 <div key={ch.platform} className="rounded-lg border border-border bg-muted/20 p-3 text-xs space-y-1">
                   <p className="font-bold text-foreground">{ch.platform}</p>
                   <p className="text-muted-foreground">{ch.impressions.toLocaleString()} impressions · ${ch.spend} spend</p>
-                  <p className="font-semibold text-emerald-600">{ch.roas}x ROAS</p>
+                  <p className="font-semibold text-success">{ch.roas}x ROAS</p>
                 </div>
               ))}
             </div>
@@ -111,7 +111,7 @@ export default async function PortalReportDetailPage({ params }: { params: Promi
                 <div key={i} className="rounded-lg border border-border p-4 bg-muted/10 space-y-2 text-xs">
                   <div className="flex items-center justify-between">
                     <h4 className="text-sm font-bold text-foreground">{diag.title}</h4>
-                    <span className="font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded">
+                    <span className="font-bold text-success bg-success-bg px-2 py-0.5 rounded">
                       {diag.impact}
                     </span>
                   </div>

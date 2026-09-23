@@ -92,8 +92,8 @@ export default async function PortalClientPage({ params }: { params: Promise<{ c
             {toReview.length > 0 ? `${toReview.length} recommendation${toReview.length === 1 ? '' : 's'} waiting for your review.` : 'Marketing telemetry and performance portal.'}
           </p>
         </div>
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 px-3 py-1 text-xs font-semibold">
-          <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" /> Client Dashboard Active
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-success-bg text-success border border-success/20 px-3 py-1 text-xs font-semibold">
+          <span className="h-2 w-2 rounded-full bg-success animate-pulse" /> Client Dashboard Active
         </span>
       </div>
 
@@ -116,7 +116,7 @@ export default async function PortalClientPage({ params }: { params: Promise<{ c
               <div className="rounded-lg bg-card border border-border p-3">
                 <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">Impressions</span>
                 <p className="mt-1 text-xl font-bold text-foreground tabular-nums">{clientImpressions.toLocaleString()}</p>
-                <span className="text-[11px] text-emerald-600 font-semibold inline-flex items-center gap-1 mt-0.5">
+                <span className="text-[11px] text-success font-semibold inline-flex items-center gap-1 mt-0.5">
                   <TrendingUp className="h-3 w-3" /> Active visibility
                 </span>
               </div>
@@ -135,7 +135,7 @@ export default async function PortalClientPage({ params }: { params: Promise<{ c
 
               <div className="rounded-lg bg-card border border-border p-3">
                 <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">Return on Ad Spend</span>
-                <p className="mt-1 text-xl font-bold text-emerald-600 tabular-nums">{clientRoas.toFixed(2)}x ROAS</p>
+                <p className="mt-1 text-xl font-bold text-success tabular-nums">{clientRoas.toFixed(2)}x ROAS</p>
                 <span className="text-[11px] text-muted-foreground mt-0.5 block">${clientRevenue.toLocaleString()} revenue</span>
               </div>
             </div>

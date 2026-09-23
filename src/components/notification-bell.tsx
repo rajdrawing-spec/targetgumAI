@@ -35,13 +35,13 @@ export function NotificationBell({ unreadCount, items }: { unreadCount: number; 
 
       <label
         htmlFor="notification-bell-toggle"
-        className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded text-[var(--text-faint-hex)] transition-colors hover:bg-[var(--surface-subtle)] hover:text-[var(--text-primary-hex)]"
+        className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
         aria-label={unreadCount > 0 ? `${unreadCount} unread notifications` : 'Notifications'}
       >
         <span className="relative flex">
           <Bell className="h-4 w-4" />
           {unreadCount > 0 && (
-            <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#E5252A] px-1 text-[9px] font-bold leading-none text-white">
+            <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[9px] font-bold leading-none text-primary-foreground">
               {unreadCount > 9 ? '9+' : unreadCount}
             </span>
           )}
@@ -55,9 +55,9 @@ export function NotificationBell({ unreadCount, items }: { unreadCount: number; 
         className="fixed inset-0 z-40 hidden cursor-default peer-checked:block"
       />
 
-      <div className="invisible absolute right-0 top-full z-50 mt-2 w-80 max-w-[calc(100vw-2rem)] origin-top-right scale-95 overflow-hidden rounded-md border border-[var(--border-hairline)] bg-[var(--surface-base)] opacity-0 shadow-lg transition-[opacity,transform] duration-100 peer-checked:visible peer-checked:scale-100 peer-checked:opacity-100">
-        <div className="flex items-center justify-between border-b border-[var(--border-hairline)] px-3 py-2">
-          <span className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted-hex)]">Notifications</span>
+      <div className="invisible absolute right-0 top-full z-50 mt-2 w-80 max-w-[calc(100vw-2rem)] origin-top-right scale-95 overflow-hidden rounded-xl border border-border bg-card opacity-0 shadow-popover transition-[opacity,transform] duration-100 peer-checked:visible peer-checked:scale-100 peer-checked:opacity-100">
+        <div className="flex items-center justify-between border-b border-border px-3 py-2">
+          <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Notifications</span>
           {unreadCount > 0 && (
             <ActionForm action={markAllNotificationsReadAction}>
               <SubmitButton variant="ghost" size="sm" pendingLabel="Marking…" className="h-6 gap-1 px-1.5 text-[11px]">
@@ -75,14 +75,14 @@ export function NotificationBell({ unreadCount, items }: { unreadCount: number; 
               <div
                 key={item.id}
                 className={cn(
-                  'flex items-start gap-2 border-b border-[var(--border-hairline)] px-3 py-2.5 last:border-b-0',
-                  !item.readAt && 'bg-[var(--surface-subtle)]',
+                  'flex items-start gap-2 border-b border-border px-3 py-2.5 last:border-b-0',
+                  !item.readAt && 'bg-muted/40',
                 )}
               >
                 <Link href={item.link ?? '/dashboard/notifications'} className="min-w-0 flex-1">
-                  <p className="truncate text-[13px] font-medium text-[var(--text-primary-hex)]">{item.title}</p>
-                  {item.body && <p className="mt-0.5 line-clamp-2 text-xs text-[var(--text-muted-hex)]">{item.body}</p>}
-                  <p className="mt-1 text-[10px] text-[var(--text-faint-hex)]">{formatRelative(item.createdAt)}</p>
+                  <p className="truncate text-[13px] font-medium text-foreground">{item.title}</p>
+                  {item.body && <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{item.body}</p>}
+                  <p className="mt-1 text-[10px] text-muted-foreground">{formatRelative(item.createdAt)}</p>
                 </Link>
                 {!item.readAt && (
                   <ActionForm action={markNotificationReadAction.bind(null, item.id)}>
@@ -104,7 +104,7 @@ export function NotificationBell({ unreadCount, items }: { unreadCount: number; 
 
         <Link
           href="/dashboard/notifications"
-          className="block border-t border-[var(--border-hairline)] px-3 py-2 text-center text-xs font-medium text-[var(--text-secondary-hex)] hover:bg-[var(--surface-subtle)] hover:text-[var(--text-primary-hex)]"
+          className="block border-t border-border px-3 py-2 text-center text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
         >
           View all
         </Link>

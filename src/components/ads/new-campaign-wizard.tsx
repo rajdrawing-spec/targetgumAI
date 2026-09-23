@@ -420,7 +420,7 @@ export function NewCampaignWizard({
                   <span className="text-sm text-muted-foreground">/ day</span>
                 </div>
                 {budgetCap != null && dailyBudget > budgetCap && (
-                  <p className="mt-1.5 text-xs text-amber-600">
+                  <p className="mt-1.5 text-xs text-warning">
                     Heads up - {clientName}&apos;s usual daily budget limit is ${budgetCap}. You can still continue; just worth double-checking.
                   </p>
                 )}

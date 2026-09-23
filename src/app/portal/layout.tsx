@@ -44,8 +44,8 @@ export default async function PortalLayout({ children }: { children: React.React
                 <span className="text-[10px] font-medium text-caption uppercase tracking-wider block">Client Portal</span>
               </div>
             </Link>
-            <span className="ml-2 hidden items-center gap-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-0.5 text-xs font-semibold sm:inline-flex">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Client Workspace
+            <span className="ml-2 hidden items-center gap-1 rounded-full bg-success-bg text-success border border-success/20 px-2.5 py-0.5 text-xs font-semibold sm:inline-flex">
+              <span className="h-1.5 w-1.5 rounded-full bg-success" /> Client Workspace
             </span>
           </div>
 

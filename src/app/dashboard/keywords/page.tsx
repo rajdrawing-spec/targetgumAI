@@ -18,16 +18,16 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 
 const INTENT_BADGE: Record<string, string> = {
-  TRANSACTIONAL: 'bg-emerald-100 text-emerald-800 border-emerald-300 font-semibold',
-  COMMERCIAL: 'bg-blue-100 text-blue-800 border-blue-300 font-semibold',
-  INFORMATIONAL: 'bg-slate-100 text-slate-800 border-slate-300 font-medium',
-  NAVIGATIONAL: 'bg-purple-100 text-purple-800 border-purple-300 font-medium',
+  TRANSACTIONAL: 'bg-success-bg text-success border-success/20 font-semibold',
+  COMMERCIAL: 'bg-info-bg text-info border-info/20 font-semibold',
+  INFORMATIONAL: 'bg-muted text-muted-foreground border-border font-medium',
+  NAVIGATIONAL: 'bg-accent text-accent-foreground border-primary/20 font-medium',
 }
 
 const COMPETITION_BADGE: Record<string, string> = {
-  LOW: 'text-emerald-700 font-semibold',
-  MEDIUM: 'text-amber-700 font-semibold',
-  HIGH: 'text-rose-700 font-semibold',
+  LOW: 'text-success font-semibold',
+  MEDIUM: 'text-warning font-semibold',
+  HIGH: 'text-destructive font-semibold',
 }
 
 const SAMPLE_QUERIES = [
@@ -100,21 +100,21 @@ export default async function KeywordResearchPage({ searchParams }: { searchPara
         <Card className="p-4 border-border shadow-subtle">
           <span className="text-xs font-medium text-muted-foreground">Total Search Volume</span>
           <p className="mt-1 text-2xl font-bold text-foreground tabular-nums">{result.totalVolume.toLocaleString()}</p>
-          <span className="text-xs text-emerald-600 font-semibold inline-flex items-center gap-1">
+          <span className="text-xs text-success font-semibold inline-flex items-center gap-1">
             <TrendingUp className="h-3 w-3" /> Combined monthly queries
           </span>
         </Card>
 
         <Card className="p-4 border-border shadow-subtle">
           <span className="text-xs font-medium text-muted-foreground">Average CPC</span>
-          <p className="mt-1 text-2xl font-bold text-indigo-600 tabular-nums">${result.avgCpc}</p>
+          <p className="mt-1 text-2xl font-bold text-primary tabular-nums">${result.avgCpc}</p>
           <span className="text-xs text-muted-foreground">Estimated auction benchmark</span>
         </Card>
 
         <Card className="p-4 border-border shadow-subtle">
           <span className="text-xs font-medium text-muted-foreground">Negative Wasted Risk</span>
-          <p className="mt-1 text-2xl font-bold text-rose-600 tabular-nums">{result.negativeKeywords.length} terms</p>
-          <span className="text-xs text-rose-600 font-medium">Potential wasted spend detected</span>
+          <p className="mt-1 text-2xl font-bold text-destructive tabular-nums">{result.negativeKeywords.length} terms</p>
+          <span className="text-xs text-destructive font-medium">Potential wasted spend detected</span>
         </Card>
       </div>
 
@@ -152,7 +152,7 @@ export default async function KeywordResearchPage({ searchParams }: { searchPara
                       <div>
                         <p className="font-semibold text-foreground text-sm">{kw.keyword}</p>
                         {kw.amazonPpcCategory && (
-                          <span className="text-[10px] font-semibold text-amber-800 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
+                          <span className="text-[10px] font-semibold text-warning bg-warning-bg px-1.5 py-0.5 rounded border border-warning/20">
                             Amazon: {kw.amazonPpcCategory.replace('_', ' ')}
                           </span>
                         )}
@@ -161,7 +161,7 @@ export default async function KeywordResearchPage({ searchParams }: { searchPara
                     <td className="px-3 py-3 text-right font-semibold tabular-nums text-foreground">
                       {kw.searchVolume.toLocaleString()}
                     </td>
-                    <td className="px-3 py-3 text-right font-medium tabular-nums text-indigo-600">
+                    <td className="px-3 py-3 text-right font-medium tabular-nums text-primary">
                       ${kw.cpc.toFixed(2)}
                     </td>
                     <td className="px-3 py-3">
@@ -174,7 +174,7 @@ export default async function KeywordResearchPage({ searchParams }: { searchPara
                         {kw.competition}
                       </span>
                     </td>
-                    <td className="px-3 py-3 text-right font-semibold text-emerald-600 text-xs tabular-nums">
+                    <td className="px-3 py-3 text-right font-semibold text-success text-xs tabular-nums">
                       {kw.trend}
                     </td>
                   </tr>
@@ -187,10 +187,10 @@ export default async function KeywordResearchPage({ searchParams }: { searchPara
         {/* Side Panels: Negative Keywords & Amazon PPC Search Terms */}
         <div className="space-y-6">
           {/* Negative Keywords Box */}
-          <Card className="border-rose-200 bg-rose-50/20 shadow-subtle">
+          <Card className="border-destructive/20 bg-destructive-bg shadow-subtle">
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-bold text-rose-900 flex items-center gap-2">
-                <ShieldAlert className="h-4 w-4 text-rose-600" /> Negative Keywords to Add
+              <CardTitle className="text-sm font-bold text-destructive flex items-center gap-2">
+                <ShieldAlert className="h-4 w-4 text-destructive" /> Negative Keywords to Add
               </CardTitle>
               <CardDescription className="text-xs">
                 Exclude these low-intent terms to stop burning ad spend on non-buyers.
@@ -199,10 +199,10 @@ export default async function KeywordResearchPage({ searchParams }: { searchPara
             <CardContent>
               <div className="space-y-2.5">
                 {result.negativeKeywords.map((neg) => (
-                  <div key={neg.term} className="rounded-lg border border-rose-200 bg-card p-2.5 text-xs">
+                  <div key={neg.term} className="rounded-lg border border-destructive/20 bg-card p-2.5 text-xs">
                     <div className="flex items-center justify-between">
-                      <span className="font-bold text-rose-800">-{neg.term}</span>
-                      <span className="text-[10px] font-bold text-rose-700 bg-rose-100 px-1.5 py-0.5 rounded">
+                      <span className="font-bold text-destructive">-{neg.term}</span>
+                      <span className="text-[10px] font-bold text-destructive bg-destructive-bg px-1.5 py-0.5 rounded">
                         {neg.wastedSpendRisk} RISK
                       </span>
                     </div>
@@ -214,10 +214,10 @@ export default async function KeywordResearchPage({ searchParams }: { searchPara
           </Card>
 
           {/* Amazon PPC Backend Terms */}
-          <Card className="border-amber-200 bg-amber-50/20 shadow-subtle">
+          <Card className="border-warning/20 bg-warning-bg/60 shadow-subtle">
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-bold text-amber-900 flex items-center gap-2">
-                <ShoppingBag className="h-4 w-4 text-amber-600" /> Amazon PPC Search Terms
+              <CardTitle className="text-sm font-bold text-warning flex items-center gap-2">
+                <ShoppingBag className="h-4 w-4 text-warning" /> Amazon PPC Search Terms
               </CardTitle>
               <CardDescription className="text-xs">
                 Recommended customer search queries for Sponsored Products.
@@ -228,7 +228,7 @@ export default async function KeywordResearchPage({ searchParams }: { searchPara
                 {result.amazonSearchTerms.map((term) => (
                   <span
                     key={term}
-                    className="inline-flex items-center rounded-md border border-amber-300 bg-card px-2.5 py-1 text-xs font-semibold text-amber-900 shadow-subtle"
+                    className="inline-flex items-center rounded-md border border-warning/30 bg-card px-2.5 py-1 text-xs font-semibold text-warning shadow-subtle"
                   >
                     {term}
                   </span>

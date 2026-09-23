@@ -12,12 +12,12 @@ interface PostScheduleDialogProps {
 }
 
 const PLATFORMS = [
-  { id: 'instagram', label: 'Instagram', color: 'text-pink-600' },
-  { id: 'facebook', label: 'Facebook', color: 'text-blue-600' },
-  { id: 'linkedin', label: 'LinkedIn', color: 'text-blue-700' },
-  { id: 'tiktok', label: 'TikTok', color: 'text-neutral-900' },
-  { id: 'twitter', label: 'X / Twitter', color: 'text-neutral-800' },
-  { id: 'youtube', label: 'YouTube Shorts', color: 'text-red-600' },
+  { id: 'instagram', label: 'Instagram' },
+  { id: 'facebook', label: 'Facebook' },
+  { id: 'linkedin', label: 'LinkedIn' },
+  { id: 'tiktok', label: 'TikTok' },
+  { id: 'twitter', label: 'X / Twitter' },
+  { id: 'youtube', label: 'YouTube Shorts' },
 ]
 
 export function PostScheduleDialog({ clients }: PostScheduleDialogProps) {
@@ -61,7 +61,7 @@ export function PostScheduleDialog({ clients }: PostScheduleDialogProps) {
       <dialog
         ref={dialogRef}
         onClose={() => setOpen(false)}
-        className="w-full max-w-lg rounded-2xl border border-border bg-card p-0 text-foreground shadow-popover backdrop:bg-slate-950/40"
+        className="w-full max-w-lg rounded-2xl border border-border bg-card p-0 text-foreground shadow-popover backdrop:bg-foreground/40"
       >
         {open && (
           <div className="p-6 space-y-5">
@@ -163,7 +163,7 @@ export function PostScheduleDialog({ clients }: PostScheduleDialogProps) {
                       type="button"
                       onClick={polishCopy}
                       title="Enhance copy tone with AI"
-                      className="inline-flex items-center gap-1 rounded bg-indigo-50 px-2 py-0.5 text-[11px] font-medium text-indigo-700 hover:bg-indigo-100 transition-colors"
+                      className="inline-flex items-center gap-1 rounded bg-accent px-2 py-0.5 text-[11px] font-medium text-accent-foreground hover:brightness-95 transition-colors"
                     >
                       <Sparkles className="h-3 w-3" /> AI Polish
                     </button>

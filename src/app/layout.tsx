@@ -55,13 +55,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html
       lang="en"
-      className={`${inter.variable} ${baloo2.variable} ${jetbrainsMono.variable} h-full bg-[var(--bg-ink)]`}
+      className={`${inter.variable} ${baloo2.variable} ${jetbrainsMono.variable} h-full bg-background`}
       suppressHydrationWarning
     >
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
       </head>
-      <body className="min-h-full flex flex-col bg-[var(--bg-ink)] text-[var(--text-primary-hex)] font-sans antialiased selection:bg-[#E5252A] selection:text-[#FFFFFF]">
+      <body className="min-h-full flex flex-col bg-background text-foreground font-sans antialiased selection:bg-primary selection:text-primary-foreground">
         {children}
       </body>
     </html>
