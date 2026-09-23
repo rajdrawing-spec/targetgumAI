@@ -5,6 +5,41 @@ Newest entries at the top.
 
 ---
 
+## 2026-09-23 — Growth Map restructured into 4 phases, illustrated winding path dropped
+
+**Decision:** The 10 fixed stages are now grouped into 4 named phases
+(Foundation, Build, Launch, Optimize & Grow - `src/lib/growth/phase-defs.ts`)
+rendered as a short `Phase 1 -> 2 -> 3 -> 4` stepper plus a list of
+collapsible `<details>` sections, one per phase, each listing its 2-3
+stages as a compact row (status icon, title, one-line description, action).
+Only the phase holding the client's current stage opens by default. The
+illustrated winding SVG path, decorative scenery (`scenery.tsx`, deleted -
+nothing else referenced it), and the separate desktop/mobile layout split
+are all gone; one compact list now serves both.
+
+**Rationale:** Direct user feedback on the shipped illustrated map - "too
+long," wanted something "short and like in stages... Stage 1 or phase 1
+kind of." The full 10-stage path was ~2000px of scroll on its own before
+missions/achievements even started. Grouping is a pure display layer
+(`phaseStatus()` derives phase status from the existing per-stage
+`getStageStates()` output) - no schema change, no migration; stage
+order/completion/XP logic in `stages.ts` is untouched.
+
+**Alternative(s) considered:** Keeping the illustrated path but just
+shrinking its spacing - rejected because the user's ask was explicitly
+"like in stages," not just shorter; a compact phase list matches that
+literally and reads better on mobile too (no more separate `PlainStageList`
+fallback needed). A client-side accordion (React state) - rejected in favor
+of native `<details>/<summary>` with `open` set server-side per phase
+status, since it needs no JS and nothing here requires syncing collapse
+state across renders.
+
+**Revisit if:** A 5th phase or a re-grouping of which stages belong to
+which phase is needed - `GROWTH_PHASE_DEFS` is the one place that changes;
+stage order and count stay the source of truth in `stage-defs.ts`.
+
+---
+
 ## 2026-09-22 — Growth Map stage completion moved behind a mascot-hosted lesson/quiz, no new tables
 
 **Decision:** Each of the 10 Growth Map stages now has a short Duolingo-style

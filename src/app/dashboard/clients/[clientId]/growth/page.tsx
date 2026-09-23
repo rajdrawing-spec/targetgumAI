@@ -1,59 +1,29 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowUpRight, CheckCircle2, Flame, Lock, Target, Zap } from 'lucide-react'
+import { ArrowUpRight, Check, CheckCircle2, ChevronDown, Flame, Lock, Target, Trophy, Zap } from 'lucide-react'
 import { getCurrentAuthContext } from '@/lib/auth/current-context'
 import { getGrowthProgress, xpToNextLevel } from '@/lib/growth/progress'
 import { getStageStates } from '@/lib/growth/stages'
 import { getMissionProgress, getWeeklyMissionCompletionCount } from '@/lib/growth/missions'
 import { listAchievements } from '@/lib/growth/achievements'
 import { MISSION_SCREEN_LINKS } from '@/lib/growth/mission-links'
+import { GROWTH_PHASE_DEFS, phaseStatus, type GrowthPhaseDef, type GrowthPhaseStatus } from '@/lib/growth/phase-defs'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ActionForm, SubmitButton } from '@/components/ui/action-form'
 import { buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { GummyMascot } from '@/components/growth/mascot'
-import { CloudIcon, RockIcon, TreeIcon, TrophyIcon } from '@/components/growth/scenery'
 import { recordMissionProgressAction } from './actions'
 
 /**
  * Growth Map - the guided-onboarding wizard tab (docs/DECISIONS.md
- * 2026-09-22). Additive: this is one more Client Workspace tab, not a
- * replacement for anything else in the dashboard. Visually matches the
- * approved Duolingo-style mockup (mascot, winding illustrated path,
- * wooden signposts) rather than a generic settings-page look. "Log
- * progress" on a mission is a manual stand-in for real integration hooks
- * (e.g. Audience Lab auto-reporting a found segment) - wiring those is a
- * later step; for now a person marks progress themselves.
- *
- * The path's curve is computed server-side from fixed, hand-tuned
- * waypoints (STAGE_PATH_X below) - not measured from the live DOM. That
- * keeps it a plain server-rendered SVG with no client JS, at the cost of
- * the curve being a fixed shape rather than one that re-flows around
- * variable text height; below the `sm` breakpoint the illustrated path is
- * swapped for a plain stacked list (PlainStageList) so nothing overlaps
- * on narrow screens.
+ * 2026-09-22, restructured 2026-09-23). The 10 fixed stages are grouped
+ * into 4 named phases so the page reads as a short, scannable list rather
+ * than one long illustrated path - only the phase holding the client's
+ * current stage opens by default; earlier phases collapse to a completed
+ * summary row and later ones stay collapsed until reached. Plain <details>/
+ * <summary>, no client JS needed for the expand/collapse.
  */
-
-const STEP = 168 // px between stage rows
-const TOP_PAD = 210 // room for the start platform (mascot + signpost)
-const BOTTOM_PAD = 150 // room for the trophy
-// One x position (0-100, i.e. %) per stage, hand-tuned to echo the mockup's zigzag.
-const STAGE_PATH_X = [18, 74, 24, 76, 20, 72, 18, 74, 22, 50]
-
-function quadraticPath(points: Array<{ x: number; y: number }>): string {
-  if (points.length === 0) return ''
-  let d = `M ${points[0]!.x} ${points[0]!.y}`
-  for (let i = 1; i < points.length; i++) {
-    const prev = points[i - 1]!
-    const cur = points[i]!
-    const midX = (prev.x + cur.x) / 2
-    const midY = (prev.y + cur.y) / 2
-    d += ` Q ${prev.x} ${prev.y} ${midX} ${midY}`
-  }
-  const last = points[points.length - 1]!
-  d += ` L ${last.x} ${last.y}`
-  return d
-}
 
 function StatCard({ icon: Icon, label, value, sub }: { icon: React.ElementType; label: string; value: string; sub?: string }) {
   return (
@@ -83,40 +53,117 @@ function ProgressBar({ value, max, className }: { value: number; max: number; cl
 
 type StageState = Awaited<ReturnType<typeof getStageStates>>[number]
 
-/** Narrow-screen fallback - a plain stacked list, so nothing overlaps below the illustrated path's `sm` breakpoint. */
-function PlainStageList({ stages, clientId, canWrite }: { stages: StageState[]; clientId: string; canWrite: boolean }) {
+/** Horizontal Phase 1/2/3/4 overview strip at the top of the map card. */
+function PhaseStepper({ phases, statuses }: { phases: readonly GrowthPhaseDef[]; statuses: GrowthPhaseStatus[] }) {
   return (
-    <ol className="space-y-2 sm:hidden">
-      {stages.map((stage) => {
-        const Icon = stage.status === 'done' ? CheckCircle2 : stage.status === 'current' ? Target : Lock
-        return (
-          <li
-            key={stage.key}
-            className={cn('flex items-center gap-3 rounded-lg border px-3 py-3', stage.status === 'current' ? 'border-primary/40 bg-primary-tint/40' : 'border-border')}
+    <div className="flex items-start px-1">
+      {phases.map((phase, i) => (
+        <div key={phase.key} className={cn('flex items-center', i < phases.length - 1 && 'flex-1')}>
+          <div className="flex shrink-0 flex-col items-center gap-1">
+            <div
+              className={cn(
+                'flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold',
+                statuses[i] === 'done' && 'bg-primary text-primary-foreground',
+                statuses[i] === 'current' && 'bg-primary text-primary-foreground motion-safe:animate-glow-pulse',
+                statuses[i] === 'locked' && 'bg-muted text-muted-foreground',
+              )}
+            >
+              {statuses[i] === 'done' ? <Check className="h-4 w-4" /> : phase.order}
+            </div>
+            <span className="whitespace-nowrap text-[10px] font-medium text-muted-foreground">Phase {phase.order}</span>
+          </div>
+          {i < phases.length - 1 && <div className={cn('mx-1.5 h-0.5 flex-1', statuses[i] === 'done' ? 'bg-primary' : 'bg-border')} />}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function StageRow({ stage, clientId, canWrite }: { stage: StageState; clientId: string; canWrite: boolean }) {
+  const Icon = stage.status === 'done' ? CheckCircle2 : stage.status === 'current' ? Target : Lock
+  return (
+    <li
+      className={cn(
+        'flex items-center gap-3 rounded-lg border px-3 py-2.5',
+        stage.status === 'current' ? 'border-primary/40 bg-primary-tint/40' : 'border-border',
+      )}
+    >
+      <div
+        className={cn(
+          'flex h-8 w-8 shrink-0 items-center justify-center rounded-full',
+          stage.status === 'locked' ? 'bg-muted text-muted-foreground' : 'bg-primary text-primary-foreground',
+        )}
+      >
+        <Icon className="h-3.5 w-3.5" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className={cn('text-sm font-medium', stage.status === 'locked' ? 'text-muted-foreground' : 'text-foreground')}>
+          {stage.order}. {stage.title}
+        </p>
+        <p className="truncate text-xs text-muted-foreground">{stage.description}</p>
+      </div>
+      {stage.status === 'current' && canWrite && (
+        <Link href={`/dashboard/clients/${clientId}/growth/lesson/${stage.key}`} className={buttonVariants({ size: 'sm' })}>
+          Start lesson
+        </Link>
+      )}
+      {stage.status === 'done' && (
+        <Link href={`/dashboard/clients/${clientId}/growth/lesson/${stage.key}`} className="shrink-0 text-xs font-medium text-muted-foreground hover:text-foreground">
+          Review
+        </Link>
+      )}
+    </li>
+  )
+}
+
+function PhaseSection({
+  phase,
+  status,
+  stages,
+  clientId,
+  canWrite,
+}: {
+  phase: GrowthPhaseDef
+  status: GrowthPhaseStatus
+  stages: StageState[]
+  clientId: string
+  canWrite: boolean
+}) {
+  const doneCount = stages.filter((s) => s.status === 'done').length
+  return (
+    <details className="group rounded-xl border border-border" open={status === 'current'}>
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-xl px-3.5 py-3 hover:bg-muted/40 [&::-webkit-details-marker]:hidden">
+        <div className="flex min-w-0 items-center gap-3">
+          <div
+            className={cn(
+              'flex h-9 w-9 shrink-0 items-center justify-center rounded-full',
+              status === 'done' && 'bg-primary text-primary-foreground',
+              status === 'current' && 'bg-primary text-primary-foreground',
+              status === 'locked' && 'bg-muted text-muted-foreground',
+            )}
           >
-            <div className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-full', stage.status === 'locked' ? 'bg-muted text-muted-foreground' : 'bg-primary text-primary-foreground')}>
-              <Icon className="h-4 w-4" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className={cn('text-sm font-medium', stage.status === 'locked' ? 'text-muted-foreground' : 'text-foreground')}>
-                {stage.order}. {stage.title}
-              </p>
-              <p className="text-xs text-muted-foreground">{stage.description}</p>
-            </div>
-            {stage.status === 'current' && canWrite && (
-              <Link href={`/dashboard/clients/${clientId}/growth/lesson/${stage.key}`} className={buttonVariants({ size: 'sm' })}>
-                Start lesson
-              </Link>
-            )}
-            {stage.status === 'done' && (
-              <Link href={`/dashboard/clients/${clientId}/growth/lesson/${stage.key}`} className="shrink-0 text-xs font-medium text-muted-foreground hover:text-foreground">
-                Review
-              </Link>
-            )}
-          </li>
-        )
-      })}
-    </ol>
+            {status === 'done' ? <CheckCircle2 className="h-4 w-4" /> : status === 'locked' ? <Lock className="h-4 w-4" /> : <Target className="h-4 w-4" />}
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-bold text-foreground">
+              Phase {phase.order} · {phase.title}
+            </p>
+            <p className="truncate text-xs text-muted-foreground">{phase.description}</p>
+          </div>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          <span className="text-xs font-medium text-muted-foreground">
+            {doneCount}/{stages.length}
+          </span>
+          <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-180" />
+        </div>
+      </summary>
+      <ol className="space-y-2 border-t border-border p-3">
+        {stages.map((stage) => (
+          <StageRow key={stage.key} stage={stage} clientId={clientId} canWrite={canWrite} />
+        ))}
+      </ol>
+    </details>
   )
 }
 
@@ -137,113 +184,46 @@ export default async function ClientGrowthPage({ params }: { params: Promise<{ c
   const streak = progress?.streakCount ?? 0
   const canWrite = ctx.permissions.has('growth.write')
 
-  const pathHeight = TOP_PAD + stages.length * STEP + BOTTOM_PAD
-  const wayPoints = [
-    { x: 50, y: TOP_PAD * 0.6 },
-    ...stages.map((_, i) => ({ x: STAGE_PATH_X[i] ?? 50, y: TOP_PAD + i * STEP })),
-    { x: 50, y: pathHeight - BOTTOM_PAD * 0.5 },
-  ]
-  const pathD = quadraticPath(wayPoints)
+  const stagesByKey = new Map(stages.map((s) => [s.key, s]))
+  const stageStatusByKey = new Map(stages.map((s) => [s.key, s.status]))
+  const phases = GROWTH_PHASE_DEFS.map((phase) => ({
+    phase,
+    status: phaseStatus(phase, stageStatusByKey),
+    stages: phase.stageKeys.map((key) => stagesByKey.get(key)!),
+  }))
+  const allDone = phases.every((p) => p.status === 'done')
 
   return (
     <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_320px]">
       <div className="space-y-5">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <StatCard icon={TrophyIcon} label="Level" value={String(level)} sub={`${xpToNextLevel(xp)} XP to level ${level + 1}`} />
+          <StatCard icon={Trophy} label="Level" value={String(level)} sub={`${xpToNextLevel(xp)} XP to level ${level + 1}`} />
           <StatCard icon={Zap} label="XP" value={xp.toLocaleString()} />
           <StatCard icon={Flame} label="Streak" value={`${streak} day${streak === 1 ? '' : 's'}`} sub={streak > 0 ? 'Keep it going!' : 'Complete a stage to start'} />
         </div>
 
-        <Card className="overflow-hidden">
+        <Card>
           <CardHeader>
-            <CardTitle>Marketing Growth Map</CardTitle>
+            <div className="flex items-center gap-2">
+              <GummyMascot className="h-8 w-7 shrink-0" />
+              <CardTitle>Marketing Growth Map</CardTitle>
+            </div>
             <p className="text-sm text-muted-foreground">Complete missions. Earn XP. Grow your business.</p>
           </CardHeader>
-          <CardContent>
-            {/* Illustrated winding path - sm and up. */}
-            <div className="relative mx-auto hidden max-w-2xl sm:block" style={{ height: pathHeight }}>
-              <svg viewBox={`0 0 100 ${pathHeight}`} preserveAspectRatio="none" className="pointer-events-none absolute inset-0 h-full w-full" aria-hidden="true">
-                <path d={pathD} fill="none" stroke="hsl(var(--primary) / 0.28)" strokeWidth="0.6" strokeDasharray="1.4 2.2" strokeLinecap="round" />
-              </svg>
+          <CardContent className="space-y-4">
+            <PhaseStepper phases={GROWTH_PHASE_DEFS} statuses={phases.map((p) => p.status)} />
 
-              {/* Decorative scenery - sparse, purely ornamental. */}
-              <TreeIcon className="absolute left-[8%] w-8 opacity-60" style={{ top: TOP_PAD + STEP * 0.6 }} />
-              <RockIcon className="absolute left-[92%] w-7 opacity-50" style={{ top: TOP_PAD + STEP * 2.4 }} />
-              <CloudIcon className="absolute left-[4%] w-16 opacity-70" style={{ top: TOP_PAD + STEP * 4.2 }} />
-              <TreeIcon className="absolute left-[90%] w-7 opacity-60" style={{ top: TOP_PAD + STEP * 6.3 }} />
-              <RockIcon className="absolute left-[6%] w-7 opacity-50" style={{ top: TOP_PAD + STEP * 8.1 }} />
-
-              {/* Start platform */}
-              <div className="absolute left-1/2 flex -translate-x-1/2 flex-col items-center gap-2" style={{ top: 0 }}>
-                <div className="relative flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-primary to-brand-dark shadow-glow">
-                  <GummyMascot animate className="absolute bottom-1 h-16 w-14" />
-                </div>
-                <div className="relative rounded-md bg-[#B27A42] px-4 py-1.5 text-center shadow-subtle after:absolute after:left-3 after:-bottom-2.5 after:h-3 after:w-1.5 after:rounded-sm after:bg-[#8A5A2C]">
-                  <p className="text-[9px] font-bold tracking-widest text-[#FBE9CF]/85">START</p>
-                  <p className="font-display text-sm font-semibold text-white">Your Growth Journey</p>
-                </div>
-              </div>
-
-              {stages.map((stage, i) => {
-                const x = STAGE_PATH_X[i] ?? 50
-                const y = TOP_PAD + i * STEP
-                const onRight = x <= 50
-                const Icon = stage.status === 'done' ? CheckCircle2 : stage.status === 'current' ? Target : Lock
-                return (
-                  <div key={stage.key}>
-                    {/* Island mound, centered under the node at (x%, y). */}
-                    <div
-                      className="pointer-events-none absolute h-6 w-[70px] -translate-x-1/2 rounded-[50%] bg-[radial-gradient(ellipse_at_50%_20%,#7BC24A,#4E9C2E_85%)]"
-                      style={{ top: y + 22, left: `${x}%` }}
-                    />
-                    {/* Node circle, centered exactly on the path at (x%, y). */}
-                    <div
-                      className={cn(
-                        'absolute flex h-[58px] w-[58px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-4',
-                        stage.status === 'done' && 'border-primary-tint bg-primary text-primary-foreground',
-                        stage.status === 'current' && 'border-primary-tint bg-primary text-primary-foreground motion-safe:animate-glow-pulse',
-                        stage.status === 'locked' && 'border-border bg-card text-muted-foreground',
-                      )}
-                      style={{ top: y, left: `${x}%` }}
-                    >
-                      <Icon className="h-6 w-6" />
-                    </div>
-                    {/* Label, offset from the same (x%, y) anchor via calc() - never nested inside the circle's own box. */}
-                    <div
-                      className={cn('absolute w-56 -translate-y-1/2', onRight ? 'text-left' : 'text-right')}
-                      style={{ top: y, ...(onRight ? { left: `calc(${x}% + 42px)` } : { right: `calc(${100 - x}% + 42px)` }) }}
-                    >
-                      <p className={cn('text-sm font-bold', stage.status === 'locked' ? 'text-muted-foreground' : 'text-foreground')}>
-                        {stage.order}. {stage.title}
-                      </p>
-                      <p className="text-xs text-muted-foreground">{stage.description}</p>
-                      {stage.status === 'current' && canWrite && (
-                        <div className={cn('mt-1.5', !onRight && 'flex justify-end')}>
-                          <Link href={`/dashboard/clients/${clientId}/growth/lesson/${stage.key}`} className={buttonVariants({ size: 'sm' })}>
-                            Start lesson
-                          </Link>
-                        </div>
-                      )}
-                      {stage.status === 'done' && (
-                        <div className={cn('mt-1', !onRight && 'flex justify-end')}>
-                          <Link href={`/dashboard/clients/${clientId}/growth/lesson/${stage.key}`} className="text-xs font-medium text-muted-foreground hover:text-foreground">
-                            Review lesson
-                          </Link>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )
-              })}
-
-              {/* Trophy finish */}
-              <div className="absolute left-1/2 flex -translate-x-1/2 flex-col items-center gap-1.5 text-center" style={{ top: pathHeight - BOTTOM_PAD }}>
-                <TrophyIcon className="h-20 w-20 drop-shadow" />
-                <p className="text-[9px] font-bold tracking-widest text-warning">GROWTH MASTER</p>
-              </div>
+            <div className="space-y-2.5">
+              {phases.map(({ phase, status, stages: phaseStages }) => (
+                <PhaseSection key={phase.key} phase={phase} status={status} stages={phaseStages} clientId={clientId} canWrite={canWrite} />
+              ))}
             </div>
 
-            <PlainStageList stages={stages} clientId={clientId} canWrite={canWrite} />
+            {allDone && (
+              <div className="flex items-center gap-2 rounded-xl border border-warning/30 bg-warning-bg px-3.5 py-2.5 text-sm font-semibold text-warning">
+                <Trophy className="h-4 w-4 shrink-0" /> Growth Master - every phase complete!
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
