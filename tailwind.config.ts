@@ -106,11 +106,16 @@ const config: Config = {
           '0%, 100%': { transform: 'scale(1) rotate(-3deg)' },
           '50%': { transform: 'scale(1.12) rotate(3deg)' },
         },
+        'fade-in-up': {
+          '0%': { opacity: '0', transform: 'translateY(10px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
       },
       animation: {
         sway: 'sway 3.6s ease-in-out infinite',
         'glow-pulse': 'glow-pulse 1.8s ease-in-out infinite',
         flicker: 'flicker 1.8s ease-in-out infinite',
+        'fade-in-up': 'fade-in-up 0.5s ease-out both',
       },
     },
   },

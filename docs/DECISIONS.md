@@ -5,6 +5,58 @@ Newest entries at the top.
 
 ---
 
+## 2026-09-23 — Growth Map path unified to one narrow layout for mobile and desktop
+
+**Decision:** `PhaseRoadmap` is now a single `max-w-xs` (320px) centered
+path used at every viewport width, replacing the previous two-layout split
+(a wide `sm:`-only illustrated path with side-anchored text, plus a
+separate collapsible-list fallback below `sm`). A red "PHASE N OF 4"
+banner (mimicking real Duolingo's colored unit bar) sits above the path
+and names the client's current phase; each phase node's caption and stage
+list are centered directly under the node instead of anchored left/right,
+which is what let one layout serve both breakpoints - anchoring only
+mattered when the label had to dodge the node depending on which side of
+a *wide* zigzag it fell on. Interactive nodes get a hover/press scale
+transition, the current node keeps its glow-pulse ring plus a small
+speech-bubble "Continue" callout, and each node fades/slides in on load
+(staggered by index) via a new `fade-in-up` Tailwind animation.
+
+**Rationale:** Direct feedback, with real Duolingo screenshots attached
+for comparison: the previous version's wide zigzag with side-anchored
+paragraph labels didn't read as authentically Duolingo-style, and needing
+a structurally different mobile layout contradicted "it should be the
+same in mobile and desktop." Duolingo's own path is in fact narrow and
+mostly-centered even on desktop (it just sits inside a wider page with
+more chrome around it) - matching that shape is what makes one layout
+correct at any width, not a breakpoint trick.
+
+**A real spacing bug found and fixed in the same pass:** the first version
+of this layout sized each phase node's vertical slot from `NODE_D +
+CAPTION_H + rows` without enough headroom for a caption that reliably
+wraps to two lines ("Phase 4 · Optimize & Grow" at 152px) or for the
+"Continue" callout's extra height on the current phase - both are visible
+DOM content but weren't part of the reserved-height math, so the trophy
+at the bottom overlapped the last phase's stage list. Fixed by sizing
+`CAPTION_H` for two lines and adding a `CONTINUE_BUBBLE_H` allowance only
+for the current phase, confirmed by measuring the rendered page via
+Playwright rather than eyeballing the arithmetic.
+
+**Alternative(s) considered:** Keeping the wide zigzag and just also
+applying it below `sm` with smaller side margins - rejected; a wide
+side-anchored layout genuinely cannot fit a phone screen without breaking,
+which is why the split existed in the first place. A JS-measured/animated
+accordion for per-phase detail - rejected in favor of always-visible
+compact stage rows, avoiding a repeat of the collapsible-list version's
+"too long" feedback and keeping the page server-rendered with no client
+component.
+
+**Revisit if:** A 5th phase, or stage counts per phase growing past 3,
+changes the block-height arithmetic enough that the fixed constants need
+retuning again - re-verify by rendering and screenshotting rather than
+adjusting the numbers blind.
+
+---
+
 ## 2026-09-23 — Growth Map restructured into 4 phases, illustrated winding path dropped
 
 **Decision:** The 10 fixed stages are now grouped into 4 named phases
