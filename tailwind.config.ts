@@ -110,12 +110,37 @@ const config: Config = {
           '0%': { opacity: '0', transform: 'translateY(10px)' },
           '100%': { opacity: '1', transform: 'translateY(0)' },
         },
+        // Lesson engine (docs/DECISIONS.md 2026-09-24): celebration hop,
+        // gentle wrong-answer shake, XP pop-in, and falling confetti.
+        hop: {
+          '0%, 100%': { transform: 'translateY(0)' },
+          '40%': { transform: 'translateY(-10px)' },
+        },
+        shake: {
+          '0%, 100%': { transform: 'translateX(0)' },
+          '20%, 60%': { transform: 'translateX(-6px)' },
+          '40%, 80%': { transform: 'translateX(6px)' },
+        },
+        pop: {
+          '0%': { opacity: '0', transform: 'scale(0.6) translateY(8px)' },
+          '60%': { opacity: '1', transform: 'scale(1.08) translateY(0)' },
+          '100%': { opacity: '1', transform: 'scale(1)' },
+        },
+        confetti: {
+          '0%': { opacity: '0', transform: 'translateY(-20px) rotate(0deg)' },
+          '10%': { opacity: '1' },
+          '100%': { opacity: '0', transform: 'translateY(220px) rotate(540deg)' },
+        },
       },
       animation: {
         sway: 'sway 3.6s ease-in-out infinite',
         'glow-pulse': 'glow-pulse 1.8s ease-in-out infinite',
         flicker: 'flicker 1.8s ease-in-out infinite',
         'fade-in-up': 'fade-in-up 0.5s ease-out both',
+        hop: 'hop 0.9s ease-in-out infinite',
+        shake: 'shake 0.4s ease-in-out',
+        pop: 'pop 0.45s ease-out both',
+        confetti: 'confetti 1.8s ease-in forwards',
       },
     },
   },

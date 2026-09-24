@@ -1,4 +1,5 @@
 import type { GrowthStageKey } from '@prisma/client'
+import type { LessonQuestion } from '@/lib/lessons/types'
 
 /**
  * Static lesson content for the Growth Map's Duolingo-style quiz mechanic
@@ -21,7 +22,8 @@ import type { GrowthStageKey } from '@prisma/client'
  * value, not to withhold progress.
  */
 
-export interface LessonQuestion {
+/** A plain multiple-choice question - the format all original stage content was written in. */
+interface StageChoiceQuestion {
   id: string
   prompt: string
   options: readonly string[]
@@ -29,6 +31,20 @@ export interface LessonQuestion {
   explanation: string
 }
 
+interface StageLessonContent {
+  stage: GrowthStageKey
+  title: string
+  intro: string
+  questions: readonly StageChoiceQuestion[]
+  /**
+   * Extra questions in the lesson engine's other formats (order / match /
+   * budget - src/lib/lessons/types.ts), played after the multiple-choice
+   * ones. Same plain-language, small-maker persona as above.
+   */
+  extraQuestions?: readonly LessonQuestion[]
+}
+
+/** What the lesson page renders - every question in the shared engine's format. */
 export interface LessonDef {
   stage: GrowthStageKey
   title: string
@@ -42,7 +58,7 @@ export interface LessonDef {
  * shouldn't be quizzed on marketing terms before they've even described
  * what they make).
  */
-export const LESSON_DEFS: Partial<Record<GrowthStageKey, LessonDef>> = {
+export const LESSON_DEFS: Partial<Record<GrowthStageKey, StageLessonContent>> = {
   UNDERSTAND_AUDIENCE: {
     stage: 'UNDERSTAND_AUDIENCE',
     title: 'Understand Your Audience',
@@ -317,6 +333,24 @@ export const LESSON_DEFS: Partial<Record<GrowthStageKey, LessonDef>> = {
         explanation: 'A broken link or wrong price found AFTER money has been spent is expensive to fix. A two-minute check before launching saves that pain.',
       },
     ],
+    extraQuestions: [
+      {
+        type: 'order',
+        id: 'build-steps',
+        category: 'Campaign Setup',
+        prompt: 'Put these steps for launching an ad campaign in the right order.',
+        steps: [
+          'Decide what you want the ad to achieve',
+          'Decide who should see it',
+          'Make the ad (photo and words)',
+          'Choose where to show it',
+          'Set how much to spend',
+          'Launch it',
+        ],
+        tip: 'Start with WHY and WHO before you make anything.',
+        explanation: 'Goal first, then the people you want to reach - those two decide what the ad should say, where it should run, and how much it is worth spending. Launching comes last.',
+      },
+    ],
   },
   LAUNCH_CAMPAIGN: {
     stage: 'LAUNCH_CAMPAIGN',
@@ -370,6 +404,22 @@ export const LESSON_DEFS: Partial<Record<GrowthStageKey, LessonDef>> = {
         ],
         correctIndex: 0,
         explanation: 'A small first release lets you catch problems - or discover you need to adjust price or photos - before it reaches everyone.',
+      },
+    ],
+    extraQuestions: [
+      {
+        type: 'match',
+        id: 'launch-platforms',
+        category: 'Platforms',
+        prompt: 'Match each place with what it does best.',
+        pairs: [
+          { left: 'Instagram', right: 'Beautiful photos and short videos of products' },
+          { left: 'YouTube', right: 'Longer videos - like showing how a pot is made' },
+          { left: 'Google search ads', right: 'People already searching for "handmade mugs"' },
+          { left: 'LinkedIn', right: 'Selling to businesses, like cafés ordering in bulk' },
+        ],
+        tip: 'Think about what people are doing when they open each app.',
+        explanation: 'Each place has its own mood: Instagram for looking, YouTube for watching and learning, Google for people who are already searching, LinkedIn for work and business buyers.',
       },
     ],
   },
@@ -482,6 +532,21 @@ export const LESSON_DEFS: Partial<Record<GrowthStageKey, LessonDef>> = {
         explanation: 'A drop can have different causes with different fixes - understanding why first means fixing the right thing instead of guessing.',
       },
     ],
+    extraQuestions: [
+      {
+        type: 'budget',
+        id: 'optimize-budget',
+        category: 'Optimize',
+        prompt: 'Your pottery ads brought orders from Instagram, a few from Facebook, and almost none from YouTube. How would you split next month\'s ₹10,000 ad budget?',
+        total: 10000,
+        currencySymbol: '₹',
+        step: 500,
+        channels: ['Instagram', 'Facebook', 'YouTube'],
+        largestChannelIndex: 0,
+        tip: 'Put more money where people are already buying.',
+        explanation: 'Give the biggest share to the place that is already bringing orders (Instagram). Keep a smaller amount on the others so you can keep learning, but don\'t spread it evenly - even is not the same as smart.',
+      },
+    ],
   },
   SCALE_GROW: {
     stage: 'SCALE_GROW',
@@ -541,5 +606,15 @@ export const LESSON_DEFS: Partial<Record<GrowthStageKey, LessonDef>> = {
 }
 
 export function getLessonForStage(stage: GrowthStageKey): LessonDef | undefined {
-  return LESSON_DEFS[stage]
+  const content = LESSON_DEFS[stage]
+  if (!content) return undefined
+  return {
+    stage: content.stage,
+    title: content.title,
+    intro: content.intro,
+    questions: [
+      ...content.questions.map((q): LessonQuestion => ({ type: 'choice', category: content.title, ...q })),
+      ...(content.extraQuestions ?? []),
+    ],
+  }
 }

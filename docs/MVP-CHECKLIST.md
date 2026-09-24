@@ -1243,3 +1243,33 @@ calendar, SEO workflows, advanced reporting, a Competitor Agent, automated
 social scheduling, native Google Ads/Meta Ads, a Canva creative workflow,
 and weekly automated intelligence - all implemented, tested, and
 live-verified. Nothing remains on the Phase 2 list.
+
+## Product upgrade — gamified learning + public try-it (2026-09-24)
+
+Scope agreed with the user: public try-it with invite-only auth kept, plan
+config with no checkout yet. See `docs/DECISIONS.md` 2026-09-24.
+
+- [x] Audit: routes, schema, growth/gamification layer, assets (`public/`
+      = `logo.jpg` only - no mascot rasters), Hostinger deployment
+      (`targetgum.com`, Node 20, Next build, auto-deploys branch
+      `claude/plan-execution-fmve0b`)
+- [x] Shared gamification primitives (XP / streak / hearts / progress bar)
+      and Gummy moods + `GummyCoach` + `MASCOT_IMAGES` registry
+- [x] Reusable lesson engine: choice / conversation / cards / order /
+      match / budget, hearts, SKIP / CHECK, tips, celebration screen
+- [x] In-app Growth Map lessons on the engine + "Claim XP & apply it"
+      campaign bridge (server-side redirect)
+- [x] Public landing, onboarding, starter Growth Map, 3 starter lessons,
+      unlock page with config-driven plans
+- [x] Tests: 59 lesson-engine/content, 7 try-it progress/plans, 2 public
+      isolation (security); Playwright walkthrough desktop + mobile
+      (55 checks) incl. in-app claim -> campaign builder
+- [ ] Real Gummy 3D renders in `public/mascot/` + `MASCOT_IMAGES`
+- [ ] Quests page (DAILY/WEEKLY/SPECIAL) over the existing
+      `GrowthMission` catalog, per client
+- [ ] Growth Profile page (level names configurable in DB, achievements,
+      recent activity) per client
+- [ ] Growth Shop (cosmetic/convenience only; needs XP spend ledger)
+- [ ] Practice hub (reuse lesson engine with per-client context)
+- [ ] Self-serve sign-up + payment provider (needs security review) -
+      then migrate try-it progress into the new account

@@ -5,6 +5,87 @@ Newest entries at the top.
 
 ---
 
+## 2026-09-24 — Public try-it experience, reusable lesson engine, campaign bridge, plan config (no checkout yet)
+
+**Decision:** Five linked changes, from the "TargetGum master product
+upgrade" brief (gamified learning, no login wall, free -> subscription).
+Scope decided with the user via `AskUserQuestion`: *public try-it +
+invite-only auth*, *plan config with no payment provider yet*, *push to
+the session branch only*.
+
+1. **Public try-it** (`/` for signed-out visitors, `/start/**`). `/` now
+   renders a landing page ("Let's start growing your business") instead of
+   redirecting to `/sign-in`; signed-in users are redirected exactly as
+   before. `/start` is a 4-question business onboarding with Gummy,
+   `/start/learn` a starter Growth Map (the same 10 `GROWTH_STAGE_DEFS`,
+   first 4 playable), `/start/lesson/[id]` three starter lessons,
+   `/start/unlock` the free -> paid page. Progress (XP, streak, completed
+   activities, business details) lives **only in the visitor's
+   localStorage** (`src/lib/tryit/progress.ts`, zod-validated on read,
+   XP idempotent per activity). No auth context, database, server action,
+   AI call or integration is reachable from these routes - enforced by
+   `tests/security/public-tryit-isolation.test.ts`, which walks the real
+   import graph.
+2. **Reusable lesson engine** (`src/lib/lessons/types.ts` +
+   `src/components/lessons/`): one `LessonQuestion` union - `choice`
+   (incl. complete-the-conversation and card layouts for best creative /
+   CTA / headline), `order`, `match`, `budget` - with pure grading,
+   deterministic shuffles (no hydration mismatch, never pre-solved), and a
+   `LessonPlayer` matching the reference layout: progress bar + hearts,
+   category label, Gummy, tip, SKIP / CHECK footer that turns green/red
+   with the explanation, keyboard support (Enter, 1-9), celebration screen.
+   Both the in-app Growth Map lessons and the public lessons render
+   through it. The existing 36 in-app multiple-choice questions are
+   unchanged, mapped onto the engine; three new-format questions were
+   added (order: Build Campaign, match: Launch Campaign, budget: Optimize).
+3. **Hearts** - 5 per attempt, wrong answer -1, SKIP free, zero = friendly
+   "Try again" restart. Refines 2026-09-23's "always completable" rule
+   rather than reversing it: a lesson can always be finished eventually,
+   and no score ever blocks the XP claim.
+4. **Campaign bridge** (`src/lib/growth/stage-bridges.ts`): the in-app
+   completion screen offers "Claim XP & <apply it>" (e.g. Build my
+   campaign -> `/dashboard/ads/new?clientId=`) beside "Claim XP & back to
+   the map". `completeStageAction` picks between the two server-known
+   targets by stage key (the form never supplies a URL) and now uses a
+   server-side `redirect()`: the old `redirectTo` + client `router.push`
+   was measured dropping ~1 in 5 navigations after the claim (10/10 after
+   the change).
+5. **Plan config** (`src/lib/plans/plans.ts`): FREE / PRO / BUSINESS
+   feature lists, no prices (no provider chosen). "Unlock TargetGum" links
+   to `ACCESS_REQUEST_URL` (optional env; only https:/mailto: accepted) or
+   falls back to "Sign in with your invite". Subscription is independent of
+   XP - nothing is purchasable with XP.
+
+Also: `GummyMascot` gained moods (`happy` / `thinking` / `celebrate` /
+`cheer` / `oops`) plus `GummyCoach` (mascot + speech bubble), and a
+`MASCOT_IMAGES` registry (`src/lib/brand/mascot-assets.ts`) so the
+approved 3D renders can replace the SVG per mood with zero other code
+changes. Audit finding: **no raster mascot assets exist** in the repo or
+the Hostinger document root (`public/` = `logo.jpg` only), so the SVG
+remains the documented placeholder until the PNGs are added.
+
+**Rationale:** The brief asks for "experience first, account later".
+`docs/DECISIONS.md` 2026-09-13 forbids self-service sign-up without its own
+security review, so the try-it gives the experience without creating any
+account or touching tenant data; conversion goes to request-access /
+invite sign-in. This keeps CLAUDE.md rule 3 (server-side authorization for
+every client-scoped operation) intact - the public surface has no
+client-scoped operations at all.
+
+**Alternative(s) considered:** Full self-serve SaaS (public sign-up
+creating an Organization per user, DB-stored plans, paywall) - deferred by
+the user; it needs the auth/tenancy review above and a payment provider.
+Storing anonymous progress server-side - rejected: it would need
+anonymous sessions and a write endpoint reachable without auth, for no
+benefit before sign-up exists.
+
+**Revisit if:** self-serve sign-up is approved (migrate the localStorage
+journey into the new account at sign-up), a payment provider is chosen
+(add prices/checkout to `plans.ts`), or the 3D mascot PNGs are supplied
+(fill `MASCOT_IMAGES`).
+
+---
+
 ## 2026-09-24 — Streak/XP/level badge moved from the Client Workspace header to the global top bar
 
 **Decision:** Follow-up to the same day's sidebar-restoration entry below:

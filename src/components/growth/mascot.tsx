@@ -1,21 +1,53 @@
+import Image from 'next/image'
+import type { ReactNode } from 'react'
+import { MASCOT_IMAGES, type GummyMood } from '@/lib/brand/mascot-assets'
 import { cn } from '@/lib/utils'
 
+export type { GummyMood } from '@/lib/brand/mascot-assets'
+
 /**
- * "Gummy", TargetGum's Growth Map mascot - ported from the approved
- * Duolingo-style mockup (docs/DECISIONS.md 2026-09-22). A flat-vector
- * rooster-in-a-hoodie, red comb, target-logo chest emblem. Pure SVG (no
- * external asset) so it themes with the rest of the app and never needs a
- * CDN image host.
+ * "Gummy", TargetGum's mascot - a rooster-in-a-hoodie with a red comb and
+ * the target logo on the chest (docs/DECISIONS.md 2026-09-22). Drawn as
+ * SVG so it themes and never needs an image host; when real artwork for a
+ * mood is registered in `MASCOT_IMAGES` (src/lib/brand/mascot-assets.ts)
+ * that image is rendered instead.
+ *
+ * Decorative by default (`aria-hidden`) - the speech text next to Gummy
+ * carries the meaning, never the drawing itself.
  */
-export function GummyMascot({ className, animate = false }: { className?: string; animate?: boolean }) {
+export function GummyMascot({
+  className,
+  animate = false,
+  mood = 'happy',
+}: {
+  className?: string
+  animate?: boolean
+  mood?: GummyMood
+}) {
+  const motion = animate && (mood === 'celebrate' ? 'motion-safe:animate-hop' : 'motion-safe:animate-sway')
+  const src = MASCOT_IMAGES[mood]
+  if (src) {
+    return (
+      <Image src={src} alt="" aria-hidden="true" width={200} height={244} className={cn('block h-auto object-contain', motion, className)} />
+    )
+  }
+
+  // Wing/eye/mouth geometry per mood; body, comb and hoodie are shared.
+  const leftWing =
+    mood === 'celebrate' ? { cx: 18, cy: 56, rot: 35 } : mood === 'oops' ? { cx: 24, cy: 84, rot: -8 } : { cx: 22, cy: 78, rot: -18 }
+  const rightWing =
+    mood === 'thinking' ? { cx: 74, cy: 58, rot: -30 } : mood === 'oops' ? { cx: 76, cy: 84, rot: 8 } : { cx: 82, cy: 62, rot: 35 }
+  const leftHand = mood === 'celebrate' ? { cx: 10, cy: 44 } : mood === 'oops' ? { cx: 20, cy: 97 } : { cx: 14, cy: 90 }
+  const rightHand = mood === 'thinking' ? { cx: 62, cy: 46 } : mood === 'oops' ? { cx: 80, cy: 97 } : { cx: 90, cy: 48 }
+
   return (
-    <svg viewBox="0 0 100 122" className={cn('block', animate && 'motion-safe:animate-sway', className)} aria-hidden="true">
+    <svg viewBox="0 0 100 122" className={cn('block', motion, className)} aria-hidden="true">
       <ellipse cx="50" cy="82" rx="29" ry="33" fill="#171717" />
       <ellipse cx="50" cy="106" rx="24" ry="7" fill="#E5252A" />
-      <ellipse cx="22" cy="78" rx="9" ry="16" fill="#171717" transform="rotate(-18 22 78)" />
-      <ellipse cx="82" cy="62" rx="9" ry="17" fill="#171717" transform="rotate(35 82 62)" />
-      <circle cx="14" cy="90" r="5.5" fill="#F5A623" />
-      <circle cx="90" cy="48" r="5.5" fill="#F5A623" />
+      <ellipse cx={leftWing.cx} cy={leftWing.cy} rx="9" ry="16" fill="#171717" transform={`rotate(${leftWing.rot} ${leftWing.cx} ${leftWing.cy})`} />
+      <ellipse cx={rightWing.cx} cy={rightWing.cy} rx="9" ry="17" fill="#171717" transform={`rotate(${rightWing.rot} ${rightWing.cx} ${rightWing.cy})`} />
+      <circle cx={leftHand.cx} cy={leftHand.cy} r="5.5" fill="#F5A623" />
+      <circle cx={rightHand.cx} cy={rightHand.cy} r="5.5" fill="#F5A623" />
       <ellipse cx="50" cy="85" rx="16" ry="22" fill="#FFFFFF" />
       <circle cx="50" cy="66" r="9.5" fill="#E5252A" />
       <circle cx="50" cy="66" r="5.8" fill="#FFFFFF" />
@@ -24,13 +56,88 @@ export function GummyMascot({ className, animate = false }: { className?: string
       <path d="M32 14 L38 1 L44 14 L50 -1 L56 14 L62 1 L68 14 Z" fill="#E5252A" />
       <ellipse cx="33" cy="40" rx="4.2" ry="2.6" fill="#FFC1C1" opacity=".75" />
       <ellipse cx="67" cy="40" rx="4.2" ry="2.6" fill="#FFC1C1" opacity=".75" />
+      <GummyEyes mood={mood} />
+      {mood === 'celebrate' || mood === 'cheer' ? (
+        <path d="M44 41 L56 41 Q50 52 44 41 Z" fill="#F5A623" />
+      ) : (
+        <path d="M45 40 L55 40 L50 48 Z" fill="#F5A623" />
+      )}
+      <ellipse cx="38" cy="119" rx="7.5" ry="4" fill="#F5A623" />
+      <ellipse cx="62" cy="119" rx="7.5" ry="4" fill="#F5A623" />
+    </svg>
+  )
+}
+
+function GummyEyes({ mood }: { mood: GummyMood }) {
+  if (mood === 'celebrate') {
+    // Happy closed eyes (upward arcs).
+    return (
+      <g fill="none" stroke="#171717" strokeWidth="2.4" strokeLinecap="round">
+        <path d="M37 33 Q41 28 45 33" />
+        <path d="M55 33 Q59 28 63 33" />
+      </g>
+    )
+  }
+  if (mood === 'cheer') {
+    return (
+      <g>
+        <circle cx="41" cy="32" r="3.4" fill="#171717" />
+        <circle cx="42.4" cy="30.6" r="1.1" fill="#fff" />
+        <path d="M55 32 Q59 29 63 32" fill="none" stroke="#171717" strokeWidth="2.4" strokeLinecap="round" />
+      </g>
+    )
+  }
+  return (
+    <g>
       <circle cx="41" cy="32" r="3.4" fill="#171717" />
       <circle cx="59" cy="32" r="3.4" fill="#171717" />
       <circle cx="42.4" cy="30.6" r="1.1" fill="#fff" />
       <circle cx="60.4" cy="30.6" r="1.1" fill="#fff" />
-      <path d="M45 40 L55 40 L50 48 Z" fill="#F5A623" />
-      <ellipse cx="38" cy="119" rx="7.5" ry="4" fill="#F5A623" />
-      <ellipse cx="62" cy="119" rx="7.5" ry="4" fill="#F5A623" />
-    </svg>
+      {mood === 'thinking' && <path d="M54 25 L64 23" stroke="#171717" strokeWidth="1.8" strokeLinecap="round" />}
+      {mood === 'oops' && (
+        <g stroke="#171717" strokeWidth="1.8" strokeLinecap="round">
+          <path d="M36 25 L45 27" />
+          <path d="M64 25 L55 27" />
+        </g>
+      )}
+    </g>
+  )
+}
+
+/**
+ * Gummy + a speech bubble - the one way Gummy "talks" anywhere in the app,
+ * so tone and layout stay consistent. `children` is the line Gummy says;
+ * it's real text, announced politely when it changes (`live`).
+ */
+export function GummyCoach({
+  mood = 'happy',
+  children,
+  className,
+  mascotClassName,
+  animate = false,
+  live = false,
+  tone = 'neutral',
+}: {
+  mood?: GummyMood
+  children: ReactNode
+  className?: string
+  mascotClassName?: string
+  animate?: boolean
+  live?: boolean
+  tone?: 'neutral' | 'tint'
+}) {
+  return (
+    <div className={cn('flex items-end gap-3', className)}>
+      <GummyMascot mood={mood} animate={animate} className={cn('h-16 w-14 shrink-0', mascotClassName)} />
+      <div
+        className={cn(
+          'relative mb-3 rounded-2xl border-2 px-4 py-2.5 text-sm font-medium leading-snug text-foreground',
+          tone === 'tint' ? 'border-primary/20 bg-primary-tint' : 'border-border bg-card',
+        )}
+        aria-live={live ? 'polite' : undefined}
+      >
+        {children}
+      </div>
+    </div>
   )
 }
