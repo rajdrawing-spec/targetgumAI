@@ -5,6 +5,66 @@ Newest entries at the top.
 
 ---
 
+## 2026-09-24 — Left sidebar restored; per-client streak/XP/level badge added to the Client Workspace header
+
+**Decision:** Reversed 2026-09-23's top-nav-only shell: a persistent left
+sidebar (`SidebarNav`, `lg`+) is back, rendering the same `NAV_DIRECT` +
+`NAV_GROUPS` data the top-nav dropdowns used, as one always-visible
+vertical rail instead. Below `lg`, `MobileMenu`'s hamburger + panel still
+provides the same nav (now sharing a single `NavList` renderer with the
+sidebar, so the two can't drift apart). No collapse toggle - the
+2026-09-13 version had one, but nothing asked for that complexity back,
+so it's a fixed-width rail this time.
+
+Also added `ClientGrowthBadge` (streak flame / XP gem / level circle) to
+the Client Workspace header (`clients/[clientId]/layout.tsx`), reading
+`getGrowthProgress` for that client.
+
+**Rationale:** Explicit user direction, given a reference mockup with a
+left sidebar + top gamification bar (streak/XP/level/avatar) + right
+stats panel, to match that layout - confirmed via `AskUserQuestion` that
+this applies to the whole app's shell, not just the Growth Map screen.
+
+The gamification cluster (streak/XP/level) is placed in the Client
+Workspace header rather than the global top bar, which is a deliberate
+deviation from the reference: TargetGum is multi-tenant (one agency
+account manages many clients, each with their own Growth Map journey via
+`ClientGrowthProgress`), unlike the reference's implicit single-player
+framing. There is no one "your streak" for an agency user managing several
+clients - only "this client's streak." Putting it in the global top bar
+would either be misleading (implying one number covers everything) or
+require inventing a cross-client aggregate that doesn't exist and wasn't
+asked for. Scoping it to the workspace header keeps the number honest:
+it's real data (`ClientGrowthProgress.xp/level/streakCount`), gated by the
+same `growth.read` permission the Growth Map page itself uses, for the
+client actually in view.
+
+Sidebar item labels also stay TargetGum's real section names (Command
+Center, Clients, Campaigns/Insights groups) rather than the reference's
+literal Duolingo section names (Learn/Practice/Challenges/Leaderboard/
+Shop) or its imagined global "Growth Map/Missions/Achievements/League/
+Rewards" items - those don't correspond to real, reachable features at
+the top level (Growth Map is and stays client-scoped), and CLAUDE.md's
+"do not introduce unrelated features" rule applies here: matching the
+reference's *visual chrome* (rail of icon+label rows, solid-pill active
+state) is the actual ask, not literally renaming the product's IA to
+Duolingo's.
+
+**Alternative(s) considered:** A global top-bar streak/XP cluster showing
+the most-recently-viewed client's stats, persisting across navigation -
+rejected as more surprising than useful (it would silently show stale or
+wrong-client numbers on pages that have nothing to do with that client,
+e.g. the global Approvals Gate or Ledger & Audit). Renaming sidebar items
+to match the reference's Duolingo-style labels - rejected per the CLAUDE.md
+scope rule above; the visual style transferred, the fictional IA did not.
+
+**Revisit if:** The product later wants a genuine cross-client gamification
+summary (e.g. "3 of your 4 clients are on a streak") - that's new
+aggregation logic, not a UI change, and should get its own decision entry
+rather than being folded into this one retroactively.
+
+---
+
 ## 2026-09-23 — Visual consistency audit: raw Tailwind colors and leftover "terminal" theme surfaces migrated to design tokens
 
 **Decision:** Swept the whole app for two classes of visual inconsistency and

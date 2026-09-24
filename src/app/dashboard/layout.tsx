@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation'
 import { getCurrentAuthContext } from '@/lib/auth/current-context'
 import { signOut } from '@/lib/auth'
 import { countUnreadNotifications, listNotificationsForUser } from '@/lib/notifications/service'
-import { TopNav, MobileMenu } from '@/components/dashboard-nav'
+import { SidebarNav, MobileMenu } from '@/components/dashboard-nav'
 import { AccountMenu } from '@/components/account-menu'
 import { NotificationBell } from '@/components/notification-bell'
 import { ToastProvider } from '@/components/ui/toast'
@@ -26,17 +26,19 @@ import { UniversalSearch } from '@/components/universal-search'
  * as now means signing out and back in as that account, same as any real
  * user.
  *
- * Layout shape (2026-09-23, docs/DECISIONS.md - replaces the 2026-09-13
- * sidebar+content shape): a single full-width top bar is the *only* nav
- * surface now - logo, `TopNav` (Command Center / Clients direct links,
- * Campaigns / Insights dropdowns), search, the AI Engine badge,
- * notifications, theme toggle, and `AccountMenu` (Team / Integrations /
- * My Account / Sign out - moved out of a sidebar footer into an avatar
- * menu, the standard home for account-scoped pages once there's no
- * sidebar to anchor them to). Below `lg`, `TopNav` hides and `MobileMenu`
- * (a hamburger opening the same grouped nav data as a dropdown panel)
- * takes over - no more off-canvas drawer or collapsible-sidebar
- * checkboxes; the main content area is simply full-width at every size.
+ * Layout shape (2026-09-24, docs/DECISIONS.md - restores the persistent
+ * left sidebar, reversing 2026-09-23's top-nav-only shell to match a
+ * reference mockup): a full-width top bar (logo, the AI Engine badge,
+ * search, notifications, theme toggle, `AccountMenu`) sits above a
+ * [sidebar, content] row. `SidebarNav` is always visible at `lg`+ - no
+ * collapse toggle, kept simple since the earlier collapsible version
+ * (docs/DECISIONS.md 2026-09-13) added complexity nothing asked for.
+ * Below `lg` there's no room for a persistent sidebar, so `MobileMenu`'s
+ * hamburger + dropdown panel (same nav data via `SidebarNav`/`MobileNav`
+ * sharing `NavList`) is how navigation works there, same as the top-nav
+ * version. `AccountMenu` (Team / Integrations / My Account / Sign out)
+ * stays in the header rather than moving back into a sidebar footer -
+ * that's still the more standard home for account-scoped pages.
  */
 const ROLE_LABEL: Record<string, string> = {
   super_admin: 'Super Admin',
@@ -81,8 +83,6 @@ export default async function DashboardLayout({ children }: { children: React.Re
             </div>
           </Link>
 
-          <TopNav />
-
           <div className="hidden items-center gap-1.5 rounded-full bg-primary-tint px-3 py-1 text-[11px] font-bold text-primary 2xl:flex">
             <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
             <span>AI Engine Online</span>
@@ -99,9 +99,15 @@ export default async function DashboardLayout({ children }: { children: React.Re
           </div>
         </header>
 
-        <main className="min-w-0 flex-1 bg-background px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
-          <div className="mx-auto max-w-7xl">{children}</div>
-        </main>
+        <div className="flex min-h-0 flex-1">
+          <aside className="hidden w-64 shrink-0 border-r border-border bg-card lg:flex lg:flex-col">
+            <SidebarNav />
+          </aside>
+
+          <main className="min-w-0 flex-1 bg-background px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+            <div className="mx-auto max-w-7xl">{children}</div>
+          </main>
+        </div>
       </div>
     </ToastProvider>
   )
