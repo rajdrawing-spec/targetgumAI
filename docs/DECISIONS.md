@@ -5,6 +5,81 @@ Newest entries at the top.
 
 ---
 
+## 2026-09-24 — Quests, Growth Shop and Growth Profile; verified quests; full-reload success for their actions
+
+**Decision:** Three per-client pages in the Client Workspace, next to the
+Growth Map (tabs: Quests, Shop, Growth Profile):
+
+1. **Quests** (`/quests`, Daily / Weekly / Special). New quests are
+   **verified**: their progress is counted from real rows (stage
+   completions, `CreativeAsset`, successful `WorkflowRun`, `Campaign`,
+   `CONNECTED` `IntegrationConnection`) for the current period
+   (`src/lib/growth/quests.ts`). "Claim XP" recounts on the server and
+   refuses until the target is met; `recordMissionProgress` now rejects any
+   self-report of a verified key, and also rejects non-positive / non-integer
+   increments (a pre-existing gap). The three original self-reported
+   missions keep working unchanged. SPECIAL quests have one all-time period.
+   The Growth Map's sidebar Missions card became a read-only "Quests"
+   summary linking here, so claiming/logging lives in one place.
+2. **Growth Shop** (`/shop`, Boosts / Mascots / Themes / Rewards). Spends a
+   balance (`xp - xpSpent`); total XP and level never go down. Every item has
+   a real effect: **Streak Shield** (consumable, max 2, used automatically to
+   cover exactly one missed day in `nextStreak`), two Gummy outfits drawn in
+   the SVG, two Growth Map background themes, gold lesson confetti. The
+   reference mockups' "XP Multiplier" (inflates XP) and "Campaign Boost"
+   (sells AI functionality for XP) are deliberately absent. Purchases are an
+   append-only ledger plus a compare-and-set on `xpSpent` inside a
+   transaction, so concurrent purchases can't double-spend (tested).
+3. **Growth Profile** (`/profile`): level + DB-editable level title
+   (`growth_levels`), XP to next level, streak, quests completed, campaigns
+   and creatives, 30-day reach/clicks/conversions **only from synced
+   `CampaignMetric` rows** ("—" + "Connect an ads account" otherwise, never an
+   invented number), achievements, Growth Map progress, recent activity.
+
+Supporting changes:
+- **Top-bar badge** (`TopBarGrowthBadge`) now loads from
+  `GET /api/growth/badge` instead of a Server Action on mount - a Server
+  Action resolving mid-click can drop the user's navigation - and links to
+  the Growth Profile. Below `sm` its level circle is hidden: with a
+  four-digit XP the header overflowed a 375px screen by 15px on every
+  workspace page.
+- **Cosmetics** reach Gummy through `GummyStyleProvider`, given by each
+  growth page from the progress row it already loaded (`cosmeticsFor`) - not
+  from a query in the shared `[clientId]` layout, which measurably made
+  Server Action results on those pages fail to apply more often.
+- **In-page tabs** (`ClientTabs`) switch Quests/Shop categories without a
+  server round trip; the URL is kept in sync with
+  `history.replaceState(null, …)` (Next ignores router sync for calls that
+  pass its own history state).
+
+**Why the quest/shop actions do a full page load on success:** in this app
+a client-side router transition within the Client Workspace intermittently
+never commits. Measured with a probe on the **pre-change build**: a
+same-pathname `router.push` succeeded 2/6 on the client Overview, 4/6 on
+Business, 5/6 on Recommendations. On the new pages that surfaced as "Claim
+XP" stuck on "Claiming…" after the claim had already saved: up to 8/8 with
+an in-place re-render, and still ~5/8 with a server `redirect()`, because
+the browser cancelled the 303 action response and the navigation never
+committed. So these actions return the URL of a flag route
+(`/quests/claimed/<key>`, `/shop/bought/<key>/<n>`, `/shop/equipped/<key>`
+- optional catch-all segments rendering the same page plus a celebration
+banner validated against real data) and their forms use the new
+`ActionForm fullReload`: 10/10 afterwards. The flag segment differs on
+every success, and a full load can't be dropped and always shows fresh
+data, so no `revalidatePath` is needed. Root cause of the router issue is
+not established; tracked as a follow-up task.
+
+**Alternative(s) considered:** Global per-user XP (rejected again for the
+multi-tenant reason in the entry below); letting XP unlock product
+features (rejected - brief and plan config keep subscription separate);
+self-reported progress for the new quests (rejected - quests must connect
+to real work).
+
+**Revisit if:** the router issue is root-caused - the quest/shop forms can
+then drop `fullReload` and return to in-place updates with toasts.
+
+---
+
 ## 2026-09-24 — Public try-it experience, reusable lesson engine, campaign bridge, plan config (no checkout yet)
 
 **Decision:** Five linked changes, from the "TargetGum master product

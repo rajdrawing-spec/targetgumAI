@@ -318,6 +318,7 @@ model Client {
   growthStageCompletions ClientGrowthStageCompletion[]
   growthMissionProgress  ClientGrowthMissionProgress[]
   growthAchievements     ClientGrowthAchievement[]
+  growthPurchases        ClientGrowthPurchase[]
 
   @@unique([organizationId, slug])
   @@index([organizationId, status])
@@ -1331,6 +1332,16 @@ model ClientGrowthProgress {
   level          Int            @default(1)
   streakCount    Int            @default(0)
   lastActivityAt DateTime?
+  /// Growth Shop (docs/DECISIONS.md 2026-09-24): XP spent so far. The
+  /// spendable balance is `xp - xpSpent`; `xp` (and so `level`) never
+  /// goes down when something is bought.
+  xpSpent             Int     @default(0)
+  /// Unused Streak Shields - each covers one missed day (progress.ts).
+  streakShields       Int     @default(0)
+  /// Equipped cosmetic item keys (src/lib/growth/shop-catalog.ts), one per slot.
+  equippedMascot      String?
+  equippedMapTheme    String?
+  equippedCelebration String?
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
 
@@ -1360,6 +1371,9 @@ model ClientGrowthStageCompletion {
 enum GrowthMissionCadence {
   DAILY
   WEEKLY
+  /// One-time milestone quests ("Create your first campaign") - a single
+  /// period for all time, see periodStartFor in src/lib/growth/missions.ts.
+  SPECIAL
 }
 
 /// Static-ish catalog of daily/weekly missions (BRD-style "Find 3 high-intent
@@ -1418,4 +1432,35 @@ model ClientGrowthAchievement {
   @@unique([clientId, achievementKey])
   @@index([organizationId, clientId])
   @@map("client_growth_achievements")
+}
+
+/// Display titles for Growth Map levels ("Level 5 - Growth Marketer").
+/// Editable platform content: rows missing here fall back to the defaults
+/// in src/lib/growth/levels.ts, and that file only ever inserts missing
+/// rows (never overwrites an edited title). XP thresholds stay in code
+/// (LEVEL_XP_STEP) - only the names are configurable.
+model GrowthLevel {
+  level     Int      @id
+  title     String
+  updatedAt DateTime @updatedAt
+
+  @@map("growth_levels")
+}
+
+/// Growth Shop purchase ledger - one row per purchase, append-only. The
+/// item catalog (price, slot, effect) lives in code, keyed by itemKey.
+model ClientGrowthPurchase {
+  id             String   @id @default(cuid())
+  organizationId String
+  clientId       String
+  itemKey        String
+  xpCost         Int
+  purchasedBy    String
+  purchasedAt    DateTime @default(now())
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, clientId])
+  @@index([clientId, itemKey])
+  @@map("client_growth_purchases")
 }

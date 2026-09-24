@@ -1,10 +1,11 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Flame, Gem } from 'lucide-react'
 import { xpToNextLevel } from '@/lib/growth/progress'
-import { getClientGrowthBadgeAction, type ClientGrowthBadgeData } from '@/app/dashboard/search-actions'
+import type { ClientGrowthBadgeData } from '@/lib/growth/badge'
 
 const CLIENT_ID_PATTERN = /^\/dashboard\/clients\/([^/]+)/
 
@@ -31,19 +32,32 @@ export function TopBarGrowthBadge() {
       setData(null)
       return
     }
-    let cancelled = false
-    getClientGrowthBadgeAction(clientId).then((result) => {
-      if (!cancelled) setData(result)
-    })
-    return () => {
-      cancelled = true
-    }
-  }, [clientId])
+    // A plain fetch, not a Server Action: an action resolving mid-click made
+    // the router drop the user's navigation (api/growth/badge/route.ts).
+    // Re-fetched on every page change so XP earned or spent in the
+    // workspace (quests, shop) shows up without a reload.
+    const controller = new AbortController()
+    fetch(`/api/growth/badge?clientId=${encodeURIComponent(clientId)}`, { signal: controller.signal, cache: 'no-store' })
+      .then((res) => (res.ok ? (res.json() as Promise<{ data: ClientGrowthBadgeData | null }>) : { data: null }))
+      .then((body) => setData(body.data))
+      .catch(() => {
+        // Aborted by the next navigation, or offline - keep whatever is shown.
+      })
+    return () => controller.abort()
+  }, [clientId, pathname])
 
   if (!data) return null
 
   return (
-    <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+    // Links to this client's Growth Profile, which has the full level/XP
+    // detail - so the level circle can drop out on phones, where the
+    // badge + search + bell + theme + avatar otherwise overflowed a 375px
+    // header once XP reached four digits.
+    <Link
+      href={`/dashboard/clients/${clientId}/profile`}
+      aria-label={`Growth Profile: level ${data.level}, ${data.xp.toLocaleString()} XP${data.streakCount > 0 ? `, ${data.streakCount}-day streak` : ''}`}
+      className="flex shrink-0 items-center gap-1 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:gap-2"
+    >
       {data.streakCount > 0 && (
         <span
           className="inline-flex items-center gap-1 rounded-full bg-warning-bg px-2 py-1 text-xs font-bold text-warning sm:px-2.5"
@@ -59,9 +73,9 @@ export function TopBarGrowthBadge() {
         <Gem className="h-3.5 w-3.5" /> {data.xp.toLocaleString()}
         <span className="hidden sm:inline">&nbsp;XP</span>
       </span>
-      <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-foreground text-xs font-bold text-background" title={`Level ${data.level}`}>
+      <span className="hidden h-7 w-7 shrink-0 items-center justify-center rounded-full bg-foreground text-xs font-bold text-background sm:inline-flex" title={`Level ${data.level}`}>
         {data.level}
       </span>
-    </div>
+    </Link>
   )
 }

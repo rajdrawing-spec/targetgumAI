@@ -1265,11 +1265,14 @@ config with no checkout yet. See `docs/DECISIONS.md` 2026-09-24.
       isolation (security); Playwright walkthrough desktop + mobile
       (55 checks) incl. in-app claim -> campaign builder
 - [ ] Real Gummy 3D renders in `public/mascot/` + `MASCOT_IMAGES`
-- [ ] Quests page (DAILY/WEEKLY/SPECIAL) over the existing
-      `GrowthMission` catalog, per client
-- [ ] Growth Profile page (level names configurable in DB, achievements,
-      recent activity) per client
-- [ ] Growth Shop (cosmetic/convenience only; needs XP spend ledger)
+- [x] Quests page (Daily / Weekly / Special), verified quests counted from
+      real records, per client
+- [x] Growth Profile page (DB-configurable level titles, real stats only,
+      achievements, map progress, recent activity) per client
+- [x] Growth Shop (Streak Shield, Gummy outfits, map themes, gold confetti;
+      purchase ledger, no double-spend)
+- [ ] Root-cause intermittent client-router transitions in the Client
+      Workspace (quest/shop forms use a full reload meanwhile)
 - [ ] Practice hub (reuse lesson engine with per-client context)
 - [ ] Self-serve sign-up + payment provider (needs security review) -
       then migrate try-it progress into the new account

@@ -131,6 +131,12 @@ by test, not just by code inspection.
   RBAC, AI, integrations or tools, or declares a server action -
   enforced by `tests/security/public-tryit-isolation.test.ts`. Any new
   public page must stay inside that test's entry points or add itself.
+- **Growth quests / shop** (2026-09-24): verified quests are counted from
+  real tenant-scoped rows and can't be self-reported or claimed early;
+  shop purchases use a compare-and-set on `xpSpent` so XP can't be
+  double-spent; all reads need `growth.read`, all writes `growth.write` and
+  client access - `tests/security/growth-quests-shop.test.ts`. XP never
+  unlocks product functionality.
 - **Route protection**: page-level `redirect()` guards (see
   `src/app/dashboard/page.tsx`), not Next.js middleware — see
   `docs/DECISIONS.md` for why middleware was deliberately skipped for now.

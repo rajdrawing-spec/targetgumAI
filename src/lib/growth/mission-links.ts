@@ -20,4 +20,11 @@ export const MISSION_SCREEN_LINKS: Record<string, { label: string; href: (client
     label: 'Open Creative Studio',
     href: (clientId) => `/dashboard/creatives?clientId=${clientId}`,
   },
+  // Verified quests (docs/DECISIONS.md 2026-09-24) - where the real work happens.
+  'complete-a-lesson': { label: 'Open the Growth Map', href: (clientId) => `/dashboard/clients/${clientId}/growth` },
+  'create-3-creatives': { label: 'Open Creative Studio', href: (clientId) => `/dashboard/creatives?clientId=${clientId}` },
+  'run-marketing-analysis': { label: 'Open client Overview', href: (clientId) => `/dashboard/clients/${clientId}` },
+  'launch-first-campaign': { label: 'Build a campaign', href: (clientId) => `/dashboard/ads/new?clientId=${clientId}` },
+  'connect-first-integration': { label: 'Open Connections', href: (clientId) => `/dashboard/clients/${clientId}/connections` },
+  'finish-five-stages': { label: 'Open the Growth Map', href: (clientId) => `/dashboard/clients/${clientId}/growth` },
 }

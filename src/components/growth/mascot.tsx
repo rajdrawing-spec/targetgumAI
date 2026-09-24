@@ -1,7 +1,11 @@
+'use client'
+
 import Image from 'next/image'
 import type { ReactNode } from 'react'
 import { MASCOT_IMAGES, type GummyMood } from '@/lib/brand/mascot-assets'
 import { cn } from '@/lib/utils'
+import type { GummyOutfit } from '@/lib/growth/shop-catalog'
+import { useGummyStyle } from './gummy-style'
 
 export type { GummyMood } from '@/lib/brand/mascot-assets'
 
@@ -19,11 +23,16 @@ export function GummyMascot({
   className,
   animate = false,
   mood = 'happy',
+  outfit,
 }: {
   className?: string
   animate?: boolean
   mood?: GummyMood
+  /** Growth Shop outfit; defaults to the one equipped for the current Client Workspace. */
+  outfit?: GummyOutfit | null
 }) {
+  const styled = useGummyStyle()
+  const wearing = outfit === undefined ? styled.outfit : outfit
   const motion = animate && (mood === 'celebrate' ? 'motion-safe:animate-hop' : 'motion-safe:animate-sway')
   const src = MASCOT_IMAGES[mood]
   if (src) {
@@ -41,7 +50,7 @@ export function GummyMascot({
   const rightHand = mood === 'thinking' ? { cx: 62, cy: 46 } : mood === 'oops' ? { cx: 80, cy: 97 } : { cx: 90, cy: 48 }
 
   return (
-    <svg viewBox="0 0 100 122" className={cn('block', motion, className)} aria-hidden="true">
+    <svg viewBox="0 0 100 122" overflow="visible" className={cn('block', motion, className)} aria-hidden="true">
       <ellipse cx="50" cy="82" rx="29" ry="33" fill="#171717" />
       <ellipse cx="50" cy="106" rx="24" ry="7" fill="#E5252A" />
       <ellipse cx={leftWing.cx} cy={leftWing.cy} rx="9" ry="16" fill="#171717" transform={`rotate(${leftWing.rot} ${leftWing.cx} ${leftWing.cy})`} />
@@ -64,7 +73,30 @@ export function GummyMascot({
       )}
       <ellipse cx="38" cy="119" rx="7.5" ry="4" fill="#F5A623" />
       <ellipse cx="62" cy="119" rx="7.5" ry="4" fill="#F5A623" />
+      {wearing && <GummyOutfitLayer outfit={wearing} />}
     </svg>
+  )
+}
+
+/** Growth Shop outfits, drawn over the base SVG (docs/DECISIONS.md 2026-09-24). */
+function GummyOutfitLayer({ outfit }: { outfit: GummyOutfit }) {
+  if (outfit === 'shades') {
+    return (
+      <g>
+        <rect x="33" y="26" width="15" height="10" rx="4" fill="#111" />
+        <rect x="52" y="26" width="15" height="10" rx="4" fill="#111" />
+        <path d="M48 30 L52 30" stroke="#111" strokeWidth="2" />
+        <path d="M36 28.5 L41 28.5" stroke="#fff" strokeWidth="1.2" strokeLinecap="round" opacity=".6" />
+        <path d="M55 28.5 L60 28.5" stroke="#fff" strokeWidth="1.2" strokeLinecap="round" opacity=".6" />
+      </g>
+    )
+  }
+  return (
+    <g transform="rotate(12 50 8)">
+      <path d="M38 14 L62 14 L50 -14 Z" fill="#3B82F6" />
+      <path d="M41 7 L59 7 M44 0 L56 0" stroke="#FFC107" strokeWidth="3" />
+      <circle cx="50" cy="-15" r="4" fill="#FFC107" />
+    </g>
   )
 }
 

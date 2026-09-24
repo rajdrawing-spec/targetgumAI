@@ -5,6 +5,8 @@ import { getCurrentAuthContext } from '@/lib/auth/current-context'
 import { getStageStates, STAGE_XP_REWARD } from '@/lib/growth/stages'
 import { getGrowthProgress } from '@/lib/growth/progress'
 import { STAGE_BRIDGES } from '@/lib/growth/stage-bridges'
+import { cosmeticsFor } from '@/lib/growth/shop-catalog'
+import { GummyStyleProvider } from '@/components/growth/gummy-style'
 import { GROWTH_STAGE_ORDER } from '@/lib/growth/stage-defs'
 import { getLessonForStage } from '@/lib/growth/lesson-defs'
 import { getClientBrainSection } from '@/lib/clients/brain'
@@ -25,8 +27,15 @@ type Business = z.infer<typeof BusinessSectionSchema>
  * only adds an interactive lesson in front of that existing action, it
  * doesn't introduce a new way to mutate stage state.
  */
-export default async function GrowthLessonPage({ params }: { params: Promise<{ clientId: string; stage: string }> }) {
-  const [{ clientId, stage: stageParam }, ctx] = await Promise.all([params, getCurrentAuthContext()])
+export default async function GrowthLessonPage({
+  params,
+}: {
+  params: Promise<{ clientId: string; stage: string }>
+}) {
+  const [{ clientId, stage: stageParam }, ctx] = await Promise.all([
+    params,
+    getCurrentAuthContext(),
+  ])
   if (!ctx) redirect('/sign-in')
 
   if (!GROWTH_STAGE_ORDER.includes(stageParam as GrowthStageKey)) notFound()
@@ -58,9 +67,12 @@ export default async function GrowthLessonPage({ params }: { params: Promise<{ c
           <p className="text-xs font-semibold uppercase tracking-wider text-primary">
             Stage {stageState.order} of {GROWTH_STAGE_ORDER.length}
           </p>
-          <h1 className="mt-1 font-display text-2xl font-bold tracking-tight text-foreground">Define Your Business</h1>
+          <h1 className="mt-1 font-display text-2xl font-bold tracking-tight text-foreground">
+            Define Your Business
+          </h1>
           <p className="mt-1.5 text-sm text-muted-foreground">
-            Before we can help you market, we need to understand your business - in plain, everyday words.
+            Before we can help you market, we need to understand your business - in plain, everyday
+            words.
           </p>
         </div>
         <BusinessIntakeForm
@@ -75,23 +87,26 @@ export default async function GrowthLessonPage({ params }: { params: Promise<{ c
 
   const lesson = getLessonForStage(stage)
   if (!lesson) notFound()
-  const completeAction = !alreadyCompleted && canWrite ? completeStageAction.bind(null, clientId, stage) : null
+  const completeAction =
+    !alreadyCompleted && canWrite ? completeStageAction.bind(null, clientId, stage) : null
   const progress = await getGrowthProgress(ctx, clientId)
   const bridge = STAGE_BRIDGES[stage]
 
   // Lesson layout per the reference (progress bar + hearts on top, SKIP/
   // CHECK footer) - the player brings its own exit link, so no crumb.
   return (
-    <div className="overflow-hidden rounded-3xl border-2 border-border bg-card">
-      <LessonQuiz
-        lesson={lesson}
-        clientId={clientId}
-        xpReward={STAGE_XP_REWARD}
-        completeAction={completeAction}
-        alreadyCompleted={alreadyCompleted}
-        streakCount={progress?.streakCount ?? 0}
-        bridge={{ label: bridge.label, href: bridge.href(clientId) }}
-      />
-    </div>
+    <GummyStyleProvider value={cosmeticsFor(progress)}>
+      <div className="overflow-hidden rounded-3xl border-2 border-border bg-card">
+        <LessonQuiz
+          lesson={lesson}
+          clientId={clientId}
+          xpReward={STAGE_XP_REWARD}
+          completeAction={completeAction}
+          alreadyCompleted={alreadyCompleted}
+          streakCount={progress?.streakCount ?? 0}
+          bridge={{ label: bridge.label, href: bridge.href(clientId) }}
+        />
+      </div>
+    </GummyStyleProvider>
   )
 }
