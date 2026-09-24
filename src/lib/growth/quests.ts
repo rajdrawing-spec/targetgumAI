@@ -29,6 +29,9 @@ const QUEST_VERIFIERS: Record<string, (clientId: string, w: Window) => Promise<n
   'launch-first-campaign': (clientId) => db.campaign.count({ where: { clientId } }),
   'connect-first-integration': (clientId) => db.integrationConnection.count({ where: { clientId, status: 'CONNECTED' } }),
   'finish-five-stages': (clientId) => db.clientGrowthStageCompletion.count({ where: { clientId } }),
+  // Every other quest completed in this week (DAILY/WEEKLY/SPECIAL alike) - never itself.
+  'weekly-goal': (clientId, w) =>
+    db.clientGrowthMissionProgress.count({ where: { clientId, completedAt: inWindow(w), mission: { key: { not: 'weekly-goal' } } } }),
 }
 
 /** Every verified quest in the catalog must have a counter (enforced by tests/unit/growth-quests.test.ts). */

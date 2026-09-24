@@ -25,7 +25,7 @@ export interface QuestDef {
   xpReward: number
   targetCount: number
   verified: boolean
-  icon: 'audience' | 'analytics' | 'creative' | 'lesson' | 'campaign' | 'integration' | 'map'
+  icon: 'audience' | 'analytics' | 'creative' | 'lesson' | 'campaign' | 'integration' | 'map' | 'goal'
 }
 
 export const QUEST_DEFS: readonly QuestDef[] = [
@@ -90,6 +90,18 @@ export const QUEST_DEFS: readonly QuestDef[] = [
     targetCount: 1,
     verified: true,
     icon: 'analytics',
+  },
+  {
+    // The reference's "Weekly Goal" and the brief's weekly-challenge bonus
+    // XP: counts the other quests actually completed this week.
+    key: 'weekly-goal',
+    cadence: 'WEEKLY',
+    title: 'Weekly goal: complete 7 quests',
+    description: 'Finish any 7 quests this week for a bonus.',
+    xpReward: 150,
+    targetCount: 7,
+    verified: true,
+    icon: 'goal',
   },
   {
     key: 'launch-first-campaign',

@@ -27,4 +27,5 @@ export const MISSION_SCREEN_LINKS: Record<string, { label: string; href: (client
   'launch-first-campaign': { label: 'Build a campaign', href: (clientId) => `/dashboard/ads/new?clientId=${clientId}` },
   'connect-first-integration': { label: 'Open Connections', href: (clientId) => `/dashboard/clients/${clientId}/connections` },
   'finish-five-stages': { label: 'Open the Growth Map', href: (clientId) => `/dashboard/clients/${clientId}/growth` },
+  'weekly-goal': { label: 'See today’s quests', href: (clientId) => `/dashboard/clients/${clientId}/quests` },
 }

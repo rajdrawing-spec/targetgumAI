@@ -1,9 +1,12 @@
 import { redirect } from 'next/navigation'
 import { GummyStyleProvider } from '@/components/growth/gummy-style'
 import { cosmeticsFor } from '@/lib/growth/shop-catalog'
-import { Check, Flame } from 'lucide-react'
+import Link from 'next/link'
+import { Check, Flame, Shield } from 'lucide-react'
 import { getCurrentAuthContext } from '@/lib/auth/current-context'
-import { getGrowthProgress } from '@/lib/growth/progress'
+import { getGrowthProgress, levelUpFrom } from '@/lib/growth/progress'
+import { getLevelTitles } from '@/lib/growth/levels'
+import { ProgressBar } from '@/components/gamification/stats'
 import { getActiveDaysThisWeek, getQuestBoard, type QuestCard as QuestCardData } from '@/lib/growth/quests'
 import type { ActionResult } from '@/lib/actions/result'
 import { GummyCoach, GummyMascot } from '@/components/growth/mascot'
@@ -49,6 +52,11 @@ export default async function QuestsPage({
   // Flags from the claim / log actions' redirect - shown only if true.
   const justClaimed = board.find((q) => q.key === claimed && q.completedAt)
   const justLogged = !justClaimed ? board.find((q) => q.key === logged && !q.completedAt) : undefined
+  // A claim that crossed a level boundary gets the level-up celebration.
+  const newLevel = justClaimed && progress ? levelUpFrom(progress.xp, justClaimed.xpReward) : null
+  const levelTitle = newLevel ? (await getLevelTitles())(newLevel) : null
+  const weeklyGoal = board.find((q) => q.key === 'weekly-goal')
+  const shields = progress?.streakShields ?? 0
 
   const claimAction = claimQuestAction.bind(null, clientId)
   const logAction = recordMissionProgressAction.bind(null, clientId)
@@ -66,11 +74,16 @@ export default async function QuestsPage({
           </GummyCoach>
         </div>
 
-        {justClaimed && (
-          <CelebrationBanner title={`Quest complete! +${justClaimed.xpReward} XP`}>
-            {justClaimed.title} - nice work. Your streak and level are up to date.
-          </CelebrationBanner>
-        )}
+        {justClaimed &&
+          (newLevel ? (
+            <CelebrationBanner title={`Level up! You're now Level ${newLevel} · ${levelTitle}`}>
+              {justClaimed.title} earned +{justClaimed.xpReward} XP and took this business to a new level.
+            </CelebrationBanner>
+          ) : (
+            <CelebrationBanner title={`Quest complete! +${justClaimed.xpReward} XP`}>
+              {justClaimed.title} - nice work. Your streak and level are up to date.
+            </CelebrationBanner>
+          ))}
         {justLogged && (
           <CelebrationBanner title="Progress saved" mood="cheer">
             {justLogged.title}: {justLogged.progressCount} of {justLogged.targetCount}. Keep going!
@@ -83,6 +96,15 @@ export default async function QuestsPage({
             <div>
               <p className="font-display text-3xl font-extrabold leading-none text-foreground">{streak}</p>
               <p className="text-xs text-muted-foreground">Day streak</p>
+              {shields > 0 && (
+                <Link
+                  href={`/dashboard/clients/${clientId}/shop?tab=boosts`}
+                  className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-mustard hover:underline"
+                  title="Each Streak Shield covers one missed day automatically"
+                >
+                  <Shield className="h-3.5 w-3.5" aria-hidden="true" /> {shields} shield{shields === 1 ? '' : 's'} ready
+                </Link>
+              )}
             </div>
           </div>
           <ol className="grid flex-1 grid-cols-7 gap-1 sm:ml-6">
@@ -104,6 +126,25 @@ export default async function QuestsPage({
               </li>
             ))}
           </ol>
+          {weeklyGoal && (
+            <div className="sm:w-44 sm:border-l sm:border-border sm:pl-5">
+              <p className="text-sm font-bold text-foreground">Weekly goal</p>
+              <ProgressBar
+                className="mt-1.5 h-2.5"
+                value={weeklyGoal.progressCount}
+                max={weeklyGoal.targetCount}
+                label="Weekly goal progress"
+                tone={weeklyGoal.completedAt ? 'success' : 'primary'}
+              />
+              <p className={cn('mt-1 text-xs', weeklyGoal.claimable ? 'font-semibold text-success' : 'text-muted-foreground')}>
+                {weeklyGoal.completedAt
+                  ? 'Reached - bonus claimed!'
+                  : weeklyGoal.claimable
+                    ? `Reached! Claim +${weeklyGoal.xpReward} XP in Weekly`
+                    : `${weeklyGoal.progressCount} of ${weeklyGoal.targetCount} quests · +${weeklyGoal.xpReward} XP bonus`}
+              </p>
+            </div>
+          )}
         </section>
 
         <ClientTabs

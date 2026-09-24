@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { BarChart3, BookOpen, Check, Link2, Map, Megaphone, Palette, Users, type LucideIcon } from 'lucide-react'
+import { BarChart3, BookOpen, Check, Link2, Map, Megaphone, Palette, Trophy, Users, type LucideIcon } from 'lucide-react'
 import type { QuestCard as QuestCardData } from '@/lib/growth/quests'
 import type { QuestDef } from '@/lib/growth/quest-defs'
 import { MISSION_SCREEN_LINKS } from '@/lib/growth/mission-links'
@@ -19,6 +19,7 @@ const ICONS: Record<QuestDef['icon'], { icon: LucideIcon; tile: string }> = {
   campaign: { icon: Megaphone, tile: 'bg-primary-tint text-primary' },
   integration: { icon: Link2, tile: 'bg-info-bg text-info' },
   map: { icon: Map, tile: 'bg-warning-bg text-mustard' },
+  goal: { icon: Trophy, tile: 'bg-warning-bg text-mustard' },
 }
 
 /**

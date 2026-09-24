@@ -20,6 +20,12 @@ export function levelForXp(xp: number): number {
   return Math.floor(Math.max(0, xp) / LEVEL_XP_STEP) + 1
 }
 
+/** The level reached if gaining `gained` XP (ending at `xpAfter`) crossed a level boundary, else null. */
+export function levelUpFrom(xpAfter: number, gained: number): number | null {
+  const after = levelForXp(xpAfter)
+  return after > levelForXp(xpAfter - Math.max(0, gained)) ? after : null
+}
+
 export function xpToNextLevel(xp: number): number {
   const remainder = Math.max(0, xp) % LEVEL_XP_STEP
   return LEVEL_XP_STEP - remainder

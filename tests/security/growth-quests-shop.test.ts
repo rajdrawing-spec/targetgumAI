@@ -186,4 +186,42 @@ describe('Growth quests + shop - verification, permissions, tenant isolation', (
     expect(await getClientGrowthBadge(await ctxFor(adminId), 'no-such-client')).toBeNull()
     expect(await getClientGrowthBadge(await ctxFor(employeeId), clientAId)).toMatchObject({ xp: expect.any(Number), level: expect.any(Number) })
   })
+
+  it('weekly goal counts only this week\'s other completed quests, and cannot be self-reported', async () => {
+    const ctx = await ctxFor(adminId)
+    await expect(recordMissionProgress(ctx, clientBId, 'weekly-goal', 7)).rejects.toThrow('completes from your real work')
+
+    const now = new Date()
+    const missions = await testDb.growthMission.findMany({ where: { key: { not: 'weekly-goal' } }, take: 8 })
+    expect(missions.length).toBeGreaterThanOrEqual(7)
+    const lastWeek = new Date(now.getTime() - 8 * 86_400_000)
+    // 6 completions this week + 3 last week (must not count) on Client B.
+    for (const [i, m] of missions.slice(0, 6).entries())
+      await testDb.clientGrowthMissionProgress.create({
+        data: { organizationId: orgId, clientId: clientBId, missionId: m.id, periodStart: new Date(1000 + i), progressCount: 1, completedAt: now },
+      })
+    for (const [i, m] of missions.slice(0, 3).entries())
+      await testDb.clientGrowthMissionProgress.create({
+        data: { organizationId: orgId, clientId: clientBId, missionId: m.id, periodStart: new Date(5000 + i), progressCount: 1, completedAt: lastWeek },
+      })
+    let goal = (await getQuestBoard(ctx, clientBId)).find((q) => q.key === 'weekly-goal')!
+    expect(goal).toMatchObject({ verified: true, progressCount: 6, claimable: false })
+    await expect(claimVerifiedQuest(ctx, clientBId, 'weekly-goal')).rejects.toThrow('Not done yet - 6 of 7')
+
+    await testDb.clientGrowthMissionProgress.create({
+      data: { organizationId: orgId, clientId: clientBId, missionId: missions[6]!.id, periodStart: new Date(9000), progressCount: 1, completedAt: now },
+    })
+    goal = (await getQuestBoard(ctx, clientBId)).find((q) => q.key === 'weekly-goal')!
+    expect(goal).toMatchObject({ progressCount: 7, claimable: true })
+    // Client A's completions never count toward B's goal, and vice versa.
+    expect((await getQuestBoard(ctx, clientAId)).find((q) => q.key === 'weekly-goal')!.progressCount).toBeLessThan(7)
+
+    const before = await testDb.clientGrowthProgress.findUnique({ where: { clientId: clientBId } })
+    await claimVerifiedQuest(ctx, clientBId, 'weekly-goal')
+    const after = await testDb.clientGrowthProgress.findUniqueOrThrow({ where: { clientId: clientBId } })
+    expect(after.xp - (before?.xp ?? 0)).toBe(150)
+    // Its own completion doesn't count toward itself.
+    goal = (await getQuestBoard(ctx, clientBId)).find((q) => q.key === 'weekly-goal')!
+    expect(goal.completedAt).not.toBeNull()
+  })
 })

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { nextStreak } from '@/lib/growth/progress'
+import { levelUpFrom, nextStreak } from '@/lib/growth/progress'
 import { periodEndFor, periodStartFor } from '@/lib/growth/missions'
 import { QUEST_DEFS, VERIFIED_QUEST_KEYS } from '@/lib/growth/quest-defs'
 import { VERIFIER_KEYS } from '@/lib/growth/quests'
@@ -82,5 +82,15 @@ describe('levels', () => {
     expect(DEFAULT_LEVEL_TITLES[4]).toBe('Growth Marketer')
     expect(xpForLevel(1)).toBe(0)
     expect(xpForLevel(6)).toBe(2500)
+  })
+})
+
+describe('level-up detection', () => {
+  it('reports the new level only when a gain crosses a boundary', () => {
+    expect(levelUpFrom(1550, 250)).toBe(4) // 1300 (L3) -> 1550 (L4)
+    expect(levelUpFrom(1450, 100)).toBeNull() // 1350 -> 1450, still L3
+    expect(levelUpFrom(500, 500)).toBe(2) // 0 -> 500
+    expect(levelUpFrom(2100, 1200)).toBe(5) // jumps two levels, reports the one reached
+    expect(levelUpFrom(300, 0)).toBeNull()
   })
 })

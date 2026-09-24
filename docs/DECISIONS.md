@@ -75,6 +75,12 @@ features (rejected - brief and plan config keep subscription separate);
 self-reported progress for the new quests (rejected - quests must connect
 to real work).
 
+**Follow-up the same day:** a verified `weekly-goal` quest (+150 XP when 7
+other quests are completed in the current week - the reference's "Weekly
+Goal" and the brief's weekly-challenge bonus; it never counts itself), a
+level-up banner when a claim crosses a level boundary (`levelUpFrom`), and
+the streak card now shows how many Streak Shields are ready.
+
 **Revisit if:** the router issue is root-caused - the quest/shop forms can
 then drop `fullReload` and return to in-place updates with toasts.
 

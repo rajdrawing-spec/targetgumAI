@@ -159,11 +159,10 @@ export async function recordMissionProgress(
 }
 
 /**
- * "Weekly Goal" card: how many missions (any cadence) this client has
- * completed since the current UTC week started. Not a mission of its own -
- * a mission that meant "complete N other missions" would need to know
- * about every other mission's completion, which nothing here tracks - so
- * this stays a plain count over `ClientGrowthMissionProgress` instead.
+ * How many quests (any cadence) this client has completed since the
+ * current UTC week started - the Growth Map sidebar's "N completed this
+ * week" line. The claimable version of this is the verified `weekly-goal`
+ * quest (quest-defs.ts), which counts the same rows minus itself.
  */
 export async function getWeeklyMissionCompletionCount(ctx: AuthContext, clientId: string, now: Date = new Date()): Promise<number> {
   assertPermission(ctx, 'growth.read')
