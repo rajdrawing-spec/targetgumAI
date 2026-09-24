@@ -43,16 +43,23 @@ export function TopBarGrowthBadge() {
   if (!data) return null
 
   return (
-    <div className="hidden shrink-0 items-center gap-2 md:flex">
+    <div className="flex shrink-0 items-center gap-1 sm:gap-2">
       {data.streakCount > 0 && (
-        <span className="inline-flex items-center gap-1 rounded-full bg-warning-bg px-2.5 py-1 text-xs font-bold text-warning" title={`${data.streakCount}-day streak`}>
+        <span
+          className="inline-flex items-center gap-1 rounded-full bg-warning-bg px-2 py-1 text-xs font-bold text-warning sm:px-2.5"
+          title={`${data.streakCount}-day streak`}
+        >
           <Flame className="h-3.5 w-3.5" /> {data.streakCount}
         </span>
       )}
-      <span className="inline-flex items-center gap-1 rounded-full bg-primary-tint px-2.5 py-1 text-xs font-bold text-primary" title={`${xpToNextLevel(data.xp)} XP to next level`}>
-        <Gem className="h-3.5 w-3.5" /> {data.xp.toLocaleString()} XP
+      <span
+        className="inline-flex items-center gap-1 rounded-full bg-primary-tint px-2 py-1 text-xs font-bold text-primary sm:px-2.5"
+        title={`${xpToNextLevel(data.xp)} XP to next level`}
+      >
+        <Gem className="h-3.5 w-3.5" /> {data.xp.toLocaleString()}
+        <span className="hidden sm:inline">&nbsp;XP</span>
       </span>
-      <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-foreground text-xs font-bold text-background" title={`Level ${data.level}`}>
+      <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-foreground text-xs font-bold text-background" title={`Level ${data.level}`}>
         {data.level}
       </span>
     </div>
