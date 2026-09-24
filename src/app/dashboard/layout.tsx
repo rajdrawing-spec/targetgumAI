@@ -10,6 +10,7 @@ import { NotificationBell } from '@/components/notification-bell'
 import { ToastProvider } from '@/components/ui/toast'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { UniversalSearch } from '@/components/universal-search'
+import { TopBarGrowthBadge } from '@/components/growth/client-growth-badge'
 
 /**
  * The dashboard shell (BRD-PRD Section 42). This layout is staff-only. A
@@ -29,16 +30,19 @@ import { UniversalSearch } from '@/components/universal-search'
  * Layout shape (2026-09-24, docs/DECISIONS.md - restores the persistent
  * left sidebar, reversing 2026-09-23's top-nav-only shell to match a
  * reference mockup): a full-width top bar (logo, the AI Engine badge,
- * search, notifications, theme toggle, `AccountMenu`) sits above a
- * [sidebar, content] row. `SidebarNav` is always visible at `lg`+ - no
- * collapse toggle, kept simple since the earlier collapsible version
- * (docs/DECISIONS.md 2026-09-13) added complexity nothing asked for.
- * Below `lg` there's no room for a persistent sidebar, so `MobileMenu`'s
- * hamburger + dropdown panel (same nav data via `SidebarNav`/`MobileNav`
- * sharing `NavList`) is how navigation works there, same as the top-nav
- * version. `AccountMenu` (Team / Integrations / My Account / Sign out)
- * stays in the header rather than moving back into a sidebar footer -
- * that's still the more standard home for account-scoped pages.
+ * search, `TopBarGrowthBadge`, notifications, theme toggle, `AccountMenu`)
+ * sits above a [sidebar, content] row. `SidebarNav` is always visible at
+ * `lg`+ - no collapse toggle, kept simple since the earlier collapsible
+ * version (docs/DECISIONS.md 2026-09-13) added complexity nothing asked
+ * for. Below `lg` there's no room for a persistent sidebar, so
+ * `MobileMenu`'s hamburger + dropdown panel (same nav data via
+ * `SidebarNav`/`MobileNav` sharing `NavList`) is how navigation works
+ * there, same as the top-nav version. `AccountMenu` (Team / Integrations /
+ * My Account / Sign out) stays in the header rather than moving back into
+ * a sidebar footer - that's still the more standard home for
+ * account-scoped pages. `TopBarGrowthBadge` renders nothing outside a
+ * client's workspace - see its own doc comment for why it lives here
+ * globally yet stays per-client, not a fake app-wide number.
  */
 const ROLE_LABEL: Record<string, string> = {
   super_admin: 'Super Admin',
@@ -93,6 +97,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
           </div>
 
           <div className="ml-auto flex shrink-0 items-center gap-2.5">
+            <TopBarGrowthBadge />
             <NotificationBell unreadCount={unreadCount} items={recentNotifications} />
             <ThemeToggle className="flex h-9 w-9 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-muted hover:text-foreground" />
             <AccountMenu roleLabel={roleLabel} orgLabel={orgLabel} signOutAction={signOutAction} />

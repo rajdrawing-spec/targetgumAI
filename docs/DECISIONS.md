@@ -5,6 +5,48 @@ Newest entries at the top.
 
 ---
 
+## 2026-09-24 — Streak/XP/level badge moved from the Client Workspace header to the global top bar
+
+**Decision:** Follow-up to the same day's sidebar-restoration entry below:
+per explicit user direction, `ClientGrowthBadge` moved out of
+`clients/[clientId]/layout.tsx` and into the global `dashboard/layout.tsx`
+top bar, renamed `TopBarGrowthBadge`. Since the global layout is a Server
+Component with no route params for a nested client segment, it can't read
+`clientId` server-side the way the workspace layout could; `TopBarGrowthBadge`
+is a small client component that reads the client id out of the URL itself
+(`usePathname` matched against `/dashboard/clients/([^/]+)`) and fetches
+that client's `{xp, level, streakCount}` through a new
+`getClientGrowthBadgeAction` (`src/app/dashboard/search-actions.ts`, same
+not-an-`ActionResult` convention as `searchClientsForHeaderAction` next to
+it - a header widget polling for display data, not a form). Renders
+nothing when the pathname has no client segment (Command Center, Clients
+list, global Insights pages) or the fetch turns up no permission/no
+progress row, rather than a stale or fabricated number.
+
+**Rationale:** Direct instruction to relocate the badge specifically to
+the top bar, matching the reference mockup's exact placement. The earlier
+concern (docs/DECISIONS.md's 2026-09-24 sidebar entry, below) still holds
+and shaped *how*: this remains real, permission-gated, per-client data,
+not a global aggregate - it just now lives in the shared header and only
+renders while a specific client's workspace is the active route, instead
+of inside that route's own layout.
+
+**Alternative(s) considered:** Passing `clientId` down from the workspace
+layout via React context so the top bar could read it without a URL
+parse - rejected as more moving parts for no real benefit; the global
+layout renders once per request above every route including non-client
+ones, so it has no natural place to receive that context from, and
+`usePathname` is the same mechanism `UniversalSearch`'s active-state
+already relies on elsewhere in this header.
+
+**Revisit if:** The badge needs to reflect live updates without a
+navigation (e.g. XP changing while sitting on the same page after
+completing a mission) - right now it only refetches when `clientId`
+changes, matching how the rest of the header (notifications, search)
+already only refreshes on request/navigation, not via polling.
+
+---
+
 ## 2026-09-24 — Left sidebar restored; per-client streak/XP/level badge added to the Client Workspace header
 
 **Decision:** Reversed 2026-09-23's top-nav-only shell: a persistent left

@@ -3,6 +3,7 @@
 import { getCurrentAuthContext } from '@/lib/auth/current-context'
 import { searchAccessibleClients, type ClientSearchResult } from '@/lib/clients/search'
 import { answerMarketingQuestion, type MarketingSearchResult } from '@/lib/search/marketing-search'
+import { getGrowthProgress } from '@/lib/growth/progress'
 
 /**
  * Backs the header's universal search client results
@@ -42,5 +43,30 @@ export async function askMarketingSearchAction(query: string): Promise<Marketing
     return { ok: true, result }
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : 'Could not answer that right now.' }
+  }
+}
+
+export type ClientGrowthBadgeData = { xp: number; level: number; streakCount: number }
+
+/**
+ * Backs the top bar's streak/XP/level badge (src/components/growth/
+ * client-growth-badge.tsx) - global chrome that only has real data to show
+ * while a specific client is in view (the URL carries the `clientId`,
+ * `TopBarGrowthBadge` reads it from `usePathname`). Not an
+ * `ActionResult`-returning action for the same reason as the two above -
+ * this is a client component polling for header data on navigation, not a
+ * form submission. Never throws: no session, no `growth.read`, or an
+ * inaccessible/nonexistent client all just mean "nothing to show" for this
+ * one header widget, not an error the rest of the page should react to.
+ */
+export async function getClientGrowthBadgeAction(clientId: string): Promise<ClientGrowthBadgeData | null> {
+  try {
+    const ctx = await getCurrentAuthContext()
+    if (!ctx || ctx.isClientUser || !ctx.permissions.has('growth.read')) return null
+    const progress = await getGrowthProgress(ctx, clientId)
+    if (!progress) return null
+    return { xp: progress.xp, level: progress.level, streakCount: progress.streakCount }
+  } catch {
+    return null
   }
 }

@@ -4,12 +4,10 @@ import { ChevronLeft } from 'lucide-react'
 import { getCurrentAuthContext } from '@/lib/auth/current-context'
 import { getAuthorizedClientCached } from '@/lib/db/tenant'
 import { ForbiddenError } from '@/lib/rbac/errors'
-import { getGrowthProgress } from '@/lib/growth/progress'
 import { Badge, toSentenceCase } from '@/components/ui/badge'
 import { buttonVariants } from '@/components/ui/button'
 import { WorkspaceTabs } from '@/components/clients/workspace-tabs'
 import { ClientRowActions } from '@/components/clients/client-row-actions'
-import { ClientGrowthBadge } from '@/components/growth/client-growth-badge'
 import { AUTOMATION_LABEL } from '@/components/clients/labels'
 import { displayHost, initials } from '@/lib/format'
 
@@ -37,8 +35,6 @@ export default async function ClientWorkspaceLayout({ children, params }: { chil
   const canManage = ctx.permissions.has('clients.manage')
   const host = displayHost(client.website)
 
-  const growthProgress = ctx.permissions.has('growth.read') ? await getGrowthProgress(ctx, clientId) : null
-
   return (
     <div className="space-y-5">
       <Link href="/dashboard/clients" className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground">
@@ -65,7 +61,6 @@ export default async function ClientWorkspaceLayout({ children, params }: { chil
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {growthProgress && <ClientGrowthBadge xp={growthProgress.xp} level={growthProgress.level} streakCount={growthProgress.streakCount} />}
           {canEdit && (
             <Link href={`/dashboard/clients/${client.id}/settings`} className={buttonVariants({ variant: 'outline' })}>
               Edit client
