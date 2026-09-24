@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { signIn } from 'next-auth/react'
 import { useEffect, useState, type FormEvent } from 'react'
 import { Sparkles, AlertCircle } from 'lucide-react'
@@ -180,6 +181,13 @@ export default function SignInPage() {
             </Button>
           </form>
         </div>
+
+        <p className="mt-5 text-center text-sm text-muted-foreground">
+          New to TargetGum?{' '}
+          <Link href="/start" className="font-semibold text-primary hover:underline">
+            Try it free - no account needed
+          </Link>
+        </p>
       </div>
     </main>
   )

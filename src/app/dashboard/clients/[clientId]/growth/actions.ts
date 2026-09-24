@@ -1,9 +1,11 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { redirect } from 'next/navigation'
 import { getCurrentAuthContext } from '@/lib/auth/current-context'
 import { completeStage, getStageStates } from '@/lib/growth/stages'
 import { recordMissionProgress } from '@/lib/growth/missions'
+import { STAGE_BRIDGES } from '@/lib/growth/stage-bridges'
 import { getClientBrainSection, updateClientBrainSection } from '@/lib/clients/brain'
 import { AuthenticationError } from '@/lib/rbac/errors'
 import type { GrowthStageKey } from '@prisma/client'
@@ -26,12 +28,24 @@ function revalidateGrowth(clientId: string) {
   revalidatePath(`/dashboard/clients/${clientId}/growth`)
 }
 
-export async function completeStageAction(clientId: string, stage: GrowthStageKey, _prev: ActionResult, _formData: FormData): Promise<ActionResult> {
+/**
+ * `next=bridge` (the "Claim XP & <apply it>" button) redirects into the
+ * stage's real feature screen instead of back to the map. The target is
+ * looked up from STAGE_BRIDGES by stage key - the form only chooses
+ * between two server-known destinations, never supplies a URL.
+ *
+ * Redirects server-side (`redirect()`, which runAction lets through)
+ * rather than returning `redirectTo`: the client-side `router.push` that
+ * ActionForm does for `redirectTo` was measured dropping ~1 in 5 times
+ * here, racing the revalidation refresh - a server redirect arrives in
+ * the same response as the revalidated data, so it can't be lost.
+ */
+export async function completeStageAction(clientId: string, stage: GrowthStageKey, _prev: ActionResult, formData: FormData): Promise<ActionResult> {
   return runAction('complete-growth-stage', async () => {
     const ctx = await requireCtx()
     await completeStage(ctx, clientId, stage)
     revalidateGrowth(clientId)
-    return actionOk('Stage complete! On to the next one.', { redirectTo: `/dashboard/clients/${clientId}/growth` })
+    redirect(formString(formData, 'next') === 'bridge' ? STAGE_BRIDGES[stage].href(clientId) : `/dashboard/clients/${clientId}/growth`)
   })
 }
 

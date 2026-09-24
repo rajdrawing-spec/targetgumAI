@@ -124,6 +124,13 @@ by test, not just by code inspection.
   tests) and by a live manual run: an unauthenticated request to `/dashboard`
   redirects to `/sign-in`; a marketing_employee's dashboard shows only the
   one client they're assigned to, never the org's other client.
+- **Public routes** (2026-09-24): `/` (signed-out landing) and `/start/**`
+  (try-it) are intentionally reachable without a session. They hold only
+  static lesson content and keep progress in the visitor's own
+  localStorage; nothing reachable from them imports the database, auth,
+  RBAC, AI, integrations or tools, or declares a server action -
+  enforced by `tests/security/public-tryit-isolation.test.ts`. Any new
+  public page must stay inside that test's entry points or add itself.
 - **Route protection**: page-level `redirect()` guards (see
   `src/app/dashboard/page.tsx`), not Next.js middleware — see
   `docs/DECISIONS.md` for why middleware was deliberately skipped for now.

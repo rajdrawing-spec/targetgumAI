@@ -30,8 +30,8 @@ const jetbrainsMono = JetBrains_Mono({
 })
 
 export const metadata: Metadata = {
-  title: 'TargetGum AI Marketing OS — Precision Marketing Terminal',
-  description: 'Precision AI Advertising, Social Media Management, and Unified Marketing Telemetry Platform.',
+  title: 'TargetGum — Precision Marketing. Real Results.',
+  description: 'Learn marketing, practise real decisions and launch campaigns with Gummy, your AI marketing coach.',
   icons: {
     icon: '/logo.jpg',
   },
