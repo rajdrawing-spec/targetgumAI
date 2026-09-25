@@ -21,8 +21,22 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+      redis:
+        image: redis:7
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     env:
       DATABASE_URL: postgresql://targetgum:targetgum@localhost:5432/targetgum_test
+      # prisma/schema.prisma requires directUrl (used by migrate); same DB in CI.
+      DIRECT_URL: postgresql://targetgum:targetgum@localhost:5432/targetgum_test
+      # BullMQ queue tests (weekly intelligence) run against the redis service.
+      REDIS_URL: redis://localhost:6379
+      # Test-only value; the cron route tests authenticate with it.
+      CRON_SECRET: ci-test-cron-secret
       AUTH_SECRET: ci-test-secret
       INTEGRATION_ENCRYPTION_KEY: ci-test-encryption-key
     steps:

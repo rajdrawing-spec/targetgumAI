@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { connectClientToGoogleAdsAccount } from '@/lib/integrations/google-ads/connect'
 import { registerGoogleAdsTools } from '@/lib/integrations/google-ads/tools'
 import { connectClientToMetaAdsAccount } from '@/lib/integrations/meta-ads/connect'
@@ -12,6 +12,18 @@ import { ForbiddenError } from '@/lib/rbac/errors'
 import { ApprovalRequiredError } from '@/lib/tools/errors'
 import { approveAndExecuteApproval, executeTool } from '@/lib/tools/execute'
 import { cleanupOrg, createSystemRoles, createTestClient, createTestOrg, createTestUser, testDb } from '../helpers/factory'
+
+// Meta Ads is real-adapter-only in the app (src/lib/integrations/meta-ads/
+// README.md: the mock is deliberately not wired into
+// resolveMetaAdsProvider, so production never serves fabricated data).
+// This suite tests the Tool Registry / ads.manage / Approval Engine flow,
+// not the Graph API, so it points the resolver at MetaAdsMockProvider -
+// the same no-network adapter Google Ads and Amazon Ads fall back to here.
+vi.mock('@/lib/integrations/meta-ads/index', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/integrations/meta-ads/index')>()
+  const { MetaAdsMockProvider } = await import('@/lib/integrations/meta-ads/mock-provider')
+  return { ...actual, resolveMetaAdsProvider: () => MetaAdsMockProvider }
+})
 
 /**
  * Native Google Ads / Meta Ads / Amazon Ads integration (Phase 2/3, BRD

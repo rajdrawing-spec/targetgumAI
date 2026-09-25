@@ -10,6 +10,8 @@ import { registerMetricoolTools } from '@/lib/integrations/metricool/tools'
 import { registerGoogleAdsTools } from '@/lib/integrations/google-ads/tools'
 import { resolveAuthContext } from '@/lib/rbac/context'
 import { ANALYZE_CLIENT_WORKFLOW_KEY, runAnalyzeClientWorkflow } from '@/lib/workflows/analyze-client-workflow'
+import { registerMetaAdsTools } from '@/lib/integrations/meta-ads/tools'
+import { registerAmazonAdsTools } from '@/lib/integrations/amazon-ads/tools'
 import {
   cleanupOrg,
   createSystemRoles,
@@ -81,6 +83,9 @@ describe('"Analyze Client A" workflow (Day 11, BRD Section 46) - the full pipeli
     await registerGA4Tools()
     await registerGSCTools()
     await registerGoogleAdsTools()
+    await registerMetaAdsTools()
+    await registerAmazonAdsTools()
+    // registerMarketingAnalyticsAgent requires every tool in its allowlist to be registered first.
     await registerMarketingAnalyticsAgent()
 
     const org = await createTestOrg()

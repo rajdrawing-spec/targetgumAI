@@ -12,6 +12,9 @@ import { listSeoRecommendations, listSeoRecommendationsForOrg } from '@/lib/seo/
 import { resolveAuthContext } from '@/lib/rbac/context'
 import { ForbiddenError } from '@/lib/rbac/errors'
 import { runSeoAnalysisWorkflow } from '@/lib/workflows/seo-analysis-workflow'
+import { registerGoogleAdsTools } from '@/lib/integrations/google-ads/tools'
+import { registerMetaAdsTools } from '@/lib/integrations/meta-ads/tools'
+import { registerAmazonAdsTools } from '@/lib/integrations/amazon-ads/tools'
 import { cleanupOrg, createSystemRoles, createTestClient, createTestOrg, createTestUser, testDb } from '../helpers/factory'
 
 /**
@@ -66,6 +69,10 @@ describe('SEO Agent + "Run SEO analysis" workflow (Phase 2, BRD Section 25/85)',
     await registerMetricoolTools()
     await registerGA4Tools()
     await registerGSCTools()
+    await registerGoogleAdsTools()
+    await registerMetaAdsTools()
+    await registerAmazonAdsTools()
+    // registerMarketingAnalyticsAgent requires every tool in its allowlist to be registered first.
     await registerMarketingAnalyticsAgent()
     await registerSeoAgent()
 
