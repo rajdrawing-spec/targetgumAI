@@ -8,6 +8,11 @@ import { resolveAuthContext } from '@/lib/rbac/context'
 import { approveAndExecuteApproval } from '@/lib/tools/execute'
 import { dispatchProposedActions } from '@/lib/automation/dispatch-proposed-actions'
 import { getOrCreateWorkflow, startWorkflowRun } from '@/lib/workflows/runs'
+import { registerMetricoolTools } from '@/lib/integrations/metricool/tools'
+import { registerGA4Tools } from '@/lib/integrations/ga4/tools'
+import { registerGSCTools } from '@/lib/integrations/gsc/tools'
+import { registerMetaAdsTools } from '@/lib/integrations/meta-ads/tools'
+import { registerAmazonAdsTools } from '@/lib/integrations/amazon-ads/tools'
 import { cleanupOrg, createSystemRoles, createTestClient, createTestOrg, createTestUser, testDb } from '../helpers/factory'
 
 /**
@@ -32,6 +37,12 @@ describe('dispatchProposedActions (Phase 3) - automation level + client policy g
 
   beforeAll(async () => {
     await registerGoogleAdsTools()
+    await registerMetricoolTools()
+    await registerGA4Tools()
+    await registerGSCTools()
+    await registerMetaAdsTools()
+    await registerAmazonAdsTools()
+    // registerMarketingAnalyticsAgent requires every tool in its allowlist to be registered first.
     await registerMarketingAnalyticsAgent()
 
     const org = await createTestOrg()
