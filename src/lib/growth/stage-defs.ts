@@ -31,19 +31,21 @@ export interface GrowthStageDef {
   key: GrowthStageKey
   order: number
   title: string
+  /** One-word label for compact progress rows (Growth Profile). */
+  shortTitle: string
   description: string
 }
 
 /** Display content for the map - titles/descriptions match the approved mockup. */
 export const GROWTH_STAGE_DEFS: readonly GrowthStageDef[] = [
-  { key: 'DEFINE_BUSINESS', order: 1, title: 'Define Your Business', description: 'Tell us about your business, goals and audience.' },
-  { key: 'UNDERSTAND_AUDIENCE', order: 2, title: 'Understand Your Audience', description: 'Find and analyze your ideal customers.' },
-  { key: 'RESEARCH_MARKET', order: 3, title: 'Research Your Market', description: 'Discover trends and opportunities.' },
-  { key: 'CREATE_OFFER', order: 4, title: 'Create Your Offer', description: 'Build an irresistible offer.' },
-  { key: 'CREATE_CREATIVE_ASSETS', order: 5, title: 'Create Creative Assets', description: 'Generate high-converting visuals and copy.' },
-  { key: 'BUILD_CAMPAIGN', order: 6, title: 'Build Campaign', description: 'Set up your campaign across platforms.' },
-  { key: 'LAUNCH_CAMPAIGN', order: 7, title: 'Launch Campaign', description: 'Go live and reach your audience.' },
-  { key: 'ANALYZE_RESULTS', order: 8, title: 'Analyze Results', description: 'Track performance with AI insights.' },
-  { key: 'OPTIMIZE', order: 9, title: 'Optimize', description: 'Improve and get better results.' },
-  { key: 'SCALE_GROW', order: 10, title: 'Scale & Grow', description: 'Achieve bigger results and unlock new opportunities.' },
+  { key: 'DEFINE_BUSINESS', order: 1, title: 'Define Your Business', shortTitle: 'Business', description: 'Tell us about your business, goals and audience.' },
+  { key: 'UNDERSTAND_AUDIENCE', order: 2, title: 'Understand Your Audience', shortTitle: 'Audience', description: 'Find and analyze your ideal customers.' },
+  { key: 'RESEARCH_MARKET', order: 3, title: 'Research Your Market', shortTitle: 'Research', description: 'Discover trends and opportunities.' },
+  { key: 'CREATE_OFFER', order: 4, title: 'Create Your Offer', shortTitle: 'Offer', description: 'Build an irresistible offer.' },
+  { key: 'CREATE_CREATIVE_ASSETS', order: 5, title: 'Create Creative Assets', shortTitle: 'Creative', description: 'Generate high-converting visuals and copy.' },
+  { key: 'BUILD_CAMPAIGN', order: 6, title: 'Build Campaign', shortTitle: 'Campaign', description: 'Set up your campaign across platforms.' },
+  { key: 'LAUNCH_CAMPAIGN', order: 7, title: 'Launch Campaign', shortTitle: 'Launch', description: 'Go live and reach your audience.' },
+  { key: 'ANALYZE_RESULTS', order: 8, title: 'Analyze Results', shortTitle: 'Analyze', description: 'Track performance with AI insights.' },
+  { key: 'OPTIMIZE', order: 9, title: 'Optimize', shortTitle: 'Optimize', description: 'Improve and get better results.' },
+  { key: 'SCALE_GROW', order: 10, title: 'Scale & Grow', shortTitle: 'Scale', description: 'Achieve bigger results and unlock new opportunities.' },
 ]

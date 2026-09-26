@@ -6,6 +6,10 @@ import { getCurrentAuthContext } from '@/lib/auth/current-context'
 import { completeStage, getStageStates } from '@/lib/growth/stages'
 import { recordMissionProgress } from '@/lib/growth/missions'
 import { STAGE_BRIDGES } from '@/lib/growth/stage-bridges'
+import { claimVerifiedQuest } from '@/lib/growth/quests'
+import { getQuestDef } from '@/lib/growth/quest-defs'
+import { countPurchases, equipShopItem, purchaseShopItem } from '@/lib/growth/shop'
+import type { ShopSlot } from '@/lib/growth/shop-catalog'
 import { getClientBrainSection, updateClientBrainSection } from '@/lib/clients/brain'
 import { AuthenticationError } from '@/lib/rbac/errors'
 import type { GrowthStageKey } from '@prisma/client'
@@ -25,8 +29,32 @@ async function requireCtx() {
 }
 
 function revalidateGrowth(clientId: string) {
-  revalidatePath(`/dashboard/clients/${clientId}/growth`)
+  // The whole Client Workspace: Growth Map, Quests, Shop, Profile and the
+  // layout's equipped-cosmetics provider all read the same progress row.
+  revalidatePath(`/dashboard/clients/${clientId}`, 'layout')
 }
+
+/**
+ * Quest / Shop actions return the URL of a flag route - `/quests/claimed/
+ * <key>`, `/shop/bought/<key>/<n>` - which renders the same page plus a
+ * celebration banner, and their forms (`ActionForm fullReload`) follow it
+ * with a full page load. They deliberately don't revalidatePath or
+ * redirect() in place.
+ *
+ * Why (docs/DECISIONS.md 2026-09-24): in this app, client-side router
+ * transitions within the Client Workspace intermittently never commit -
+ * measured on pages this change doesn't touch too (a same-page
+ * navigation on the client Overview succeeded 2/6 on the pre-change
+ * build). Here that left "Claim XP" stuck on "Claiming…" up to 8/8 times
+ * even though the claim had saved, including with an in-place re-render
+ * and with a server redirect(). A full page load can't be dropped, and
+ * it always renders fresh data, so no revalidation is needed.
+ * Errors still come back as an ActionResult and show inline.
+ */
+const questTab = (key: string) => (getQuestDef(key)?.cadence ?? 'DAILY').toLowerCase()
+const questsUrl = (clientId: string, key: string, ...flag: string[]) =>
+  `/dashboard/clients/${clientId}/quests/${flag.map(encodeURIComponent).join('/')}?tab=${questTab(key)}`
+const shopUrl = (clientId: string, tab: string, ...flag: string[]) => `/dashboard/clients/${clientId}/shop/${flag.map(encodeURIComponent).join('/')}?tab=${tab}`
 
 /**
  * `next=bridge` (the "Claim XP & <apply it>" button) redirects into the
@@ -94,7 +122,49 @@ export async function recordMissionProgressAction(clientId: string, _prev: Actio
     const incrementByRaw = formString(formData, 'incrementBy')
     const incrementBy = incrementByRaw ? Number(incrementByRaw) : 1
     const result = await recordMissionProgress(ctx, clientId, missionKey, incrementBy)
-    revalidateGrowth(clientId)
-    return actionOk(result.completedAt ? 'Mission complete!' : 'Progress saved.')
+    // Same full-reload success pattern as the quest actions below.
+    return actionOk(undefined, {
+      redirectTo: result.completedAt
+        ? questsUrl(clientId, missionKey, 'claimed', missionKey)
+        : questsUrl(clientId, missionKey, 'logged', missionKey, String(result.progressCount)),
+    })
+  })
+}
+
+/** Claims a verified quest's XP - the lib recounts the real records first (quests.ts). */
+export async function claimQuestAction(clientId: string, _prev: ActionResult, formData: FormData): Promise<ActionResult> {
+  return runAction('claim-growth-quest', async () => {
+    const ctx = await requireCtx()
+    const questKey = formString(formData, 'questKey')
+    if (!questKey) throw new Error('Quest key is required.')
+    await claimVerifiedQuest(ctx, clientId, questKey)
+    return actionOk(undefined, { redirectTo: questsUrl(clientId, questKey, 'claimed', questKey) })
+  })
+}
+
+export async function purchaseShopItemAction(clientId: string, _prev: ActionResult, formData: FormData): Promise<ActionResult> {
+  return runAction('growth-shop-purchase', async () => {
+    const ctx = await requireCtx()
+    const itemKey = formString(formData, 'itemKey')
+    if (!itemKey) throw new Error('Item is required.')
+    const item = await purchaseShopItem(ctx, clientId, itemKey)
+    // The purchase count keeps a repeat buy (a 2nd Streak Shield) on its own URL.
+    const owned = await countPurchases(ctx, clientId, item.key)
+    return actionOk(undefined, { redirectTo: shopUrl(clientId, item.category, 'bought', item.key, String(owned)) })
+  })
+}
+
+const SLOTS: readonly ShopSlot[] = ['mascot', 'mapTheme', 'celebration']
+const SLOT_TAB: Record<ShopSlot, string> = { mascot: 'mascots', mapTheme: 'themes', celebration: 'rewards' }
+
+/** `itemKey` blank = unequip the slot. */
+export async function equipShopItemAction(clientId: string, _prev: ActionResult, formData: FormData): Promise<ActionResult> {
+  return runAction('growth-shop-equip', async () => {
+    const ctx = await requireCtx()
+    const slot = formString(formData, 'slot') as ShopSlot | undefined
+    if (!slot || !SLOTS.includes(slot)) throw new Error('Unknown slot.')
+    const itemKey = formString(formData, 'itemKey') ?? null
+    await equipShopItem(ctx, clientId, slot, itemKey)
+    return actionOk(undefined, { redirectTo: shopUrl(clientId, SLOT_TAB[slot], 'equipped', itemKey ?? 'none') })
   })
 }

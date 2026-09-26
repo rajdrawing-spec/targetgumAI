@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { BrandMark } from '@/components/brand/brand-mark'
 import { TryItStats } from '@/components/tryit/try-it-stats'
 import { ThemeToggle } from '@/components/theme-toggle'
+import { BuildLabel } from '@/components/brand/build-label'
 
 export const metadata: Metadata = {
   title: 'Start growing - TargetGum',
@@ -32,6 +33,7 @@ export default function StartLayout({ children }: { children: React.ReactNode })
         </div>
       </header>
       <main className="flex flex-1 flex-col">{children}</main>
+      <BuildLabel className="px-4 py-2 text-center text-[10px] text-caption" />
     </div>
   )
 }

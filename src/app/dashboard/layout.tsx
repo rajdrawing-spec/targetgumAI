@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import Image from 'next/image'
+import { BuildLabel } from '@/components/brand/build-label'
 import { redirect } from 'next/navigation'
 import { getCurrentAuthContext } from '@/lib/auth/current-context'
 import { signOut } from '@/lib/auth'
@@ -107,6 +108,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         <div className="flex min-h-0 flex-1">
           <aside className="hidden w-64 shrink-0 border-r border-border bg-card lg:flex lg:flex-col">
             <SidebarNav />
+            <BuildLabel className="border-t border-border px-4 py-2 text-[10px] text-caption" />
           </aside>
 
           <main className="min-w-0 flex-1 bg-background px-4 py-6 sm:px-6 lg:px-8 lg:py-8">

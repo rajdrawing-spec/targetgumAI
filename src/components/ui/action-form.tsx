@@ -32,6 +32,7 @@ export function ActionForm({
   successMessage,
   resetOnSuccess = false,
   onSuccess,
+  fullReload = false,
   ...rest
 }: Omit<ComponentProps<'form'>, 'action' | 'onSubmit'> & {
   action: BoundAction
@@ -40,6 +41,14 @@ export function ActionForm({
   /** Clear the form's fields after a successful submit (create forms). */
   resetOnSuccess?: boolean
   onSuccess?: (result: Extract<ActionResult, { ok: true }>) => void
+  /**
+   * Follow `redirectTo` with a full page load instead of a client-side
+   * router push. For actions whose success view must always arrive -
+   * the Growth quest/shop actions (docs/DECISIONS.md 2026-09-24), where
+   * client-side navigation within the Client Workspace was measured
+   * intermittently never committing.
+   */
+  fullReload?: boolean
 }) {
   const [state, formAction] = useActionState(action, ACTION_IDLE)
   const router = useRouter()
@@ -55,9 +64,12 @@ export function ActionForm({
       if (message) toast.success(message)
       if (resetOnSuccess) formRef.current?.reset()
       onSuccess?.(state)
-      if (state.redirectTo) router.push(state.redirectTo)
+      if (state.redirectTo) {
+        if (fullReload) window.location.assign(state.redirectTo)
+        else router.push(state.redirectTo)
+      }
     }
-  }, [state, successMessage, resetOnSuccess, onSuccess, router, toast])
+  }, [state, successMessage, resetOnSuccess, onSuccess, router, toast, fullReload])
 
   return (
     <form ref={formRef} action={formAction} className={className} {...rest}>

@@ -5,6 +5,148 @@ Newest entries at the top.
 
 ---
 
+## 2026-09-26 — Reference-matched Learn experience, real Gummy art, deploy path proven, build identifier, migrations on Hostinger deploy
+
+**Context.** The user reported that production still showed the "old UI".
+Investigation of the full path (GitHub -> Hostinger -> CDN -> domain),
+from Hostinger's own API and runtime logs:
+
+- `targetgum.com` DNS (zone hosted at Hostinger): `@` ALIAS and `www` CNAME
+  to `*.cdn.hstgr.net` - Hostinger's CDN. **Cloudflare is not in the path**
+  (the connected Cloudflare account's only Worker is an unrelated app).
+- Hostinger Git auto-deploy: `rajdrawing-spec/targetgumAI`, branch
+  `claude/plan-execution-fmve0b`, repo root, Next.js, `npm run build`, Node 20.
+- Latest completed build = the branch head (`3d5851d`); the runtime log
+  shows the Node process running from that build's directory.
+
+So production was *not* stale. The gap was real product work: the
+Quests/Shop/Profile PR was unmerged, the repo had no Gummy artwork (every
+Gummy was the placeholder SVG), and the Learn surfaces didn't follow the
+approved reference layout.
+
+**Decision.**
+- **Gummy art**: the eight poses are cut from the approved "Meet Gummy!"
+  brand sheet (it has a real alpha channel) into `public/mascot/*.webp`,
+  registered in `MASCOT_IMAGES` with per-pose face/crown anchors. The art
+  renders inside an SVG in the image's pixel space, so existing sizing
+  classes keep working and Growth Shop outfits (shades, party hat) are
+  drawn on the face at any size. The SVG drawing is now only a fallback.
+- **Learn = Marketing Growth Map** (`GrowthMap`): compact zig-zag of 3D
+  nodes on grass islands, labels beside nodes, start island with Gummy,
+  Growth Master finish; plus the reference's right rail (Level, Daily
+  Mission, Current Streak with Mon-Sun, Weekly Goal, Achievements, Gummy
+  quote). Replaces the 2026-09-23 single-column path (~3,500px tall).
+  Every node is real navigation; locked nodes are not links.
+- **Workspace navigation**: Home, Learn, Practice, Quests, Shop, Profile +
+  More (client sections and agency tools); a mobile bottom bar for the five
+  learning tabs. The sidebar gains a Learn group whose links go through
+  `/dashboard/go/:section`, which opens the last workspace used (a
+  preference cookie, re-authorized on every use - `resolveLearnClientId`,
+  security-tested) or the first accessible client.
+- **Practice**: replays any reached lesson (review mode for done stages,
+  no second XP - enforced by the existing lesson/completeStage path).
+- **Lesson**: full-screen layer over the workspace chrome with logo,
+  progress, hearts, Exit Lesson; Gummy speech bubble; round Gummy avatar in
+  conversation questions. No speaker icon: there is no text-to-speech, and
+  a control that does nothing is worse than none.
+- **Build identifier**: `next.config.mjs` stamps `TG-<UTC date>-<commit>`;
+  exposed as `<meta name="tg-build">`, a small label in the sidebar/footer,
+  and a startup line in the server log (`src/instrumentation.ts`), so a
+  deploy can be verified from Hostinger's runtime log even without HTTP
+  access. Nothing sensitive.
+- **Migrations on deploy**: Hostinger's build ran only `next build`, so a
+  PR with migrations would go live against an old schema. New script
+  `build:hostinger` = `prisma migrate deploy && next build`; Hostinger's
+  build script is switched to it. Only the production host runs it -
+  Vercel previews keep `npm run build`, so an unmerged PR's migrations
+  never touch the production database. If a migration fails the build
+  fails and the previous build keeps serving.
+
+**Not done (explicitly).** No "Challenges"/"Leaderboard" tab - there is no
+such feature yet, and a tab pointing at a copy of Quests would be a fake
+control. No Billing/Help entries - those pages don't exist.
+
+## 2026-09-24 — Quests, Growth Shop and Growth Profile; verified quests; full-reload success for their actions
+
+**Decision:** Three per-client pages in the Client Workspace, next to the
+Growth Map (tabs: Quests, Shop, Growth Profile):
+
+1. **Quests** (`/quests`, Daily / Weekly / Special). New quests are
+   **verified**: their progress is counted from real rows (stage
+   completions, `CreativeAsset`, successful `WorkflowRun`, `Campaign`,
+   `CONNECTED` `IntegrationConnection`) for the current period
+   (`src/lib/growth/quests.ts`). "Claim XP" recounts on the server and
+   refuses until the target is met; `recordMissionProgress` now rejects any
+   self-report of a verified key, and also rejects non-positive / non-integer
+   increments (a pre-existing gap). The three original self-reported
+   missions keep working unchanged. SPECIAL quests have one all-time period.
+   The Growth Map's sidebar Missions card became a read-only "Quests"
+   summary linking here, so claiming/logging lives in one place.
+2. **Growth Shop** (`/shop`, Boosts / Mascots / Themes / Rewards). Spends a
+   balance (`xp - xpSpent`); total XP and level never go down. Every item has
+   a real effect: **Streak Shield** (consumable, max 2, used automatically to
+   cover exactly one missed day in `nextStreak`), two Gummy outfits drawn in
+   the SVG, two Growth Map background themes, gold lesson confetti. The
+   reference mockups' "XP Multiplier" (inflates XP) and "Campaign Boost"
+   (sells AI functionality for XP) are deliberately absent. Purchases are an
+   append-only ledger plus a compare-and-set on `xpSpent` inside a
+   transaction, so concurrent purchases can't double-spend (tested).
+3. **Growth Profile** (`/profile`): level + DB-editable level title
+   (`growth_levels`), XP to next level, streak, quests completed, campaigns
+   and creatives, 30-day reach/clicks/conversions **only from synced
+   `CampaignMetric` rows** ("—" + "Connect an ads account" otherwise, never an
+   invented number), achievements, Growth Map progress, recent activity.
+
+Supporting changes:
+- **Top-bar badge** (`TopBarGrowthBadge`) now loads from
+  `GET /api/growth/badge` instead of a Server Action on mount - a Server
+  Action resolving mid-click can drop the user's navigation - and links to
+  the Growth Profile. Below `sm` its level circle is hidden: with a
+  four-digit XP the header overflowed a 375px screen by 15px on every
+  workspace page.
+- **Cosmetics** reach Gummy through `GummyStyleProvider`, given by each
+  growth page from the progress row it already loaded (`cosmeticsFor`) - not
+  from a query in the shared `[clientId]` layout, which measurably made
+  Server Action results on those pages fail to apply more often.
+- **In-page tabs** (`ClientTabs`) switch Quests/Shop categories without a
+  server round trip; the URL is kept in sync with
+  `history.replaceState(null, …)` (Next ignores router sync for calls that
+  pass its own history state).
+
+**Why the quest/shop actions do a full page load on success:** in this app
+a client-side router transition within the Client Workspace intermittently
+never commits. Measured with a probe on the **pre-change build**: a
+same-pathname `router.push` succeeded 2/6 on the client Overview, 4/6 on
+Business, 5/6 on Recommendations. On the new pages that surfaced as "Claim
+XP" stuck on "Claiming…" after the claim had already saved: up to 8/8 with
+an in-place re-render, and still ~5/8 with a server `redirect()`, because
+the browser cancelled the 303 action response and the navigation never
+committed. So these actions return the URL of a flag route
+(`/quests/claimed/<key>`, `/shop/bought/<key>/<n>`, `/shop/equipped/<key>`
+- optional catch-all segments rendering the same page plus a celebration
+banner validated against real data) and their forms use the new
+`ActionForm fullReload`: 10/10 afterwards. The flag segment differs on
+every success, and a full load can't be dropped and always shows fresh
+data, so no `revalidatePath` is needed. Root cause of the router issue is
+not established; tracked as a follow-up task.
+
+**Alternative(s) considered:** Global per-user XP (rejected again for the
+multi-tenant reason in the entry below); letting XP unlock product
+features (rejected - brief and plan config keep subscription separate);
+self-reported progress for the new quests (rejected - quests must connect
+to real work).
+
+**Follow-up the same day:** a verified `weekly-goal` quest (+150 XP when 7
+other quests are completed in the current week - the reference's "Weekly
+Goal" and the brief's weekly-challenge bonus; it never counts itself), a
+level-up banner when a claim crosses a level boundary (`levelUpFrom`), and
+the streak card now shows how many Streak Shields are ready.
+
+**Revisit if:** the router issue is root-caused - the quest/shop forms can
+then drop `fullReload` and return to in-place updates with toasts.
+
+---
+
 ## 2026-09-24 — Public try-it experience, reusable lesson engine, campaign bridge, plan config (no checkout yet)
 
 **Decision:** Five linked changes, from the "TargetGum master product

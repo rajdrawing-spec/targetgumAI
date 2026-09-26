@@ -1,11 +1,16 @@
+'use client'
+
 import type { ReactNode } from 'react'
 import { GummyMascot } from '@/components/growth/mascot'
+import { useGummyStyle } from '@/components/growth/gummy-style'
 import { cn } from '@/lib/utils'
 
 const CONFETTI = Array.from({ length: 18 }, (_, i) => ({
   left: `${(i * 37) % 100}%`,
   delay: `${(i % 6) * 0.12}s`,
   color: ['bg-primary', 'bg-mustard', 'bg-info', 'bg-success', 'bg-foreground'][i % 5],
+  // Growth Shop "Gold Celebration" (docs/DECISIONS.md 2026-09-24).
+  gold: ['bg-mustard', 'bg-warning', 'bg-mustard/70'][i % 3],
   shape: i % 3 === 0 ? 'h-2 w-2 rounded-full' : 'h-3 w-1.5 rounded-sm',
 }))
 
@@ -36,11 +41,12 @@ export function LessonComplete({
   stats: CompletionStat[]
   children: ReactNode
 }) {
+  const { goldCelebration } = useGummyStyle()
   return (
     <div className="relative mx-auto flex max-w-lg flex-col items-center gap-5 overflow-hidden px-4 py-10 text-center">
       <div className="pointer-events-none absolute inset-x-0 top-0 h-56 motion-reduce:hidden" aria-hidden="true">
         {CONFETTI.map((c, i) => (
-          <span key={i} className={cn('absolute top-0 opacity-0 motion-safe:animate-confetti', c.color, c.shape)} style={{ left: c.left, animationDelay: c.delay }} />
+          <span key={i} className={cn('absolute top-0 opacity-0 motion-safe:animate-confetti', goldCelebration ? c.gold : c.color, c.shape)} style={{ left: c.left, animationDelay: c.delay }} />
         ))}
       </div>
 

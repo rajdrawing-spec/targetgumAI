@@ -6,6 +6,7 @@ import type { AuthContext } from '@/lib/rbac/types'
 import type { GrowthMissionCadence } from '@prisma/client'
 import { applyGrowthActivity } from './progress'
 import { maybeUnlockAchievement } from './achievements'
+import { QUEST_DEFS, VERIFIED_QUEST_KEYS } from './quest-defs'
 
 /**
  * Daily/weekly Growth Map missions. `GrowthMission` is a small platform-
@@ -13,8 +14,13 @@ import { maybeUnlockAchievement } from './achievements'
  * content - see docs/DATA-MODEL.md "Growth Map".
  */
 
-/** Start of the current UTC day (DAILY) or UTC ISO week, Monday-anchored (WEEKLY). */
-function periodStartFor(cadence: GrowthMissionCadence, now: Date): Date {
+/**
+ * Start of the current UTC day (DAILY), UTC ISO week, Monday-anchored
+ * (WEEKLY), or the epoch for one-time SPECIAL quests (a single period for
+ * all time, so they can only ever be completed once).
+ */
+export function periodStartFor(cadence: GrowthMissionCadence, now: Date): Date {
+  if (cadence === 'SPECIAL') return new Date(0)
   if (cadence === 'DAILY') {
     return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
   }
@@ -22,6 +28,34 @@ function periodStartFor(cadence: GrowthMissionCadence, now: Date): Date {
   const mondayOffset = day === 0 ? -6 : 1 - day
   const monday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + mondayOffset))
   return monday
+}
+
+/** End (exclusive) of the period starting at `periodStartFor`; null = open-ended (SPECIAL). */
+export function periodEndFor(cadence: GrowthMissionCadence, periodStart: Date): Date | null {
+  const dayMs = 24 * 60 * 60 * 1000
+  if (cadence === 'DAILY') return new Date(periodStart.getTime() + dayMs)
+  if (cadence === 'WEEKLY') return new Date(periodStart.getTime() + 7 * dayMs)
+  return null
+}
+
+let catalogEnsured: Promise<unknown> | null = null
+
+/**
+ * Inserts any quest from QUEST_DEFS that isn't in `growth_missions` yet,
+ * once per server process - so new quests reach production without a
+ * seed run, and a title/XP edited in the database is never overwritten.
+ */
+export function ensureQuestCatalog() {
+  catalogEnsured ??= db.growthMission
+    .createMany({
+      data: QUEST_DEFS.map(({ key, cadence, title, description, xpReward, targetCount }) => ({ key, cadence, title, description, xpReward, targetCount })),
+      skipDuplicates: true,
+    })
+    .catch((error) => {
+      catalogEnsured = null
+      throw error
+    })
+  return catalogEnsured
 }
 
 export async function listActiveMissions(ctx: AuthContext) {
@@ -33,6 +67,7 @@ export async function listActiveMissions(ctx: AuthContext) {
 export async function getMissionProgress(ctx: AuthContext, clientId: string, now: Date = new Date()) {
   assertPermission(ctx, 'growth.read')
   const client = await getAuthorizedClient(ctx, clientId)
+  await ensureQuestCatalog()
   const missions = await db.growthMission.findMany({ where: { isActive: true }, orderBy: { createdAt: 'asc' } })
   if (missions.length === 0) return []
 
@@ -67,9 +102,18 @@ export async function recordMissionProgress(
   missionKey: string,
   incrementBy = 1,
   now: Date = new Date(),
+  /** Set only by claimVerifiedQuest (quests.ts), after it has counted the real records. */
+  options: { verified?: boolean } = {},
 ) {
   assertPermission(ctx, 'growth.write')
   const client = await getAuthorizedClient(ctx, clientId)
+  // Verified quests complete from real work only - never self-reported.
+  if (VERIFIED_QUEST_KEYS.has(missionKey) && !options.verified) {
+    throw new Error('This quest completes from your real work - use Claim once it is done.')
+  }
+  if (!Number.isInteger(incrementBy) || incrementBy < 1) {
+    throw new Error('Progress must be a positive whole number.')
+  }
 
   const mission = await db.growthMission.findUnique({ where: { key: missionKey } })
   if (!mission || !mission.isActive) {
@@ -115,11 +159,10 @@ export async function recordMissionProgress(
 }
 
 /**
- * "Weekly Goal" card: how many missions (any cadence) this client has
- * completed since the current UTC week started. Not a mission of its own -
- * a mission that meant "complete N other missions" would need to know
- * about every other mission's completion, which nothing here tracks - so
- * this stays a plain count over `ClientGrowthMissionProgress` instead.
+ * How many quests (any cadence) this client has completed since the
+ * current UTC week started - the Growth Map sidebar's "N completed this
+ * week" line. The claimable version of this is the verified `weekly-goal`
+ * quest (quest-defs.ts), which counts the same rows minus itself.
  */
 export async function getWeeklyMissionCompletionCount(ctx: AuthContext, clientId: string, now: Date = new Date()): Promise<number> {
   assertPermission(ctx, 'growth.read')

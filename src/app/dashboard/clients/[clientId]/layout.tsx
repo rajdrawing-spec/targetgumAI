@@ -7,6 +7,7 @@ import { ForbiddenError } from '@/lib/rbac/errors'
 import { Badge, toSentenceCase } from '@/components/ui/badge'
 import { buttonVariants } from '@/components/ui/button'
 import { WorkspaceTabs } from '@/components/clients/workspace-tabs'
+import { RememberClient } from '@/components/clients/remember-client'
 import { ClientRowActions } from '@/components/clients/client-row-actions'
 import { AUTOMATION_LABEL } from '@/components/clients/labels'
 import { displayHost, initials } from '@/lib/format'
@@ -36,7 +37,8 @@ export default async function ClientWorkspaceLayout({ children, params }: { chil
   const host = displayHost(client.website)
 
   return (
-    <div className="space-y-5">
+    // pb: room for the mobile bottom bar (WorkspaceTabs) below md.
+    <div className="space-y-5 pb-20 md:pb-0">
       <Link href="/dashboard/clients" className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground">
         <ChevronLeft className="h-3.5 w-3.5" /> Clients
       </Link>
@@ -70,6 +72,7 @@ export default async function ClientWorkspaceLayout({ children, params }: { chil
         </div>
       </div>
 
+      <RememberClient clientId={client.id} />
       <WorkspaceTabs clientId={client.id} />
 
       {children}

@@ -151,6 +151,30 @@ cascades from `Client`. "Start Mission" UI actions deep-link into the
 existing screens (Audience Lab, Creative Studio, etc.) rather than
 duplicating their data here.
 
+### Quests, Growth Shop, level titles (2026-09-24)
+
+Three small additive migrations (`add_special_mission_cadence`,
+`add_growth_levels`, `add_growth_shop`) - see `docs/DECISIONS.md`
+2026-09-24:
+
+```text
+GrowthMissionCadence:       + SPECIAL (one-time quests; period_start = epoch)
+GrowthLevel:                level (pk), title  - editable level names;
+                            XP thresholds stay in code (LEVEL_XP_STEP)
+ClientGrowthProgress:       + xp_spent, streak_shields, equipped_mascot,
+                            equipped_map_theme, equipped_celebration
+                            (spendable balance = xp - xp_spent; xp and
+                            level never decrease)
+ClientGrowthPurchase:       client_id, item_key, xp_cost, purchased_by,
+                            purchased_at  (append-only ledger; the item
+                            catalog is code - src/lib/growth/shop-catalog.ts)
+```
+
+The quest catalog lives in `src/lib/growth/quest-defs.ts`; missing rows are
+inserted into `growth_missions` (and default titles into `growth_levels`)
+at runtime with `skipDuplicates`, so an edited row is never overwritten
+and no seed run is needed in production.
+
 ## Next Step
 
 Day 3 (`docs/MVP-CHECKLIST.md`) builds the tenant-scoped query helpers in

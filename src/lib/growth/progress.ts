@@ -20,6 +20,12 @@ export function levelForXp(xp: number): number {
   return Math.floor(Math.max(0, xp) / LEVEL_XP_STEP) + 1
 }
 
+/** The level reached if gaining `gained` XP (ending at `xpAfter`) crossed a level boundary, else null. */
+export function levelUpFrom(xpAfter: number, gained: number): number | null {
+  const after = levelForXp(xpAfter)
+  return after > levelForXp(xpAfter - Math.max(0, gained)) ? after : null
+}
+
 export function xpToNextLevel(xp: number): number {
   const remainder = Math.max(0, xp) % LEVEL_XP_STEP
   return LEVEL_XP_STEP - remainder
@@ -31,23 +37,34 @@ export function xpToNextLevel(xp: number): number {
  * activity) -> resets to 1. Deliberately simple (UTC, not the client's
  * timezone) to match the cron/audit timestamps already used throughout
  * this app.
+ *
+ * Streak Shields (Growth Shop, docs/DECISIONS.md 2026-09-24): a gap of
+ * exactly one missed day (activity two days after the last one) consumes
+ * one shield and continues the streak instead of resetting it. Longer
+ * gaps still reset - one shield covers one day, never more.
  */
-function nextStreak(currentStreak: number, lastActivityAt: Date | null, now: Date): number {
-  if (!lastActivityAt) return 1
+export function nextStreak(
+  currentStreak: number,
+  lastActivityAt: Date | null,
+  shields: number,
+  now: Date,
+): { streakCount: number; shieldsUsed: number } {
+  if (!lastActivityAt) return { streakCount: 1, shieldsUsed: 0 }
   const dayMs = 24 * 60 * 60 * 1000
   const lastDay = Math.floor(lastActivityAt.getTime() / dayMs)
   const today = Math.floor(now.getTime() / dayMs)
   const diff = today - lastDay
-  if (diff <= 0) return currentStreak
-  if (diff === 1) return currentStreak + 1
-  return 1
+  if (diff <= 0) return { streakCount: currentStreak, shieldsUsed: 0 }
+  if (diff === 1) return { streakCount: currentStreak + 1, shieldsUsed: 0 }
+  if (diff === 2 && shields > 0 && currentStreak > 0) return { streakCount: currentStreak + 1, shieldsUsed: 1 }
+  return { streakCount: 1, shieldsUsed: 0 }
 }
 
 /**
  * Ensures a progress row exists, then applies one activity event to it
  * (XP gain + streak update). Used by both stage completion and mission
  * progress so streak/level logic lives in exactly one place. Not exported
- * on its own - always call through completeStage/recordMissionActivity so
+ * on its own - always call through completeStage/recordMissionProgress so
  * the audit trail stays meaningful (each caller writes its own audit
  * event describing *what* happened).
  */
@@ -58,7 +75,7 @@ export async function applyGrowthActivity(
   now: Date = new Date(),
 ): Promise<ClientGrowthProgress> {
   const existing = await db.clientGrowthProgress.findUnique({ where: { clientId } })
-  const streakCount = nextStreak(existing?.streakCount ?? 0, existing?.lastActivityAt ?? null, now)
+  const { streakCount, shieldsUsed } = nextStreak(existing?.streakCount ?? 0, existing?.lastActivityAt ?? null, existing?.streakShields ?? 0, now)
   const xp = (existing?.xp ?? 0) + xpGained
   const level = levelForXp(xp)
 
@@ -73,7 +90,7 @@ export async function applyGrowthActivity(
       streakCount,
       lastActivityAt: now,
     },
-    update: { xp, level, streakCount, lastActivityAt: now },
+    update: { xp, level, streakCount, lastActivityAt: now, ...(shieldsUsed ? { streakShields: { decrement: shieldsUsed } } : {}) },
   })
 }
 

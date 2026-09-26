@@ -1,29 +1,53 @@
 /**
  * Gummy mascot asset registry (docs/DECISIONS.md 2026-09-24, "Gummy moods
- * + asset registry").
+ * + asset registry"; artwork added 2026-09-26).
  *
- * As of this entry the repository - and the Hostinger document root for
- * targetgum.com - contain NO raster mascot art: `public/` holds only
- * `logo.jpg`. Gummy is therefore drawn by the SVG in
- * `src/components/growth/mascot.tsx`, which is a documented placeholder
- * for the approved 3D renders shown in the brand sheet.
+ * The art under `public/mascot/` is cut from the approved "Meet Gummy!"
+ * brand sheet (the red bird in the black TargetGum hoodie) - transparent
+ * WebP, trimmed to the character. Every `<GummyMascot>` on every surface
+ * renders the image registered for its mood; the SVG drawing in
+ * `src/components/growth/mascot.tsx` is only the fallback for a mood with
+ * no artwork.
  *
- * To switch a mood to the real artwork: add a transparent PNG/WebP under
- * `public/mascot/` (e.g. `public/mascot/gummy-celebrate.png`) and map it
- * here. Every `<Gummy>` on every surface picks it up - no other code
- * change needed. Keep the source aspect ratio close to 100:122 (the SVG's
- * viewBox) so layouts don't shift when an image replaces the drawing.
+ * `face` locates the eyes and the top of the head as percentages of the
+ * image, so Growth Shop outfits (shades, party hat) sit on the character
+ * no matter how large it's drawn.
  */
 export type GummyMood =
-  /** Default / waving - onboarding, landing, empty states. */
+  /** Waving hello - onboarding, landing, empty states. */
   | 'happy'
-  /** Head tilt + raised wing - questions, AI suggestions. */
+  /** Holding a checklist - questions, planning, AI suggestions. */
   | 'thinking'
   /** Both wings up - correct answers, lesson complete, achievements. */
   | 'celebrate'
-  /** Thumbs-up wing + wink - streaks, quests, "keep going". */
+  /** Wink + thumbs up - streaks, quests, "keep going". */
   | 'cheer'
-  /** Worried brow - wrong answer, out of hearts (always encouraging copy). */
+  /** Wink + pointing - wrong answer / "look at this" (always encouraging copy). */
   | 'oops'
+  /** The large brand-sheet pose - hero placements (landing, Growth Map start, level card). */
+  | 'hero'
+  /** At the laptop - AI Coach, working on a campaign. */
+  | 'coach'
+  /** Megaphone - launching a campaign, announcements. */
+  | 'launch'
 
-export const MASCOT_IMAGES: Partial<Record<GummyMood, string>> = {}
+export interface MascotImage {
+  src: string
+  width: number
+  height: number
+  /** Eye-line centre (x, y) and eye span, in % of the image. */
+  face: { x: number; y: number; span: number }
+  /** Top-of-head centre, in % of the image (party hat anchor). */
+  crown: { x: number; y: number }
+}
+
+export const MASCOT_IMAGES: Partial<Record<GummyMood, MascotImage>> = {
+  hero: { src: '/mascot/gummy-hero.webp', width: 446, height: 570, face: { x: 46.3, y: 39.2, span: 30 }, crown: { x: 50, y: 4 } },
+  happy: { src: '/mascot/gummy-happy.webp', width: 156, height: 201, face: { x: 58.2, y: 42, span: 32 }, crown: { x: 58, y: 5 } },
+  thinking: { src: '/mascot/gummy-thinking.webp', width: 129, height: 176, face: { x: 46.5, y: 41, span: 34 }, crown: { x: 47, y: 5 } },
+  celebrate: { src: '/mascot/gummy-celebrate.webp', width: 171, height: 199, face: { x: 50, y: 45, span: 28 }, crown: { x: 50, y: 8 } },
+  cheer: { src: '/mascot/gummy-cheer.webp', width: 126, height: 169, face: { x: 47.5, y: 42.5, span: 30 }, crown: { x: 47, y: 5 } },
+  oops: { src: '/mascot/gummy-oops.webp', width: 152, height: 199, face: { x: 49.5, y: 40.5, span: 29 }, crown: { x: 49, y: 5 } },
+  launch: { src: '/mascot/gummy-launch.webp', width: 141, height: 171, face: { x: 45.4, y: 41.5, span: 29 }, crown: { x: 45, y: 5 } },
+  coach: { src: '/mascot/gummy-coach.webp', width: 181, height: 195, face: { x: 55.3, y: 50, span: 24 }, crown: { x: 55, y: 12 } },
+}
