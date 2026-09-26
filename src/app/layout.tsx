@@ -35,6 +35,8 @@ export const metadata: Metadata = {
   icons: {
     icon: '/logo.jpg',
   },
+  // Which build this server runs (next.config.mjs buildId) - view-source to check a deploy.
+  other: { 'tg-build': process.env.NEXT_PUBLIC_TG_BUILD ?? 'unknown' },
 }
 
 // Runs before paint (blocking, in <head>) so there is no flash of the

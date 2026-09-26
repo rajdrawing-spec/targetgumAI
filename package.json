@@ -11,6 +11,7 @@
     "dev": "next dev --turbopack",
     "dev:webpack": "next dev",
     "build": "next build",
+    "build:hostinger": "prisma migrate deploy && next build",
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",

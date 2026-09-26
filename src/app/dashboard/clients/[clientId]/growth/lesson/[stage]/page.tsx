@@ -92,11 +92,12 @@ export default async function GrowthLessonPage({
   const progress = await getGrowthProgress(ctx, clientId)
   const bridge = STAGE_BRIDGES[stage]
 
-  // Lesson layout per the reference (progress bar + hearts on top, SKIP/
-  // CHECK footer) - the player brings its own exit link, so no crumb.
+  // Full-screen lesson per the reference (logo, progress, hearts, Exit
+  // Lesson on top; SKIP/CHECK footer): a fixed layer over the workspace
+  // chrome, so the route - and every permission check on it - is unchanged.
   return (
     <GummyStyleProvider value={cosmeticsFor(progress)}>
-      <div className="overflow-hidden rounded-3xl border-2 border-border bg-card">
+      <div className="fixed inset-0 z-[60] !mt-0 overflow-y-auto bg-background">
         <LessonQuiz
           lesson={lesson}
           clientId={clientId}

@@ -53,6 +53,8 @@ export function LessonQuiz({
       lessonTitle={lesson.title}
       questions={lesson.questions}
       exitHref={mapHref}
+      showBrand
+      className="min-h-dvh"
       renderComplete={(result, restart) => (
         <LessonComplete
           summary={`You got ${result.correct} of ${result.total} right${result.skipped ? ` (${result.skipped} skipped)` : ''}. ${lesson.intro}`}

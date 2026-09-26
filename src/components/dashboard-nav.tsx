@@ -20,6 +20,11 @@ import {
   BarChart3,
   Menu,
   X,
+  Map as MapIcon,
+  Dumbbell,
+  Target,
+  Store,
+  UserRound,
   type LucideIcon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -40,7 +45,15 @@ import { cn } from '@/lib/utils'
  * the grouping.
  */
 
-export type NavLeaf = { href: string; label: string; icon: LucideIcon; badge?: string; isAlert?: boolean }
+export type NavLeaf = {
+  href: string
+  label: string
+  icon: LucideIcon
+  badge?: string
+  isAlert?: boolean
+  /** For links that redirect (the Learn group): the pages that count as "this item is active". */
+  activeMatch?: RegExp
+}
 export type NavGroup = { label: string; icon: LucideIcon; items: NavLeaf[] }
 
 export const NAV_DIRECT: NavLeaf[] = [
@@ -48,7 +61,22 @@ export const NAV_DIRECT: NavLeaf[] = [
   { href: '/dashboard/clients', label: 'Clients', icon: Users },
 ]
 
+// The Learn group (docs/DECISIONS.md 2026-09-26) - each link opens that
+// section of the last Client Workspace used (/dashboard/go/:section).
+const inWorkspace = (segment: string) => new RegExp(`^/dashboard/clients/[^/]+/${segment}(/|$)`)
+
 export const NAV_GROUPS: NavGroup[] = [
+  {
+    label: 'Learn',
+    icon: MapIcon,
+    items: [
+      { href: '/dashboard/go/learn', label: 'Learn', icon: MapIcon, activeMatch: inWorkspace('growth') },
+      { href: '/dashboard/go/practice', label: 'Practice', icon: Dumbbell, activeMatch: inWorkspace('practice') },
+      { href: '/dashboard/go/quests', label: 'Quests', icon: Target, activeMatch: inWorkspace('quests') },
+      { href: '/dashboard/go/shop', label: 'Shop', icon: Store, activeMatch: inWorkspace('shop') },
+      { href: '/dashboard/go/profile', label: 'Profile', icon: UserRound, activeMatch: inWorkspace('profile') },
+    ],
+  },
   {
     label: 'Campaigns',
     icon: Megaphone,
@@ -77,9 +105,14 @@ export const NAV_GROUPS: NavGroup[] = [
 
 export const NAV_ITEMS: NavLeaf[] = [...NAV_DIRECT, ...NAV_GROUPS.flatMap((g) => g.items)]
 
-function isActive(pathname: string | null, href: string): boolean {
+const LEARN_MATCHES = NAV_GROUPS[0]!.items.map((i) => i.activeMatch!)
+
+function isActive(pathname: string | null, item: NavLeaf): boolean {
   if (!pathname) return false
-  return href === '/dashboard' ? pathname === href : pathname.startsWith(href)
+  if (item.activeMatch) return item.activeMatch.test(pathname)
+  // A Learn page lives under /dashboard/clients too - highlight only the Learn item then.
+  if (item.href === '/dashboard/clients' && LEARN_MATCHES.some((m) => m.test(pathname))) return false
+  return item.href === '/dashboard' ? pathname === item.href : pathname.startsWith(item.href)
 }
 
 /** A single nav row - shared by the persistent sidebar and the mobile drawer. */
@@ -121,7 +154,7 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-1">
         {NAV_DIRECT.map((item) => (
-          <NavRow key={item.href} item={item} active={isActive(pathname, item.href)} onClick={onNavigate} />
+          <NavRow key={item.href} item={item} active={isActive(pathname, item)} onClick={onNavigate} />
         ))}
       </div>
 
@@ -129,7 +162,7 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
         <div key={group.label} className="flex flex-col gap-1">
           <p className="px-3 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{group.label}</p>
           {group.items.map((item) => (
-            <NavRow key={item.href} item={item} active={isActive(pathname, item.href)} onClick={onNavigate} />
+            <NavRow key={item.href} item={item} active={isActive(pathname, item)} onClick={onNavigate} />
           ))}
         </div>
       ))}

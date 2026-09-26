@@ -48,7 +48,9 @@ function ChoiceView({ question, answer, onAnswer, checked }: QuestionViewProps<C
       {question.conversation && (
         <div className="space-y-3">
           <div className="flex items-start gap-3">
-            <GummyMascot mood="thinking" className="h-14 w-12 shrink-0" />
+            <span className="flex h-14 w-14 shrink-0 items-start justify-center overflow-hidden rounded-full border-2 border-primary/20 bg-primary-tint" aria-hidden="true">
+              <GummyMascot mood="happy" className="mt-1 h-20 w-16" />
+            </span>
             <p className="rounded-2xl border-2 border-border bg-card px-4 py-3 text-sm text-foreground sm:text-base">{question.conversation.coach}</p>
           </div>
           <div className="flex items-start justify-end gap-3">

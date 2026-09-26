@@ -16,6 +16,7 @@ import { GummyCoach, GummyMascot } from '@/components/growth/mascot'
 import { HeartCounter, ProgressBar } from '@/components/gamification/stats'
 import { buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { BrandMark } from '@/components/brand/brand-mark'
 import { QuestionView } from './question-views'
 
 export interface LessonResult {
@@ -49,8 +50,11 @@ export function LessonPlayer({
   exitHref,
   renderComplete,
   className,
+  showBrand = false,
 }: {
   className?: string
+  /** Show the TargetGum logo in the header (the full-screen in-app lesson; the try-it pages have their own header). */
+  showBrand?: boolean
   lessonTitle: string
   questions: readonly LessonQuestion[]
   exitHref: string
@@ -132,7 +136,7 @@ export function LessonPlayer({
 
   const coachLine = useMemo(() => {
     if (!question) return ''
-    if (!checked) return question.type === 'choice' && question.conversation ? 'Help me finish this conversation!' : 'You got this - take your time.'
+    if (!checked) return question.type === 'choice' && question.conversation ? 'Help me finish this conversation!' : 'Think like a marketer!'
     return wasCorrect ? CORRECT_LINES[index % CORRECT_LINES.length]! : WRONG_LINES[index % WRONG_LINES.length]!
   }, [question, checked, wasCorrect, index])
 
@@ -142,28 +146,43 @@ export function LessonPlayer({
 
   return (
     <div className={cn('flex min-h-[70dvh] flex-col', className)}>
-      <div className="mx-auto flex w-full max-w-5xl items-center gap-3 px-4 pt-4 sm:gap-4">
+      <div className="mx-auto flex w-full max-w-6xl items-center gap-3 px-4 pt-4 sm:gap-5">
+        {showBrand && (
+          <div className="hidden lg:block">
+            <BrandMark href={exitHref} />
+          </div>
+        )}
         <Link
           href={exitHref}
           aria-label="Exit lesson"
-          className="rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:hidden"
         >
           <X className="h-5 w-5" />
         </Link>
         <div className="flex-1">
-          <p className="mb-1 hidden text-xs font-semibold text-muted-foreground sm:block">
+          <p className="mb-1 hidden text-sm font-semibold text-muted-foreground sm:block">
             {lessonTitle} <span className="ml-1 tabular-nums">{Math.min(index + 1, total)} / {total}</span>
           </p>
-          <ProgressBar value={index + (checked ? 1 : 0)} max={total} label="Lesson progress" />
+          <ProgressBar value={index + (checked ? 1 : 0)} max={total} label="Lesson progress" className="h-3" />
         </div>
         <HeartCounter hearts={Math.max(0, hearts)} />
+        <Link
+          href={exitHref}
+          className="hidden items-center gap-1.5 rounded-xl bg-muted px-4 py-2.5 text-sm font-semibold text-foreground hover:bg-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:inline-flex"
+        >
+          <X className="h-4 w-4" aria-hidden="true" /> Exit Lesson
+        </Link>
       </div>
 
       {question && (
-        <div className="mx-auto grid w-full max-w-5xl flex-1 gap-6 px-4 pb-6 pt-6 lg:grid-cols-[180px_minmax(0,1fr)_220px] lg:pt-10">
-          <aside className="hidden flex-col items-center gap-3 lg:flex" aria-hidden="true">
-            <GummyMascot mood={checked ? (wasCorrect ? 'celebrate' : 'oops') : 'thinking'} animate={checked && wasCorrect} className="h-40 w-32" />
-            <div className="rounded-2xl bg-primary-tint px-4 py-2 text-center">
+        <div className="mx-auto grid w-full max-w-6xl flex-1 gap-6 px-4 pb-6 pt-6 lg:grid-cols-[200px_minmax(0,1fr)_240px] lg:pt-10">
+          <aside className="hidden flex-col items-center gap-3 lg:flex">
+            <div className="relative -rotate-3 rounded-[1.6rem] border-2 border-border bg-card px-4 py-2.5 text-center shadow-subtle" aria-live="polite">
+              <p className="font-display text-base font-bold leading-snug text-foreground">{coachLine}</p>
+              <span className="absolute -bottom-2 left-10 h-4 w-4 rotate-45 border-b-2 border-r-2 border-border bg-card" aria-hidden="true" />
+            </div>
+            <GummyMascot mood={checked ? (wasCorrect ? 'celebrate' : 'oops') : 'thinking'} animate={checked && wasCorrect} className="h-44 w-36" />
+            <div className="w-full rounded-2xl bg-primary-tint px-4 py-2.5 text-center">
               <p className="font-display text-base font-bold text-foreground">Gummy</p>
               <p className="text-xs text-muted-foreground">Your AI Marketing Coach</p>
             </div>

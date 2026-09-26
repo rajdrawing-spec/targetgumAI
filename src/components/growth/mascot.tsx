@@ -1,8 +1,7 @@
 'use client'
 
-import Image from 'next/image'
 import type { ReactNode } from 'react'
-import { MASCOT_IMAGES, type GummyMood } from '@/lib/brand/mascot-assets'
+import { MASCOT_IMAGES, type GummyMood, type MascotImage } from '@/lib/brand/mascot-assets'
 import { cn } from '@/lib/utils'
 import type { GummyOutfit } from '@/lib/growth/shop-catalog'
 import { useGummyStyle } from './gummy-style'
@@ -10,11 +9,10 @@ import { useGummyStyle } from './gummy-style'
 export type { GummyMood } from '@/lib/brand/mascot-assets'
 
 /**
- * "Gummy", TargetGum's mascot - a rooster-in-a-hoodie with a red comb and
- * the target logo on the chest (docs/DECISIONS.md 2026-09-22). Drawn as
- * SVG so it themes and never needs an image host; when real artwork for a
- * mood is registered in `MASCOT_IMAGES` (src/lib/brand/mascot-assets.ts)
- * that image is rendered instead.
+ * "Gummy", TargetGum's mascot - the red bird in the black TargetGum hoodie
+ * from the approved brand sheet. Renders the artwork registered for the
+ * mood in `MASCOT_IMAGES` (src/lib/brand/mascot-assets.ts); the simple SVG
+ * drawing below is only a fallback for a mood without artwork.
  *
  * Decorative by default (`aria-hidden`) - the speech text next to Gummy
  * carries the meaning, never the drawing itself.
@@ -34,10 +32,23 @@ export function GummyMascot({
   const styled = useGummyStyle()
   const wearing = outfit === undefined ? styled.outfit : outfit
   const motion = animate && (mood === 'celebrate' ? 'motion-safe:animate-hop' : 'motion-safe:animate-sway')
-  const src = MASCOT_IMAGES[mood]
-  if (src) {
+  const art = MASCOT_IMAGES[mood]
+  if (art) {
+    // The artwork lives in an SVG whose viewBox is the image's own pixel
+    // space: callers size Gummy with the same h-/w- classes as before
+    // (bottom-aligned, aspect kept), and outfits are drawn in image
+    // coordinates so they land on the face at any size.
     return (
-      <Image src={src} alt="" aria-hidden="true" width={200} height={244} className={cn('block h-auto object-contain', motion, className)} />
+      <svg
+        viewBox={`0 0 ${art.width} ${art.height}`}
+        preserveAspectRatio="xMidYMax meet"
+        overflow="visible"
+        className={cn('block', motion, className)}
+        aria-hidden="true"
+      >
+        <image href={art.src} width={art.width} height={art.height} />
+        {wearing && <ArtOutfitLayer outfit={wearing} art={art} />}
+      </svg>
     )
   }
 
@@ -78,7 +89,42 @@ export function GummyMascot({
   )
 }
 
-/** Growth Shop outfits, drawn over the base SVG (docs/DECISIONS.md 2026-09-24). */
+/** Growth Shop outfits over the artwork, positioned from the image's face/crown anchors. */
+function ArtOutfitLayer({ outfit, art }: { outfit: GummyOutfit; art: MascotImage }) {
+  const s = (art.face.span / 100) * art.width // distance between the eyes, px
+  if (outfit === 'shades') {
+    const fx = (art.face.x / 100) * art.width
+    const fy = (art.face.y / 100) * art.height
+    const lw = s * 0.78
+    const lh = s * 0.52
+    return (
+      <g>
+        <rect x={fx - s / 2 - lw / 2} y={fy - lh / 2} width={lw} height={lh} rx={lh * 0.38} fill="#111" />
+        <rect x={fx + s / 2 - lw / 2} y={fy - lh / 2} width={lw} height={lh} rx={lh * 0.38} fill="#111" />
+        <path d={`M${fx - s / 2 + lw / 2} ${fy - lh * 0.15} L${fx + s / 2 - lw / 2} ${fy - lh * 0.15}`} stroke="#111" strokeWidth={lh * 0.18} />
+        <path d={`M${fx - s / 2 - lw * 0.25} ${fy - lh * 0.2} L${fx - s / 2 + lw * 0.05} ${fy - lh * 0.2}`} stroke="#fff" strokeWidth={lh * 0.1} strokeLinecap="round" opacity=".6" />
+        <path d={`M${fx + s / 2 - lw * 0.25} ${fy - lh * 0.2} L${fx + s / 2 + lw * 0.05} ${fy - lh * 0.2}`} stroke="#fff" strokeWidth={lh * 0.1} strokeLinecap="round" opacity=".6" />
+      </g>
+    )
+  }
+  const cx = (art.crown.x / 100) * art.width
+  const cy = (art.crown.y / 100) * art.height
+  const base = s * 1.05
+  const tall = s * 1.3
+  return (
+    <g transform={`rotate(12 ${cx} ${cy})`}>
+      <path d={`M${cx - base / 2} ${cy + base * 0.1} L${cx + base / 2} ${cy + base * 0.1} L${cx} ${cy - tall} Z`} fill="#3B82F6" />
+      <path
+        d={`M${cx - base * 0.34} ${cy - tall * 0.2} L${cx + base * 0.34} ${cy - tall * 0.2} M${cx - base * 0.2} ${cy - tall * 0.52} L${cx + base * 0.2} ${cy - tall * 0.52}`}
+        stroke="#FFC107"
+        strokeWidth={base * 0.1}
+      />
+      <circle cx={cx} cy={cy - tall} r={base * 0.14} fill="#FFC107" />
+    </g>
+  )
+}
+
+/** Growth Shop outfits, drawn over the fallback SVG (docs/DECISIONS.md 2026-09-24). */
 function GummyOutfitLayer({ outfit }: { outfit: GummyOutfit }) {
   if (outfit === 'shades') {
     return (

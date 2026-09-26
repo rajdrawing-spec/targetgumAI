@@ -1264,7 +1264,8 @@ config with no checkout yet. See `docs/DECISIONS.md` 2026-09-24.
 - [x] Tests: 59 lesson-engine/content, 7 try-it progress/plans, 2 public
       isolation (security); Playwright walkthrough desktop + mobile
       (55 checks) incl. in-app claim -> campaign builder
-- [ ] Real Gummy 3D renders in `public/mascot/` + `MASCOT_IMAGES`
+- [x] Real Gummy renders in `public/mascot/` + `MASCOT_IMAGES` (cut from the
+      approved brand sheet; outfits anchored to the face)
 - [x] Quests page (Daily / Weekly / Special), verified quests counted from
       real records, per client
 - [x] Growth Profile page (DB-configurable level titles, real stats only,
@@ -1273,6 +1274,15 @@ config with no checkout yet. See `docs/DECISIONS.md` 2026-09-24.
       purchase ledger, no double-spend)
 - [ ] Root-cause intermittent client-router transitions in the Client
       Workspace (quest/shop forms use a full reload meanwhile)
-- [ ] Practice hub (reuse lesson engine with per-client context)
+- [x] Practice page (replay reached lessons, review mode = no second XP)
+- [x] Learn = reference-matched Growth Map + right rail; workspace tabs
+      Home/Learn/Practice/Quests/Shop/Profile/More; mobile bottom bar;
+      sidebar Learn group via /dashboard/go/:section
+- [x] Build identifier (meta tag, footer label, startup log line)
+- [x] Hostinger build runs `prisma migrate deploy` (`build:hostinger`)
+- [ ] Challenges / Leaderboard (needs a real design: per-org leagues?)
+- [ ] Billing and Help pages (then add them to More)
+- [ ] `tests/integration/growth-progress.test.ts` leaves `test-daily-*`
+      missions behind in the test DB - clean up in afterAll
 - [ ] Self-serve sign-up + payment provider (needs security review) -
       then migrate try-it progress into the new account

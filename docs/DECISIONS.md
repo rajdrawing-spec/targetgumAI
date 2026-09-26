@@ -5,6 +5,67 @@ Newest entries at the top.
 
 ---
 
+## 2026-09-26 — Reference-matched Learn experience, real Gummy art, deploy path proven, build identifier, migrations on Hostinger deploy
+
+**Context.** The user reported that production still showed the "old UI".
+Investigation of the full path (GitHub -> Hostinger -> CDN -> domain),
+from Hostinger's own API and runtime logs:
+
+- `targetgum.com` DNS (zone hosted at Hostinger): `@` ALIAS and `www` CNAME
+  to `*.cdn.hstgr.net` - Hostinger's CDN. **Cloudflare is not in the path**
+  (the connected Cloudflare account's only Worker is an unrelated app).
+- Hostinger Git auto-deploy: `rajdrawing-spec/targetgumAI`, branch
+  `claude/plan-execution-fmve0b`, repo root, Next.js, `npm run build`, Node 20.
+- Latest completed build = the branch head (`3d5851d`); the runtime log
+  shows the Node process running from that build's directory.
+
+So production was *not* stale. The gap was real product work: the
+Quests/Shop/Profile PR was unmerged, the repo had no Gummy artwork (every
+Gummy was the placeholder SVG), and the Learn surfaces didn't follow the
+approved reference layout.
+
+**Decision.**
+- **Gummy art**: the eight poses are cut from the approved "Meet Gummy!"
+  brand sheet (it has a real alpha channel) into `public/mascot/*.webp`,
+  registered in `MASCOT_IMAGES` with per-pose face/crown anchors. The art
+  renders inside an SVG in the image's pixel space, so existing sizing
+  classes keep working and Growth Shop outfits (shades, party hat) are
+  drawn on the face at any size. The SVG drawing is now only a fallback.
+- **Learn = Marketing Growth Map** (`GrowthMap`): compact zig-zag of 3D
+  nodes on grass islands, labels beside nodes, start island with Gummy,
+  Growth Master finish; plus the reference's right rail (Level, Daily
+  Mission, Current Streak with Mon-Sun, Weekly Goal, Achievements, Gummy
+  quote). Replaces the 2026-09-23 single-column path (~3,500px tall).
+  Every node is real navigation; locked nodes are not links.
+- **Workspace navigation**: Home, Learn, Practice, Quests, Shop, Profile +
+  More (client sections and agency tools); a mobile bottom bar for the five
+  learning tabs. The sidebar gains a Learn group whose links go through
+  `/dashboard/go/:section`, which opens the last workspace used (a
+  preference cookie, re-authorized on every use - `resolveLearnClientId`,
+  security-tested) or the first accessible client.
+- **Practice**: replays any reached lesson (review mode for done stages,
+  no second XP - enforced by the existing lesson/completeStage path).
+- **Lesson**: full-screen layer over the workspace chrome with logo,
+  progress, hearts, Exit Lesson; Gummy speech bubble; round Gummy avatar in
+  conversation questions. No speaker icon: there is no text-to-speech, and
+  a control that does nothing is worse than none.
+- **Build identifier**: `next.config.mjs` stamps `TG-<UTC date>-<commit>`;
+  exposed as `<meta name="tg-build">`, a small label in the sidebar/footer,
+  and a startup line in the server log (`src/instrumentation.ts`), so a
+  deploy can be verified from Hostinger's runtime log even without HTTP
+  access. Nothing sensitive.
+- **Migrations on deploy**: Hostinger's build ran only `next build`, so a
+  PR with migrations would go live against an old schema. New script
+  `build:hostinger` = `prisma migrate deploy && next build`; Hostinger's
+  build script is switched to it. Only the production host runs it -
+  Vercel previews keep `npm run build`, so an unmerged PR's migrations
+  never touch the production database. If a migration fails the build
+  fails and the previous build keeps serving.
+
+**Not done (explicitly).** No "Challenges"/"Leaderboard" tab - there is no
+such feature yet, and a tab pointing at a copy of Quests would be a fake
+control. No Billing/Help entries - those pages don't exist.
+
 ## 2026-09-24 — Quests, Growth Shop and Growth Profile; verified quests; full-reload success for their actions
 
 **Decision:** Three per-client pages in the Client Workspace, next to the
