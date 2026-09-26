@@ -54,13 +54,18 @@ approved reference layout.
   and a startup line in the server log (`src/instrumentation.ts`), so a
   deploy can be verified from Hostinger's runtime log even without HTTP
   access. Nothing sensitive.
-- **Migrations on deploy**: Hostinger's build ran only `next build`, so a
-  PR with migrations would go live against an old schema. New script
-  `build:hostinger` = `prisma migrate deploy && next build`; Hostinger's
-  build script is switched to it. Only the production host runs it -
-  Vercel previews keep `npm run build`, so an unmerged PR's migrations
-  never touch the production database. If a migration fails the build
-  fails and the previous build keeps serving.
+- **Migrations on deploy - tried, reverted.** A `build:hostinger` script
+  (`prisma migrate deploy && next build`) was set as Hostinger's build
+  script. The first build failed: Hostinger's build environment can't
+  execute Prisma's schema-engine binary (`spawn ... schema-engine-debian-
+  openssl-1.1.x EACCES`), even though the database env vars resolve. The
+  failed build changed nothing - the previous build kept serving - and the
+  build script is back to plain `build`; the script was removed. The three
+  2026-09-24 migrations were already applied to production (verified in
+  `_prisma_migrations` and the live schema). **Rule stays: run
+  `npx prisma migrate deploy` against production (DIRECT_URL) from a
+  machine that can execute Prisma's engines, before merging a PR with
+  migrations.**
 
 **Not done (explicitly).** No "Challenges"/"Leaderboard" tab - there is no
 such feature yet, and a tab pointing at a copy of Quests would be a fake

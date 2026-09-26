@@ -1279,7 +1279,8 @@ config with no checkout yet. See `docs/DECISIONS.md` 2026-09-24.
       Home/Learn/Practice/Quests/Shop/Profile/More; mobile bottom bar;
       sidebar Learn group via /dashboard/go/:section
 - [x] Build identifier (meta tag, footer label, startup log line)
-- [x] Hostinger build runs `prisma migrate deploy` (`build:hostinger`)
+- [ ] Automated migrations on deploy (Hostinger's build can't run Prisma's
+      schema engine - EACCES; run `prisma migrate deploy` separately for now)
 - [ ] Challenges / Leaderboard (needs a real design: per-org leagues?)
 - [ ] Billing and Help pages (then add them to More)
 - [ ] `tests/integration/growth-progress.test.ts` leaves `test-daily-*`
